@@ -1,0 +1,196 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
+from datetime import date
+from io import BytesIO
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from app.db.database import get_db
+from app.core.deps import get_current_user
+from app.models.models import User, Prescription, PrescriptionMedicine
+from app.schemas.schemas import PrescriptionCreate
+
+router = APIRouter()
+
+
+@router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def create_prescription(
+    prescription_data: PrescriptionCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new prescription"""
+    prescription = Prescription(
+        visit_id=prescription_data.visit_id,
+        patient_id=prescription_data.patient_id,
+        doctor_id=prescription_data.doctor_id,
+        notes=prescription_data.notes,
+        prescription_date=date.today(),
+        clinic_id=current_user.clinic_id
+    )
+
+    db.add(prescription)
+    db.flush()
+
+    # Add medicines
+    for medicine_data in prescription_data.medicines:
+        medicine = PrescriptionMedicine(
+            **medicine_data.model_dump(),
+            prescription_id=prescription.id
+        )
+        db.add(medicine)
+
+    db.commit()
+    db.refresh(prescription)
+
+    return {"message": "Prescription created successfully", "prescription": prescription}
+
+
+@router.get("/{prescription_id}", response_model=dict)
+async def get_prescription_by_id(
+    prescription_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get prescription by ID"""
+    prescription = db.query(Prescription).filter(
+        Prescription.id == prescription_id,
+        Prescription.clinic_id == current_user.clinic_id
+    ).first()
+
+    if not prescription:
+        raise HTTPException(status_code=404, detail="Prescription not found")
+
+    return {"prescription": prescription}
+
+
+@router.get("/{prescription_id}/pdf")
+async def generate_prescription_pdf(
+    prescription_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Generate and download prescription PDF"""
+    prescription = db.query(Prescription).filter(
+        Prescription.id == prescription_id,
+        Prescription.clinic_id == current_user.clinic_id
+    ).first()
+
+    if not prescription:
+        raise HTTPException(status_code=404, detail="Prescription not found")
+
+    # Create PDF in memory
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # Clinic Header
+    clinic_name = Paragraph(f"<b>{prescription.clinic.name}</b>", styles['Title'])
+    elements.append(clinic_name)
+    elements.append(Spacer(1, 12))
+
+    if prescription.clinic.address:
+        clinic_address = Paragraph(prescription.clinic.address, styles['Normal'])
+        elements.append(clinic_address)
+
+    if prescription.clinic.phone:
+        clinic_phone = Paragraph(f"Phone: {prescription.clinic.phone}", styles['Normal'])
+        elements.append(clinic_phone)
+
+    elements.append(Spacer(1, 20))
+
+    # Doctor Info
+    doctor_info = Paragraph(f"<b>Dr. {prescription.doctor.user.full_name}</b>", styles['Heading2'])
+    elements.append(doctor_info)
+
+    if prescription.doctor.specialization:
+        spec = Paragraph(prescription.doctor.specialization, styles['Normal'])
+        elements.append(spec)
+
+    if prescription.doctor.registration_number:
+        reg = Paragraph(f"Reg. No: {prescription.doctor.registration_number}", styles['Normal'])
+        elements.append(reg)
+
+    elements.append(Spacer(1, 20))
+
+    # Prescription Title
+    title = Paragraph("<b>PRESCRIPTION</b>", styles['Heading1'])
+    elements.append(title)
+    elements.append(Spacer(1, 12))
+
+    # Date
+    date_text = Paragraph(f"Date: {prescription.prescription_date.strftime('%d/%m/%Y')}", styles['Normal'])
+    elements.append(date_text)
+    elements.append(Spacer(1, 12))
+
+    # Patient Info
+    patient_data = [
+        ["Patient Name:", prescription.patient.full_name],
+        ["Age:", str(prescription.patient.age) if prescription.patient.age else "N/A"],
+        ["Gender:", prescription.patient.gender.value if prescription.patient.gender else "N/A"],
+        ["Phone:", prescription.patient.phone],
+    ]
+
+    patient_table = Table(patient_data, colWidths=[100, 300])
+    patient_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(patient_table)
+    elements.append(Spacer(1, 20))
+
+    # Visit details
+    if prescription.visit:
+        if prescription.visit.diagnosis:
+            diag = Paragraph(f"<b>Diagnosis:</b> {prescription.visit.diagnosis}", styles['Normal'])
+            elements.append(diag)
+            elements.append(Spacer(1, 6))
+
+        if prescription.visit.symptoms:
+            symp = Paragraph(f"<b>Symptoms:</b> {prescription.visit.symptoms}", styles['Normal'])
+            elements.append(symp)
+            elements.append(Spacer(1, 12))
+
+    # Medicines
+    rx_title = Paragraph("<b>Rx</b>", styles['Heading2'])
+    elements.append(rx_title)
+    elements.append(Spacer(1, 12))
+
+    for idx, medicine in enumerate(prescription.medicines, 1):
+        med_text = f"<b>{idx}. {medicine.medicine_name}</b><br/>"
+        med_text += f"   Dosage: {medicine.dosage}<br/>"
+        med_text += f"   Frequency: {medicine.frequency}<br/>"
+        med_text += f"   Duration: {medicine.duration}<br/>"
+        if medicine.instructions:
+            med_text += f"   Instructions: {medicine.instructions}<br/>"
+
+        med_para = Paragraph(med_text, styles['Normal'])
+        elements.append(med_para)
+        elements.append(Spacer(1, 8))
+
+    # Notes
+    if prescription.notes:
+        elements.append(Spacer(1, 12))
+        notes_title = Paragraph("<b>Notes:</b>", styles['Normal'])
+        elements.append(notes_title)
+        notes_text = Paragraph(prescription.notes, styles['Normal'])
+        elements.append(notes_text)
+
+    # Doctor Signature
+    elements.append(Spacer(1, 40))
+    signature = Paragraph(f"Dr. {prescription.doctor.user.full_name}<br/>(Signature)", styles['Normal'])
+    elements.append(signature)
+
+    # Build PDF
+    doc.build(elements)
+    buffer.seek(0)
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=prescription-{prescription_id}.pdf"}
+    )
