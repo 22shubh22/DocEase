@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.routes import auth, patients, opd, visits, prescriptions, invoices, clinic, users
+from app.api import auth, patients, opd, visits, prescriptions, invoices, clinic, users
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -16,7 +16,7 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
