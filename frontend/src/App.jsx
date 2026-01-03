@@ -29,6 +29,7 @@ function AdminRoute({ children }) {
 
 function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user = useAuthStore((state) => state.user);
 
   return (
     <Routes>
