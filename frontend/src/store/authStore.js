@@ -12,7 +12,7 @@ const useAuthStore = create((set) => ({
     set({ isLoading: true, error: null });
 
     // MOCK MODE - Set to false when backend is ready
-    const MOCK_MODE = true;
+    const MOCK_MODE = false;
 
     if (MOCK_MODE) {
       // Simulate API delay
