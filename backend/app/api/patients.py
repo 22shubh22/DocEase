@@ -71,7 +71,26 @@ async def get_patient_by_id(
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
 
-    return {"patient": patient}
+    patient_dict = {
+        "id": patient.id,
+        "patient_code": patient.patient_code,
+        "full_name": patient.full_name,
+        "age": patient.age,
+        "gender": patient.gender,
+        "phone": patient.phone,
+        "emergency_contact": patient.emergency_contact,
+        "address": patient.address,
+        "blood_group": patient.blood_group,
+        "allergies": patient.allergies,
+        "medical_history": patient.medical_history,
+        "clinic_id": patient.clinic_id,
+        "created_by": patient.created_by,
+        "created_at": patient.created_at,
+        "updated_at": patient.updated_at,
+        "created_by_name": patient.creator.full_name if patient.creator else "System"
+    }
+
+    return {"patient": patient_dict}
 
 
 @router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)

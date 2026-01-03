@@ -144,6 +144,7 @@ class PatientResponse(PatientBase):
     id: str
     patient_code: str
     clinic_id: str
+    created_by: str
     created_at: datetime
 
     class Config:

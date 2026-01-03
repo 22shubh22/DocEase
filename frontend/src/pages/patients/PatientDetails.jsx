@@ -167,6 +167,10 @@ export default function PatientDetails() {
                 <span className="badge badge-info">{patient.bloodGroup || 'N/A'}</span>
               </div>
               <div className="flex justify-between">
+                <span className="text-gray-600">Created By</span>
+                <span className="font-medium">{patient.created_by_name || 'System'}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-gray-600">Patient Since</span>
                 <span className="font-medium">{new Date(patient.createdAt).toLocaleDateString()}</span>
               </div>
