@@ -17,7 +17,6 @@ export default function DashboardLayout() {
   
   const navigation = isAdmin ? [
     { name: 'Admin Dashboard', path: '/admin', icon: '🏢' },
-    { name: 'Settings', path: '/settings', icon: '⚙️' },
   ] : [
     { name: 'Dashboard', path: '/', icon: '📊' },
     { name: 'Patients', path: '/patients', icon: '👥' },

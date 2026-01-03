@@ -67,7 +67,12 @@ function App() {
         <Route path="billing/new" element={<Billing />} />
         
         {/* Settings */}
-        <Route path="settings" element={<Settings />} />
+        <Route 
+          path="settings" 
+          element={
+            user?.role === 'ADMIN' ? <Navigate to="/admin" /> : <Settings />
+          } 
+        />
 
         {/* Admin Routes */}
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
