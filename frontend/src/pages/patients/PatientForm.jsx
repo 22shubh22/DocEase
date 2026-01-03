@@ -1,60 +1,47 @@
 import { useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useState } from 'react';
-
-// In-memory patient storage
-const patientsStore = {
-  patients: [],
-  nextId: 1,
-
-  add(patient) {
-    const newPatient = {
-      ...patient,
-      id: `patient-${this.nextId++}`,
-      patientCode: `PT-${String(this.nextId).padStart(4, '0')}`,
-      createdAt: new Date().toISOString(),
-    };
-    this.patients.push(newPatient);
-    return newPatient;
-  },
-
-  getAll() {
-    return this.patients;
-  }
-};
+import { patientsAPI } from '../../services/api';
 
 export default function PatientForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm();
 
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     setSuccessMessage('');
-
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    setErrorMessage('');
 
     try {
-      // Add to in-memory store
-      const newPatient = patientsStore.add(data);
+      const patientData = {
+        full_name: data.fullName,
+        age: data.age ? parseInt(data.age) : null,
+        gender: data.gender || null,
+        blood_group: data.bloodGroup || null,
+        phone: data.phone,
+        emergency_contact: data.emergencyContact || null,
+        address: data.address || null,
+        allergies: data.allergies || null,
+        medical_history: data.medicalHistory || null,
+      };
 
-      console.log('Patient added:', newPatient);
-      console.log('All patients:', patientsStore.getAll());
+      const response = await patientsAPI.create(patientData);
+      const newPatient = response.data;
 
-      setSuccessMessage(`Patient added successfully! Patient Code: ${newPatient.patientCode}`);
+      setSuccessMessage(`Patient added successfully! Patient Code: ${newPatient.patient_code}`);
 
-      // Reset form after 1.5 seconds
       setTimeout(() => {
-        reset();
-        setSuccessMessage('');
+        navigate('/patients');
       }, 1500);
 
     } catch (error) {
       console.error('Error adding patient:', error);
+      setErrorMessage(error.response?.data?.detail || 'Failed to add patient. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -77,8 +64,13 @@ export default function PatientForm() {
         </div>
       )}
 
+      {errorMessage && (
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          {errorMessage}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit(onSubmit)} className="card space-y-6">
-        {/* Personal Information */}
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">
             Personal Information
@@ -142,7 +134,6 @@ export default function PatientForm() {
           </div>
         </div>
 
-        {/* Contact Information */}
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">
             Contact Information
@@ -189,7 +180,6 @@ export default function PatientForm() {
           </div>
         </div>
 
-        {/* Medical Information */}
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">
             Medical Information
@@ -220,7 +210,6 @@ export default function PatientForm() {
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
           <button
             type="submit"
@@ -247,19 +236,6 @@ export default function PatientForm() {
           </button>
         </div>
       </form>
-
-      {/* Debug Info (Remove in production) */}
-      <div className="card mt-6 bg-gray-50">
-        <h3 className="font-semibold text-gray-900 mb-2">Debug: Patients in Memory</h3>
-        <p className="text-sm text-gray-600">
-          Total patients: {patientsStore.getAll().length}
-        </p>
-        {patientsStore.getAll().length > 0 && (
-          <pre className="mt-2 text-xs bg-white p-2 rounded border overflow-auto max-h-40">
-            {JSON.stringify(patientsStore.getAll(), null, 2)}
-          </pre>
-        )}
-      </div>
     </div>
   );
 }
