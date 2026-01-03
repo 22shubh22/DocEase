@@ -13,7 +13,12 @@ export default function DashboardLayout() {
     navigate('/login');
   };
 
-  const navigation = [
+  const isAdmin = user?.role === 'ADMIN';
+  
+  const navigation = isAdmin ? [
+    { name: 'Admin Dashboard', path: '/admin', icon: '🏢' },
+    { name: 'Settings', path: '/settings', icon: '⚙️' },
+  ] : [
     { name: 'Dashboard', path: '/', icon: '📊' },
     { name: 'Patients', path: '/patients', icon: '👥' },
     { name: 'OPD Queue', path: '/opd', icon: '🏥' },

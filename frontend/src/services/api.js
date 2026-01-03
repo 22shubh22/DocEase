@@ -101,4 +101,17 @@ export const usersAPI = {
   delete: (id) => api.delete(`/users/${id}`),
 };
 
+// Admin API
+export const adminAPI = {
+  getStats: () => api.get('/admin/stats'),
+  getClinics: () => api.get('/admin/clinics'),
+  createClinic: (data) => api.post('/admin/clinics', data),
+  getClinic: (id) => api.get(`/admin/clinics/${id}`),
+  updateClinic: (id, data) => api.put(`/admin/clinics/${id}`, data),
+  deleteClinic: (id) => api.delete(`/admin/clinics/${id}`),
+  getClinicDoctors: (clinicId) => api.get(`/admin/clinics/${clinicId}/doctors`),
+  addDoctor: (clinicId, data) => api.post(`/admin/clinics/${clinicId}/doctors`, data),
+  removeDoctor: (clinicId, doctorId) => api.delete(`/admin/clinics/${clinicId}/doctors/${doctorId}`),
+};
+
 export default api;

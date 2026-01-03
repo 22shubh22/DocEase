@@ -13,6 +13,7 @@ def generate_uuid():
 class RoleEnum(str, enum.Enum):
     DOCTOR = "DOCTOR"
     ASSISTANT = "ASSISTANT"
+    ADMIN = "ADMIN"
 
 
 class GenderEnum(str, enum.Enum):
@@ -63,6 +64,7 @@ class Clinic(Base):
     visits = relationship("Visit", back_populates="clinic", cascade="all, delete-orphan")
     prescriptions = relationship("Prescription", back_populates="clinic", cascade="all, delete-orphan")
     invoices = relationship("Invoice", back_populates="clinic", cascade="all, delete-orphan")
+    admins = relationship("ClinicAdmin", back_populates="clinic", cascade="all, delete-orphan")
 
 
 class User(Base):
@@ -75,12 +77,13 @@ class User(Base):
     full_name = Column(String, nullable=False)
     phone = Column(String)
     is_active = Column(Boolean, default=True)
-    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     last_login = Column(DateTime(timezone=True))
 
     clinic = relationship("Clinic", back_populates="users")
+    managed_clinics = relationship("ClinicAdmin", back_populates="admin", cascade="all, delete-orphan")
     doctor = relationship("Doctor", back_populates="user", uselist=False, cascade="all, delete-orphan")
     created_patients = relationship("Patient", back_populates="creator")
     created_appointments = relationship("Appointment", back_populates="creator")
@@ -250,3 +253,15 @@ class InvoiceItem(Base):
     quantity = Column(Integer, default=1)
 
     invoice = relationship("Invoice", back_populates="items")
+
+
+class ClinicAdmin(Base):
+    __tablename__ = "clinic_admins"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    admin_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    admin = relationship("User", back_populates="managed_clinics")
+    clinic = relationship("Clinic", back_populates="admins")

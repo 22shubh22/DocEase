@@ -78,6 +78,29 @@ def seed_database():
 
         print(f"✅ Created assistant user: {assistant.email}")
 
+        # Create admin user
+        admin_user = models.User(
+            email="admin@docease.com",
+            password_hash=get_password_hash("admin123"),
+            role=models.RoleEnum.ADMIN,
+            full_name="Admin User",
+            phone="+1234567800",
+            clinic_id=None,
+        )
+        db.add(admin_user)
+        db.flush()
+
+        print(f"✅ Created admin user: {admin_user.email}")
+
+        # Link admin to the clinic
+        clinic_admin = models.ClinicAdmin(
+            admin_id=admin_user.id,
+            clinic_id=clinic.id
+        )
+        db.add(clinic_admin)
+
+        print("✅ Linked admin to clinic")
+
         # Create demo patients
         patients_data = [
             {
@@ -125,6 +148,7 @@ def seed_database():
         print(f"✅ Created {len(patients_data)} demo patients")
         print("\n✨ Seed completed successfully!\n")
         print("📝 Login credentials:")
+        print("   Admin:     admin@docease.com / admin123")
         print("   Doctor:    doctor@clinic.com / doctor123")
         print("   Assistant: assistant@clinic.com / assistant123\n")
 

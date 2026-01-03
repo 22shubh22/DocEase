@@ -46,7 +46,7 @@ class UserUpdate(BaseModel):
 class UserResponse(UserBase):
     id: str
     is_active: bool
-    clinic_id: str
+    clinic_id: Optional[str] = None
     created_at: datetime
     last_login: Optional[datetime] = None
 
@@ -281,3 +281,42 @@ class InvoiceResponse(InvoiceBase):
 
     class Config:
         from_attributes = True
+
+
+# Admin Schemas
+class ClinicCreate(BaseModel):
+    name: str
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    opd_start_time: Optional[str] = None
+    opd_end_time: Optional[str] = None
+
+
+class DoctorWithUser(DoctorResponse):
+    user: Optional[UserResponse] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ClinicWithDoctors(ClinicResponse):
+    doctors: List[DoctorWithUser] = []
+
+    class Config:
+        from_attributes = True
+
+
+class AdminClinicAssignment(BaseModel):
+    clinic_id: str
+
+
+class DoctorAssignment(BaseModel):
+    doctor_id: str
+    clinic_id: str
+
+
+class AdminDashboardStats(BaseModel):
+    total_clinics: int
+    total_doctors: int
+    total_patients: int

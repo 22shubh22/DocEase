@@ -11,10 +11,20 @@ import VisitForm from './pages/visits/VisitForm';
 import PrescriptionForm from './pages/prescriptions/PrescriptionForm';
 import Billing from './pages/billing/Billing';
 import Settings from './pages/Settings';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import ClinicManagement from './pages/admin/ClinicManagement';
 
 function ProtectedRoute({ children }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   return isAuthenticated ? children : <Navigate to="/login" />;
+}
+
+function AdminRoute({ children }) {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user = useAuthStore((state) => state.user);
+  if (!isAuthenticated) return <Navigate to="/login" />;
+  if (user?.role !== 'ADMIN') return <Navigate to="/" />;
+  return children;
 }
 
 function App() {
@@ -58,6 +68,10 @@ function App() {
         
         {/* Settings */}
         <Route path="settings" element={<Settings />} />
+
+        {/* Admin Routes */}
+        <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        <Route path="admin/clinics/:clinicId" element={<AdminRoute><ClinicManagement /></AdminRoute>} />
       </Route>
     </Routes>
   );

@@ -1,8 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { opdAPI, patientsAPI } from '../services/api';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
+import useAuthStore from '../store/authStore';
 
 export default function Dashboard() {
+  const user = useAuthStore((state) => state.user);
+  
+  if (user?.role === 'ADMIN') {
+    return <Navigate to="/admin" replace />;
+  }
   const { data: stats } = useQuery({
     queryKey: ['opdStats'],
     queryFn: () => opdAPI.getStats().then(res => res.data),

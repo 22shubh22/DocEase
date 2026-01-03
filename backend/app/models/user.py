@@ -9,6 +9,7 @@ from app.core.database import Base
 class RoleEnum(str, enum.Enum):
     DOCTOR = "DOCTOR"
     ASSISTANT = "ASSISTANT"
+    ADMIN = "ADMIN"
 
 class User(Base):
     __tablename__ = "users"
