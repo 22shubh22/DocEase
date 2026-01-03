@@ -104,6 +104,20 @@ export default function ClinicManagement() {
       fetchData();
     } catch (error) {
       console.error('Failed to remove doctor:', error);
+      alert(error.response?.data?.detail || 'Failed to remove doctor');
+    }
+  };
+
+  const handleMakeOwner = async (doctor) => {
+    if (!window.confirm(`Make ${doctor.full_name} the owner of this clinic? They will have full access to clinic settings.`)) {
+      return;
+    }
+    try {
+      await adminAPI.setClinicOwner(clinicId, doctor.doctor_id);
+      fetchData();
+    } catch (error) {
+      console.error('Failed to set owner:', error);
+      alert(error.response?.data?.detail || 'Failed to set clinic owner');
     }
   };
 
@@ -185,11 +199,26 @@ export default function ClinicManagement() {
                         </span>
                       </div>
                       <div>
-                        <p className="font-medium text-gray-800">{doctor.full_name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-gray-800">{doctor.full_name}</p>
+                          {doctor.is_owner && (
+                            <span className="bg-amber-100 text-amber-700 text-xs px-2 py-0.5 rounded-full font-medium">
+                              Owner
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-500">{doctor.email}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      {!doctor.is_owner && (
+                        <button
+                          onClick={() => handleMakeOwner(doctor)}
+                          className="text-amber-600 hover:bg-amber-50 px-3 py-1 rounded-lg transition-colors text-sm"
+                        >
+                          Make Owner
+                        </button>
+                      )}
                       <button
                         onClick={() => handleViewDoctor(doctor)}
                         className="text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-lg transition-colors text-sm"

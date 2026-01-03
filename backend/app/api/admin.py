@@ -156,6 +156,7 @@ async def get_clinic_doctors(
             "created_at": doctor.created_at,
             "last_login": doctor.last_login,
             "initial_password": doctor.initial_password,
+            "doctor_id": doctor.doctor.id if doctor.doctor else None,
             "is_owner": clinic.owner_doctor_id == doctor.doctor.id if doctor.doctor else False
         }
         result.append(doctor_dict)

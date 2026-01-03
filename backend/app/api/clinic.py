@@ -19,7 +19,13 @@ async def get_clinic_info(
     if not clinic:
         raise HTTPException(status_code=404, detail="Clinic not found")
 
-    return {"clinic": clinic}
+    is_owner = False
+    if current_user.role.value == "DOCTOR":
+        doctor = db.query(Doctor).filter(Doctor.user_id == current_user.id).first()
+        if doctor and clinic.owner_doctor_id == doctor.id:
+            is_owner = True
+
+    return {"clinic": clinic, "is_owner": is_owner}
 
 
 @router.put("/", response_model=dict)
@@ -28,11 +34,15 @@ async def update_clinic(
     current_user: User = Depends(get_current_doctor),
     db: Session = Depends(get_db)
 ):
-    """Update clinic information (doctor only)"""
+    """Update clinic information (owner doctor only)"""
     clinic = db.query(Clinic).filter(Clinic.id == current_user.clinic_id).first()
 
     if not clinic:
         raise HTTPException(status_code=404, detail="Clinic not found")
+
+    doctor = db.query(Doctor).filter(Doctor.user_id == current_user.id).first()
+    if not doctor or clinic.owner_doctor_id != doctor.id:
+        raise HTTPException(status_code=403, detail="Only the clinic owner can modify settings")
 
     update_data = clinic_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():

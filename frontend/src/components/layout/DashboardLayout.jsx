@@ -1,12 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
+import { clinicAPI } from '../../services/api';
 
 export default function DashboardLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
+
+  useEffect(() => {
+    const checkOwnerStatus = async () => {
+      if (user?.role === 'DOCTOR') {
+        try {
+          const response = await clinicAPI.getInfo();
+          setIsOwner(response.data.is_owner);
+        } catch (error) {
+          console.error('Failed to check owner status:', error);
+        }
+      }
+    };
+    checkOwnerStatus();
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -14,15 +30,21 @@ export default function DashboardLayout() {
   };
 
   const isAdmin = user?.role === 'ADMIN';
+  const isDoctor = user?.role === 'DOCTOR';
   
-  const navigation = isAdmin ? [
-    { name: 'Admin Dashboard', path: '/admin', icon: '🏢' },
-  ] : [
+  const baseNavigation = [
     { name: 'Dashboard', path: '/', icon: '📊' },
     { name: 'Patients', path: '/patients', icon: '👥' },
     { name: 'OPD Queue', path: '/opd', icon: '🏥' },
     { name: 'Billing', path: '/billing', icon: '💰' },
-    { name: 'Settings', path: '/settings', icon: '⚙️' },
+  ];
+
+  const navigation = isAdmin ? [
+    { name: 'Admin Dashboard', path: '/admin', icon: '🏢' },
+  ] : [
+    ...baseNavigation,
+    ...(isDoctor && isOwner ? [{ name: 'Settings', path: '/settings', icon: '⚙️' }] : []),
+    ...(!isDoctor ? [{ name: 'Settings', path: '/settings', icon: '⚙️' }] : []),
   ];
 
   const isActive = (path) => {

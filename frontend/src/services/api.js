@@ -113,6 +113,7 @@ export const adminAPI = {
   addDoctor: (clinicId, data) => api.post(`/admin/clinics/${clinicId}/doctors`, data),
   updateDoctor: (clinicId, doctorId, data) => api.put(`/admin/clinics/${clinicId}/doctors/${doctorId}`, data),
   removeDoctor: (clinicId, doctorId) => api.delete(`/admin/clinics/${clinicId}/doctors/${doctorId}`),
+  setClinicOwner: (clinicId, doctorId) => api.put(`/admin/clinics/${clinicId}/owner`, { doctor_id: doctorId }),
 };
 
 export default api;
