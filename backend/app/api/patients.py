@@ -10,6 +10,27 @@ from app.schemas.schemas import PatientCreate, PatientUpdate, PatientResponse
 router = APIRouter()
 
 
+def patient_to_dict(patient):
+    """Convert a Patient model to a dictionary"""
+    return {
+        "id": patient.id,
+        "patient_code": patient.patient_code,
+        "full_name": patient.full_name,
+        "age": patient.age,
+        "gender": patient.gender,
+        "phone": patient.phone,
+        "emergency_contact": patient.emergency_contact,
+        "address": patient.address,
+        "blood_group": patient.blood_group,
+        "allergies": patient.allergies,
+        "medical_history": patient.medical_history,
+        "clinic_id": patient.clinic_id,
+        "created_by": patient.created_by,
+        "created_at": patient.created_at.isoformat() if patient.created_at else None,
+        "updated_at": patient.updated_at.isoformat() if patient.updated_at else None,
+    }
+
+
 @router.get("/", response_model=dict)
 async def get_all_patients(
     page: int = Query(1, ge=1),
@@ -27,7 +48,7 @@ async def get_all_patients(
     ).order_by(Patient.created_at.desc()).offset(skip).limit(limit).all()
 
     return {
-        "patients": patients,
+        "patients": [patient_to_dict(p) for p in patients],
         "pagination": {
             "total": total,
             "page": page,
@@ -53,7 +74,7 @@ async def search_patients(
         )
     ).limit(20).all()
 
-    return {"patients": patients}
+    return {"patients": [patient_to_dict(p) for p in patients]}
 
 
 @router.get("/{patient_id}", response_model=dict)
@@ -122,7 +143,7 @@ async def create_patient(
     db.commit()
     db.refresh(patient)
 
-    return {"message": "Patient created successfully", "patient": patient}
+    return {"message": "Patient created successfully", "patient": patient_to_dict(patient)}
 
 
 @router.put("/{patient_id}", response_model=dict)
@@ -148,7 +169,7 @@ async def update_patient(
     db.commit()
     db.refresh(patient)
 
-    return {"message": "Patient updated successfully", "patient": patient}
+    return {"message": "Patient updated successfully", "patient": patient_to_dict(patient)}
 
 
 @router.delete("/{patient_id}")
