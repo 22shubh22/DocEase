@@ -121,16 +121,22 @@ async def create_patient(
     db: Session = Depends(get_db)
 ):
     """Create a new patient"""
-    # Generate patient code
-    last_patient = db.query(Patient).filter(
+    # Generate patient code by finding the maximum numeric value
+    patients = db.query(Patient).filter(
         Patient.clinic_id == current_user.clinic_id
-    ).order_by(Patient.created_at.desc()).first()
-
-    if last_patient and last_patient.patient_code:
-        last_number = int(last_patient.patient_code.split('-')[1])
-        patient_code = f"PT-{str(last_number + 1).zfill(4)}"
-    else:
-        patient_code = "PT-0001"
+    ).all()
+    
+    max_num = 0
+    for p in patients:
+        if p.patient_code and '-' in p.patient_code:
+            try:
+                num = int(p.patient_code.split('-')[1])
+                if num > max_num:
+                    max_num = num
+            except (ValueError, IndexError):
+                continue
+    
+    patient_code = f"PT-{str(max_num + 1).zfill(4)}"
 
     patient = Patient(
         **patient_data.model_dump(),
