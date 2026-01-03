@@ -13,15 +13,11 @@ A comprehensive clinic management system built with FastAPI (backend) and React 
 
 ## Recent Changes (January 3, 2026)
 
-### Doctor Ownership/Permission System
-- Added `owner_doctor_id` to Clinic model for tracking clinic ownership
-- First doctor added to a clinic is automatically assigned as owner
-- Owner badge displayed in admin panel next to clinic owner's name
-- "Make Owner" button allows superadmin to transfer ownership to another doctor
-- Settings page restricted to owner doctors only (non-owners see 403 error)
-- Navigation sidebar conditionally hides Settings link for non-owner doctors
-- Superadmin can view/edit doctor passwords (stored in `initial_password` field)
-- Cannot remove clinic owner unless another doctor is assigned as owner first
+### Patient Creator Tracking
+- Added `created_by` field to Patient model to track which doctor or assistant added each patient
+- Updated patient creation API to automatically assign the logged-in user as the creator
+- Updated patient response schema and API to include the creator's full name
+- Displaying "Created By" information in the Patient Details view on the frontend
 
 ### Admin Dashboard Feature
 - Added ADMIN role to role system for multi-clinic management
