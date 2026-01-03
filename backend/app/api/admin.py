@@ -6,7 +6,7 @@ from app.models.models import User, Clinic, Doctor, Patient, ClinicAdmin, RoleEn
 from app.schemas.schemas import (
     ClinicCreate, ClinicResponse, ClinicUpdate, ClinicWithDoctors,
     DoctorAssignment, AdminDashboardStats, UserCreate, UserResponse,
-    UserResponseWithPassword, UserUpdateByAdmin
+    UserResponseWithPassword, UserUpdateByAdmin, SetClinicOwner
 )
 from app.core.security import get_password_hash
 
@@ -126,7 +126,7 @@ async def delete_clinic(
     db.commit()
 
 
-@router.get("/clinics/{clinic_id}/doctors", response_model=List[UserResponseWithPassword])
+@router.get("/clinics/{clinic_id}/doctors")
 async def get_clinic_doctors(
     clinic_id: str,
     db: Session = Depends(get_db),
@@ -136,14 +136,34 @@ async def get_clinic_doctors(
     if clinic_id not in admin_clinic_ids:
         raise HTTPException(status_code=404, detail="Clinic not found")
     
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    
     doctors = db.query(User).filter(
         User.clinic_id == clinic_id,
         User.role == RoleEnum.DOCTOR
     ).all()
-    return doctors
+    
+    result = []
+    for doctor in doctors:
+        doctor_dict = {
+            "id": doctor.id,
+            "email": doctor.email,
+            "full_name": doctor.full_name,
+            "phone": doctor.phone,
+            "role": doctor.role,
+            "is_active": doctor.is_active,
+            "clinic_id": doctor.clinic_id,
+            "created_at": doctor.created_at,
+            "last_login": doctor.last_login,
+            "initial_password": doctor.initial_password,
+            "is_owner": clinic.owner_doctor_id == doctor.doctor.id if doctor.doctor else False
+        }
+        result.append(doctor_dict)
+    
+    return result
 
 
-@router.post("/clinics/{clinic_id}/doctors", response_model=UserResponseWithPassword, status_code=status.HTTP_201_CREATED)
+@router.post("/clinics/{clinic_id}/doctors", status_code=status.HTTP_201_CREATED)
 async def add_doctor_to_clinic(
     clinic_id: str,
     doctor_data: UserCreate,
@@ -153,6 +173,8 @@ async def add_doctor_to_clinic(
     admin_clinic_ids = [ca.clinic_id for ca in current_user.managed_clinics]
     if clinic_id not in admin_clinic_ids:
         raise HTTPException(status_code=404, detail="Clinic not found")
+    
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
     
     existing = db.query(User).filter(User.email == doctor_data.email).first()
     if existing:
@@ -172,10 +194,29 @@ async def add_doctor_to_clinic(
     
     doctor = Doctor(user_id=user.id, clinic_id=clinic_id)
     db.add(doctor)
+    db.flush()
+    
+    is_owner = False
+    if clinic.owner_doctor_id is None:
+        clinic.owner_doctor_id = doctor.id
+        is_owner = True
+    
     db.commit()
     db.refresh(user)
     
-    return user
+    return {
+        "id": user.id,
+        "email": user.email,
+        "full_name": user.full_name,
+        "phone": user.phone,
+        "role": user.role,
+        "is_active": user.is_active,
+        "clinic_id": user.clinic_id,
+        "created_at": user.created_at,
+        "last_login": user.last_login,
+        "initial_password": user.initial_password,
+        "is_owner": is_owner
+    }
 
 
 @router.put("/clinics/{clinic_id}/doctors/{doctor_id}", response_model=UserResponseWithPassword)
@@ -234,6 +275,8 @@ async def remove_doctor_from_clinic(
     if clinic_id not in admin_clinic_ids:
         raise HTTPException(status_code=404, detail="Clinic not found")
     
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    
     user = db.query(User).filter(
         User.id == doctor_id,
         User.clinic_id == clinic_id,
@@ -243,5 +286,48 @@ async def remove_doctor_from_clinic(
     if not user:
         raise HTTPException(status_code=404, detail="Doctor not found in this clinic")
     
+    if user.doctor and clinic.owner_doctor_id == user.doctor.id:
+        other_doctors = db.query(Doctor).filter(
+            Doctor.clinic_id == clinic_id,
+            Doctor.id != user.doctor.id
+        ).first()
+        if other_doctors:
+            raise HTTPException(
+                status_code=400, 
+                detail="Cannot remove clinic owner. Please assign another doctor as owner first."
+            )
+        else:
+            clinic.owner_doctor_id = None
+    
     db.delete(user)
     db.commit()
+
+
+@router.put("/clinics/{clinic_id}/owner", response_model=ClinicResponse)
+async def set_clinic_owner(
+    clinic_id: str,
+    owner_data: SetClinicOwner,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    admin_clinic_ids = [ca.clinic_id for ca in current_user.managed_clinics]
+    if clinic_id not in admin_clinic_ids:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+    
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    if not clinic:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+    
+    doctor = db.query(Doctor).filter(
+        Doctor.id == owner_data.doctor_id,
+        Doctor.clinic_id == clinic_id
+    ).first()
+    
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found in this clinic")
+    
+    clinic.owner_doctor_id = doctor.id
+    db.commit()
+    db.refresh(clinic)
+    
+    return clinic

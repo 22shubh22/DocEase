@@ -56,9 +56,14 @@ class UserResponse(UserBase):
 
 class UserResponseWithPassword(UserResponse):
     initial_password: Optional[str] = None
+    is_owner: Optional[bool] = None
 
     class Config:
         from_attributes = True
+
+
+class SetClinicOwner(BaseModel):
+    doctor_id: str
 
 
 class UserUpdateByAdmin(BaseModel):
@@ -86,6 +91,7 @@ class ClinicUpdate(ClinicBase):
 class ClinicResponse(ClinicBase):
     id: str
     logo_url: Optional[str] = None
+    owner_doctor_id: Optional[str] = None
     created_at: datetime
 
     class Config:
