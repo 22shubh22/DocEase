@@ -1,3 +1,94 @@
+import { useForm } from 'react-hook-form';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { patientsAPI } from '../../services/api';
+
+export default function PatientForm() {
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(!!id);
+
+  const { register, handleSubmit, formState: { errors }, reset } = useForm();
+
+  useEffect(() => {
+    if (id) {
+      const fetchPatient = async () => {
+        try {
+          const response = await patientsAPI.getById(id);
+          const patient = response.data.patient;
+          
+          // Pre-fill form fields
+          reset({
+            fullName: patient.full_name,
+            age: patient.age,
+            gender: patient.gender,
+            bloodGroup: patient.blood_group,
+            phone: patient.phone,
+            emergencyContact: patient.emergency_contact,
+            address: patient.address,
+            allergies: patient.allergies,
+            medicalHistory: patient.medical_history,
+          });
+        } catch (error) {
+          console.error('Error fetching patient:', error);
+          setErrorMessage('Failed to load patient data.');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchPatient();
+    }
+  }, [id, reset]);
+
+  const onSubmit = async (data) => {
+    setIsSubmitting(true);
+    setSuccessMessage('');
+    setErrorMessage('');
+
+    try {
+      const patientData = {
+        full_name: data.fullName,
+        age: data.age ? parseInt(data.age) : null,
+        gender: data.gender || null,
+        blood_group: data.bloodGroup || null,
+        phone: data.phone,
+        emergency_contact: data.emergencyContact || null,
+        address: data.address || null,
+        allergies: data.allergies || null,
+        medical_history: data.medicalHistory || null,
+      };
+
+      if (id) {
+        await patientsAPI.update(id, patientData);
+        setSuccessMessage('Patient updated successfully!');
+      } else {
+        const response = await patientsAPI.create(patientData);
+        const newPatient = response.data;
+        setSuccessMessage(`Patient added successfully! Patient Code: ${newPatient.patient_code}`);
+      }
+
+      setTimeout(() => {
+        navigate('/patients');
+      }, 1500);
+
+    } catch (error) {
+      console.error('Error saving patient:', error);
+      setErrorMessage(error.response?.data?.detail || `Failed to ${id ? 'update' : 'add'} patient. Please try again.`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto">
