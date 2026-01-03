@@ -29,3 +29,4 @@ class Clinic(Base):
     visits = relationship("Visit", back_populates="clinic", cascade="all, delete-orphan")
     prescriptions = relationship("Prescription", back_populates="clinic", cascade="all, delete-orphan")
     invoices = relationship("Invoice", back_populates="clinic", cascade="all, delete-orphan")
+    admins = relationship("ClinicAdmin", back_populates="clinic", cascade="all, delete-orphan")

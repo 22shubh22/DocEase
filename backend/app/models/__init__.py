@@ -6,3 +6,4 @@ from app.models.appointment import Appointment
 from app.models.visit import Visit
 from app.models.prescription import Prescription, PrescriptionMedicine
 from app.models.invoice import Invoice, InvoiceItem
+from app.models.clinic_admin import ClinicAdmin
