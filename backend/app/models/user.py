@@ -34,3 +34,4 @@ class User(Base):
     created_patients = relationship("Patient", back_populates="creator", foreign_keys="Patient.created_by")
     created_appointments = relationship("Appointment", back_populates="creator", foreign_keys="Appointment.created_by")
     created_invoices = relationship("Invoice", back_populates="creator", foreign_keys="Invoice.created_by")
+    managed_clinics = relationship("ClinicAdmin", back_populates="admin", cascade="all, delete-orphan")
