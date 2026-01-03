@@ -9,12 +9,21 @@ export default function ClinicManagement() {
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddDoctor, setShowAddDoctor] = useState(false);
+  const [showViewDoctor, setShowViewDoctor] = useState(false);
+  const [showEditDoctor, setShowEditDoctor] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [newDoctor, setNewDoctor] = useState({
     email: '',
     password: '',
     full_name: '',
     phone: '',
     role: 'DOCTOR'
+  });
+  const [editDoctor, setEditDoctor] = useState({
+    email: '',
+    password: '',
+    full_name: '',
+    phone: ''
   });
 
   useEffect(() => {
@@ -46,6 +55,43 @@ export default function ClinicManagement() {
     } catch (error) {
       console.error('Failed to add doctor:', error);
       alert(error.response?.data?.detail || 'Failed to add doctor');
+    }
+  };
+
+  const handleViewDoctor = (doctor) => {
+    setSelectedDoctor(doctor);
+    setShowViewDoctor(true);
+  };
+
+  const handleEditDoctor = (doctor) => {
+    setSelectedDoctor(doctor);
+    setEditDoctor({
+      email: doctor.email,
+      password: '',
+      full_name: doctor.full_name,
+      phone: doctor.phone || ''
+    });
+    setShowEditDoctor(true);
+  };
+
+  const handleUpdateDoctor = async (e) => {
+    e.preventDefault();
+    try {
+      const updateData = {
+        email: editDoctor.email,
+        full_name: editDoctor.full_name,
+        phone: editDoctor.phone
+      };
+      if (editDoctor.password) {
+        updateData.password = editDoctor.password;
+      }
+      await adminAPI.updateDoctor(clinicId, selectedDoctor.id, updateData);
+      setShowEditDoctor(false);
+      setSelectedDoctor(null);
+      fetchData();
+    } catch (error) {
+      console.error('Failed to update doctor:', error);
+      alert(error.response?.data?.detail || 'Failed to update doctor');
     }
   };
 
@@ -143,12 +189,26 @@ export default function ClinicManagement() {
                         <p className="text-sm text-gray-500">{doctor.email}</p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleRemoveDoctor(doctor.id)}
-                      className="text-red-600 hover:bg-red-50 px-3 py-1 rounded-lg transition-colors text-sm"
-                    >
-                      Remove
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleViewDoctor(doctor)}
+                        className="text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-lg transition-colors text-sm"
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() => handleEditDoctor(doctor)}
+                        className="text-green-600 hover:bg-green-50 px-3 py-1 rounded-lg transition-colors text-sm"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleRemoveDoctor(doctor.id)}
+                        className="text-red-600 hover:bg-red-50 px-3 py-1 rounded-lg transition-colors text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -186,11 +246,12 @@ export default function ClinicManagement() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
                   <input
-                    type="password"
+                    type="text"
                     required
                     value={newDoctor.password}
                     onChange={(e) => setNewDoctor({ ...newDoctor, password: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter password (visible to admin)"
                   />
                 </div>
                 <div>
@@ -216,6 +277,136 @@ export default function ClinicManagement() {
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                   Add Doctor
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showViewDoctor && selectedDoctor && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Doctor Details</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-500">Full Name</label>
+                <p className="text-lg font-medium text-gray-800">{selectedDoctor.full_name}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-500">Email</label>
+                <p className="text-lg font-medium text-gray-800">{selectedDoctor.email}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-500">Password</label>
+                <p className="text-lg font-medium text-gray-800 font-mono bg-gray-100 px-3 py-2 rounded-lg">
+                  {selectedDoctor.initial_password || 'Not available'}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-500">Phone</label>
+                <p className="text-lg font-medium text-gray-800">{selectedDoctor.phone || 'Not set'}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-500">Status</label>
+                <span className={`inline-block px-2 py-1 rounded-full text-sm ${selectedDoctor.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  {selectedDoctor.is_active ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowViewDoctor(false);
+                  setSelectedDoctor(null);
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowViewDoctor(false);
+                  handleEditDoctor(selectedDoctor);
+                }}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Edit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditDoctor && selectedDoctor && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Edit Doctor</h2>
+            <form onSubmit={handleUpdateDoctor}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editDoctor.full_name}
+                    onChange={(e) => setEditDoctor({ ...editDoctor, full_name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                  <input
+                    type="email"
+                    required
+                    value={editDoctor.email}
+                    onChange={(e) => setEditDoctor({ ...editDoctor, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                  <input
+                    type="text"
+                    value={editDoctor.password}
+                    onChange={(e) => setEditDoctor({ ...editDoctor, password: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Leave empty to keep current password"
+                  />
+                  {selectedDoctor.initial_password && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Current password: <span className="font-mono">{selectedDoctor.initial_password}</span>
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                  <input
+                    type="text"
+                    value={editDoctor.phone}
+                    onChange={(e) => setEditDoctor({ ...editDoctor, phone: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditDoctor(false);
+                    setSelectedDoctor(null);
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Save Changes
                 </button>
               </div>
             </form>

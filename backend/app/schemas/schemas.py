@@ -54,6 +54,21 @@ class UserResponse(UserBase):
         from_attributes = True
 
 
+class UserResponseWithPassword(UserResponse):
+    initial_password: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class UserUpdateByAdmin(BaseModel):
+    email: Optional[EmailStr] = None
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    password: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
 # Clinic Schemas
 class ClinicBase(BaseModel):
     name: str

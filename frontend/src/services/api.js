@@ -111,6 +111,7 @@ export const adminAPI = {
   deleteClinic: (id) => api.delete(`/admin/clinics/${id}`),
   getClinicDoctors: (clinicId) => api.get(`/admin/clinics/${clinicId}/doctors`),
   addDoctor: (clinicId, data) => api.post(`/admin/clinics/${clinicId}/doctors`, data),
+  updateDoctor: (clinicId, doctorId, data) => api.put(`/admin/clinics/${clinicId}/doctors/${doctorId}`, data),
   removeDoctor: (clinicId, doctorId) => api.delete(`/admin/clinics/${clinicId}/doctors/${doctorId}`),
 };
 

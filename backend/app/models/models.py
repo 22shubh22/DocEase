@@ -73,6 +73,7 @@ class User(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     email = Column(String, unique=True, nullable=False, index=True)
     password_hash = Column(String, nullable=False)
+    initial_password = Column(String, nullable=True)
     role = Column(Enum(RoleEnum), nullable=False)
     full_name = Column(String, nullable=False)
     phone = Column(String)

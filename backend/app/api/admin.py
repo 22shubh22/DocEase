@@ -5,7 +5,8 @@ from app.core.deps import get_db, get_current_user
 from app.models.models import User, Clinic, Doctor, Patient, ClinicAdmin, RoleEnum
 from app.schemas.schemas import (
     ClinicCreate, ClinicResponse, ClinicUpdate, ClinicWithDoctors,
-    DoctorAssignment, AdminDashboardStats, UserCreate, UserResponse
+    DoctorAssignment, AdminDashboardStats, UserCreate, UserResponse,
+    UserResponseWithPassword, UserUpdateByAdmin
 )
 from app.core.security import get_password_hash
 
@@ -125,7 +126,7 @@ async def delete_clinic(
     db.commit()
 
 
-@router.get("/clinics/{clinic_id}/doctors", response_model=List[UserResponse])
+@router.get("/clinics/{clinic_id}/doctors", response_model=List[UserResponseWithPassword])
 async def get_clinic_doctors(
     clinic_id: str,
     db: Session = Depends(get_db),
@@ -142,7 +143,7 @@ async def get_clinic_doctors(
     return doctors
 
 
-@router.post("/clinics/{clinic_id}/doctors", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/clinics/{clinic_id}/doctors", response_model=UserResponseWithPassword, status_code=status.HTTP_201_CREATED)
 async def add_doctor_to_clinic(
     clinic_id: str,
     doctor_data: UserCreate,
@@ -160,6 +161,7 @@ async def add_doctor_to_clinic(
     user = User(
         email=doctor_data.email,
         password_hash=get_password_hash(doctor_data.password),
+        initial_password=doctor_data.password,
         role=RoleEnum.DOCTOR,
         full_name=doctor_data.full_name,
         phone=doctor_data.phone,
@@ -173,6 +175,51 @@ async def add_doctor_to_clinic(
     db.commit()
     db.refresh(user)
     
+    return user
+
+
+@router.put("/clinics/{clinic_id}/doctors/{doctor_id}", response_model=UserResponseWithPassword)
+async def update_doctor(
+    clinic_id: str,
+    doctor_id: str,
+    doctor_data: UserUpdateByAdmin,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    admin_clinic_ids = [ca.clinic_id for ca in current_user.managed_clinics]
+    if clinic_id not in admin_clinic_ids:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+    
+    user = db.query(User).filter(
+        User.id == doctor_id,
+        User.clinic_id == clinic_id,
+        User.role == RoleEnum.DOCTOR
+    ).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Doctor not found in this clinic")
+    
+    if doctor_data.email and doctor_data.email != user.email:
+        existing = db.query(User).filter(User.email == doctor_data.email).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        user.email = doctor_data.email
+    
+    if doctor_data.full_name:
+        user.full_name = doctor_data.full_name
+    
+    if doctor_data.phone is not None:
+        user.phone = doctor_data.phone
+    
+    if doctor_data.password:
+        user.password_hash = get_password_hash(doctor_data.password)
+        user.initial_password = doctor_data.password
+    
+    if doctor_data.is_active is not None:
+        user.is_active = doctor_data.is_active
+    
+    db.commit()
+    db.refresh(user)
     return user
 
 
