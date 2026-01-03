@@ -23,7 +23,13 @@ A comprehensive clinic management system built with FastAPI (backend) and React 
 - Configured frontend Vite to use port 5000 with 0.0.0.0 host and allowedHosts: true for Replit proxy
 - Updated API configuration to use relative paths (/api)
 - Seeded database with initial demo data
-- Configured deployment for autoscale
+- Configured deployment for autoscale with unified backend serving frontend static files
+
+### Deployment Configuration
+- **Target**: Autoscale
+- **Build**: Builds frontend (npm install && npm run build), installs backend dependencies
+- **Run**: FastAPI serves both API and frontend static files on port 5000
+- **Note**: In production, FastAPI serves the built React frontend from `/frontend/dist`
 
 ### Database
 - Created clinic, doctor, assistant, and 3 demo patients
@@ -94,10 +100,11 @@ No specific user preferences documented yet.
 
 ## Notes
 
-- Backend uses 0.0.0.0:8000 for network accessibility (required for deployment)
-- Frontend uses 0.0.0.0:5000 for Replit proxy compatibility
-- Frontend proxy forwards /api requests to backend at localhost:8000
+- Backend uses 0.0.0.0:8000 for development, 0.0.0.0:5000 for production deployment
+- Frontend uses 0.0.0.0:5000 for Replit proxy compatibility in development
+- In production, FastAPI serves the built frontend static files from /frontend/dist
+- Frontend proxy forwards /api requests to backend at localhost:8000 (development only)
 - CORS is configured to allow all origins for development
 - Database is seeded with demo data on first run
-- bcrypt is used directly instead of passlib for better compatibility
+- Passlib with bcrypt 4.0.1 is used for password hashing
 - SECRET_KEY is required and must be set in environment (no default for security)
