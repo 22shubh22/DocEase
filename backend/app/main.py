@@ -41,7 +41,8 @@ async def health_check():
     return {"status": "ok", "message": "DocEase API is running"}
 
 # Serve static frontend files in production
-frontend_dist = Path(__file__).parent.parent.parent.parent / "frontend" / "dist"
+# Path: main.py -> app -> backend -> project_root -> frontend/dist
+frontend_dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
 if frontend_dist.exists():
     app.mount("/assets", StaticFiles(directory=frontend_dist / "assets"), name="assets")
     
