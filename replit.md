@@ -11,18 +11,24 @@ A comprehensive clinic management system built with FastAPI (backend) and React 
 - Frontend: React + Vite + Tailwind CSS + React Query
 - Database: PostgreSQL (Replit managed)
 
-## Recent Changes (December 7, 2025)
+## Recent Changes (January 3, 2026)
 
-### Replit Environment Setup
+### Admin Dashboard Feature
+- Added ADMIN role to role system for multi-clinic management
+- Created ClinicAdmin junction table for admin-clinic relationships
+- Made User.clinic_id nullable (admins don't belong to a single clinic)
+- Built admin API endpoints at `/api/admin/*` for clinic and doctor management
+- Created frontend pages: AdminDashboard and ClinicManagement
+- Updated routing and auth to support ADMIN role navigation
+- Database schema changes: Added ADMIN enum value, created clinic_admins table
+
+### Previous Changes (December 7, 2025)
 - Configured Python 3.11 and Node.js 20
 - Set up PostgreSQL database with Replit's managed service
 - Fixed import paths (app.routes → app.api)
 - Fixed bcrypt/passlib compatibility by using bcrypt directly
 - Fixed missing dependencies (email-validator, HTTPAuthorizationCredentials)
-- Added get_current_doctor dependency function
 - Configured frontend Vite to use port 5000 with 0.0.0.0 host and allowedHosts: true for Replit proxy
-- Updated API configuration to use relative paths (/api)
-- Seeded database with initial demo data
 - Configured deployment for autoscale with unified backend serving frontend static files
 
 ### Deployment Configuration
@@ -34,6 +40,7 @@ A comprehensive clinic management system built with FastAPI (backend) and React 
 ### Database
 - Created clinic, doctor, assistant, and 3 demo patients
 - Login credentials:
+  - Admin: `admin@docease.com` / `admin123`
   - Doctor: `doctor@clinic.com` / `doctor123`
   - Assistant: `assistant@clinic.com` / `assistant123`
 
