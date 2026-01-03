@@ -107,7 +107,7 @@ class Doctor(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     user = relationship("User", back_populates="doctor")
-    clinic = relationship("Clinic", back_populates="doctors")
+    clinic = relationship("Clinic", back_populates="doctors", foreign_keys=[clinic_id])
     visits = relationship("Visit", back_populates="doctor")
     prescriptions = relationship("Prescription", back_populates="doctor")
 
