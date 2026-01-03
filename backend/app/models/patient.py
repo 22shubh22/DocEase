@@ -1,10 +1,13 @@
 from sqlalchemy import Column, String, Integer, DateTime, Enum, ForeignKey, ARRAY
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
 import enum
 from app.core.database import Base
+
+def generate_uuid():
+    return str(uuid.uuid4())
 
 class GenderEnum(str, enum.Enum):
     MALE = "MALE"
@@ -14,7 +17,7 @@ class GenderEnum(str, enum.Enum):
 class Patient(Base):
     __tablename__ = "patients"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String, primary_key=True, default=generate_uuid)
     patient_code = Column(String, unique=True, nullable=False, index=True)
     full_name = Column(String, nullable=False)
     age = Column(Integer)
@@ -25,8 +28,8 @@ class Patient(Base):
     blood_group = Column(String)
     allergies = Column(ARRAY(String), default=[])
     medical_history = Column(JSONB)
-    clinic_id = Column(UUID(as_uuid=True), ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    created_by = Column(String, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

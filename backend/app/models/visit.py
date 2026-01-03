@@ -1,26 +1,29 @@
 from sqlalchemy import Column, String, Integer, Date, DateTime, ForeignKey, ARRAY
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
 from app.core.database import Base
 
+def generate_uuid():
+    return str(uuid.uuid4())
+
 class Visit(Base):
     __tablename__ = "visits"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    patient_id = Column(UUID(as_uuid=True), ForeignKey("patients.id", ondelete="CASCADE"), nullable=False)
-    appointment_id = Column(UUID(as_uuid=True), ForeignKey("appointments.id"), unique=True)
+    id = Column(String, primary_key=True, default=generate_uuid)
+    patient_id = Column(String, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False)
+    appointment_id = Column(String, ForeignKey("appointments.id"), unique=True)
     visit_date = Column(Date, default=datetime.utcnow)
     visit_number = Column(Integer, nullable=False)
-    doctor_id = Column(UUID(as_uuid=True), ForeignKey("doctors.id"), nullable=False)
+    doctor_id = Column(String, ForeignKey("doctors.id"), nullable=False)
     symptoms = Column(String)
     diagnosis = Column(String)
     observations = Column(String)
     recommended_tests = Column(ARRAY(String), default=[])
     follow_up_date = Column(Date)
     vitals = Column(JSONB)
-    clinic_id = Column(UUID(as_uuid=True), ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

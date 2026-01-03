@@ -1,10 +1,12 @@
 from sqlalchemy import Column, String, Boolean, DateTime, Enum, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
 import enum
 from app.core.database import Base
+
+def generate_uuid():
+    return str(uuid.uuid4())
 
 class RoleEnum(str, enum.Enum):
     DOCTOR = "DOCTOR"
@@ -14,14 +16,14 @@ class RoleEnum(str, enum.Enum):
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String, primary_key=True, default=generate_uuid)
     email = Column(String, unique=True, nullable=False, index=True)
     password_hash = Column(String, nullable=False)
     role = Column(Enum(RoleEnum), nullable=False)
     full_name = Column(String, nullable=False)
     phone = Column(String)
     is_active = Column(Boolean, default=True)
-    clinic_id = Column(UUID(as_uuid=True), ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login = Column(DateTime)

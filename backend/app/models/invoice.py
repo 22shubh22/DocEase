@@ -1,10 +1,12 @@
 from sqlalchemy import Column, String, Integer, Date, DateTime, Enum, ForeignKey, Numeric
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
 import enum
 from app.core.database import Base
+
+def generate_uuid():
+    return str(uuid.uuid4())
 
 class PaymentStatusEnum(str, enum.Enum):
     PAID = "PAID"
@@ -20,18 +22,18 @@ class PaymentModeEnum(str, enum.Enum):
 class Invoice(Base):
     __tablename__ = "invoices"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String, primary_key=True, default=generate_uuid)
     invoice_number = Column(String, unique=True, nullable=False, index=True)
-    patient_id = Column(UUID(as_uuid=True), ForeignKey("patients.id", ondelete="CASCADE"), nullable=False)
-    visit_id = Column(UUID(as_uuid=True), ForeignKey("visits.id"), unique=True)
+    patient_id = Column(String, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False)
+    visit_id = Column(String, ForeignKey("visits.id"), unique=True)
     total_amount = Column(Numeric(10, 2), nullable=False)
     paid_amount = Column(Numeric(10, 2), default=0)
     payment_status = Column(Enum(PaymentStatusEnum), default=PaymentStatusEnum.UNPAID)
     payment_mode = Column(Enum(PaymentModeEnum))
     payment_date = Column(Date)
     notes = Column(String)
-    clinic_id = Column(UUID(as_uuid=True), ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    created_by = Column(String, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -46,8 +48,8 @@ class Invoice(Base):
 class InvoiceItem(Base):
     __tablename__ = "invoice_items"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    invoice_id = Column(UUID(as_uuid=True), ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False)
+    id = Column(String, primary_key=True, default=generate_uuid)
+    invoice_id = Column(String, ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False)
     description = Column(String, nullable=False)
     amount = Column(Numeric(10, 2), nullable=False)
     quantity = Column(Integer, default=1)

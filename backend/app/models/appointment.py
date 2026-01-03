@@ -1,10 +1,12 @@
 from sqlalchemy import Column, String, Integer, Date, DateTime, Enum, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
 import enum
 from app.core.database import Base
+
+def generate_uuid():
+    return str(uuid.uuid4())
 
 class AppointmentStatusEnum(str, enum.Enum):
     WAITING = "WAITING"
@@ -16,13 +18,13 @@ class AppointmentStatusEnum(str, enum.Enum):
 class Appointment(Base):
     __tablename__ = "appointments"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    patient_id = Column(UUID(as_uuid=True), ForeignKey("patients.id", ondelete="CASCADE"), nullable=False)
+    id = Column(String, primary_key=True, default=generate_uuid)
+    patient_id = Column(String, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False)
     appointment_date = Column(Date, nullable=False)
     queue_number = Column(Integer)
     status = Column(Enum(AppointmentStatusEnum), default=AppointmentStatusEnum.WAITING)
-    clinic_id = Column(UUID(as_uuid=True), ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    created_by = Column(String, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -1,14 +1,16 @@
 from sqlalchemy import Column, String, DateTime
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
 from app.core.database import Base
 
+def generate_uuid():
+    return str(uuid.uuid4())
+
 class Clinic(Base):
     __tablename__ = "clinics"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String, primary_key=True, default=generate_uuid)
     name = Column(String, nullable=False)
     address = Column(String)
     phone = Column(String)
