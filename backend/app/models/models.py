@@ -69,6 +69,8 @@ class Clinic(Base):
     invoices = relationship("Invoice", back_populates="clinic", cascade="all, delete-orphan")
     admins = relationship("ClinicAdmin", back_populates="clinic", cascade="all, delete-orphan")
     chief_complaints = relationship("ChiefComplaint", back_populates="clinic", cascade="all, delete-orphan")
+    diagnosis_options = relationship("DiagnosisOption", back_populates="clinic", cascade="all, delete-orphan")
+    observation_options = relationship("ObservationOption", back_populates="clinic", cascade="all, delete-orphan")
 
 
 class User(Base):
@@ -287,3 +289,33 @@ class ChiefComplaint(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     clinic = relationship("Clinic", back_populates="chief_complaints")
+
+
+class DiagnosisOption(Base):
+    __tablename__ = "diagnosis_options"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    display_order = Column(Integer, default=0)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    clinic = relationship("Clinic", back_populates="diagnosis_options")
+
+
+class ObservationOption(Base):
+    __tablename__ = "observation_options"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    display_order = Column(Integer, default=0)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    clinic = relationship("Clinic", back_populates="observation_options")

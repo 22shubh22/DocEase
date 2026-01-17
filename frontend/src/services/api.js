@@ -81,6 +81,22 @@ export const chiefComplaintsAPI = {
   delete: (id) => api.delete(`/chief-complaints/${id}`),
 };
 
+// Diagnosis Options API
+export const diagnosisOptionsAPI = {
+  getAll: (activeOnly = true) => api.get('/diagnosis-options/', { params: { active_only: activeOnly } }),
+  create: (data) => api.post('/diagnosis-options/', data),
+  update: (id, data) => api.put(`/diagnosis-options/${id}`, data),
+  delete: (id) => api.delete(`/diagnosis-options/${id}`),
+};
+
+// Observation Options API
+export const observationOptionsAPI = {
+  getAll: (activeOnly = true) => api.get('/observation-options/', { params: { active_only: activeOnly } }),
+  create: (data) => api.post('/observation-options/', data),
+  update: (id, data) => api.put(`/observation-options/${id}`, data),
+  delete: (id) => api.delete(`/observation-options/${id}`),
+};
+
 // Visits API
 export const visitsAPI = {
   create: (data) => api.post('/visits/', data),

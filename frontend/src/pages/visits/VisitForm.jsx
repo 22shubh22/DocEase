@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import useAuthStore from '../../store/authStore';
-import { patientsAPI, visitsAPI } from '../../services/api';
+import { patientsAPI, visitsAPI, diagnosisOptionsAPI, observationOptionsAPI } from '../../services/api';
 
 export default function VisitForm() {
   const navigate = useNavigate();
@@ -17,6 +17,12 @@ export default function VisitForm() {
   const [patients, setPatients] = useState([]);
   const [loadingPatients, setLoadingPatients] = useState(true);
   const [selectedPatient, setSelectedPatient] = useState(null);
+  const [diagnosisOptions, setDiagnosisOptions] = useState([]);
+  const [observationOptions, setObservationOptions] = useState([]);
+  const [selectedDiagnosis, setSelectedDiagnosis] = useState('');
+  const [customDiagnosis, setCustomDiagnosis] = useState('');
+  const [selectedObservation, setSelectedObservation] = useState('');
+  const [customObservation, setCustomObservation] = useState('');
 
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm({
     defaultValues: {
@@ -28,12 +34,19 @@ export default function VisitForm() {
   const watchedPatientId = watch('patientId');
 
   useEffect(() => {
-    const fetchPatients = async () => {
+    const fetchData = async () => {
       try {
         setLoadingPatients(true);
-        const response = await patientsAPI.getAll({ limit: 100 });
-        const patientsList = response.data.patients || [];
+        const [patientsRes, diagnosisRes, observationsRes] = await Promise.all([
+          patientsAPI.getAll({ limit: 100 }),
+          diagnosisOptionsAPI.getAll(true),
+          observationOptionsAPI.getAll(true)
+        ]);
+        
+        const patientsList = patientsRes.data.patients || [];
         setPatients(patientsList);
+        setDiagnosisOptions(diagnosisRes.data || []);
+        setObservationOptions(observationsRes.data || []);
         
         if (patientIdFromUrl) {
           const patient = patientsList.find(p => p.id === patientIdFromUrl);
@@ -43,14 +56,14 @@ export default function VisitForm() {
           }
         }
       } catch (error) {
-        console.error('Failed to fetch patients:', error);
-        toast.error('Failed to load patients list.');
+        console.error('Failed to fetch data:', error);
+        toast.error('Failed to load data.');
       } finally {
         setLoadingPatients(false);
       }
     };
 
-    fetchPatients();
+    fetchData();
   }, [patientIdFromUrl, setValue]);
 
   useEffect(() => {
@@ -66,14 +79,22 @@ export default function VisitForm() {
       return;
     }
 
+    const diagnosisValue = selectedDiagnosis === 'OTHER' ? customDiagnosis : (selectedDiagnosis || data.diagnosis);
+    const observationsValue = selectedObservation === 'OTHER' ? customObservation : (selectedObservation || data.observations);
+
+    if (diagnosisOptions.length > 0 && !diagnosisValue) {
+      toast.error('Please select a diagnosis or choose "Other" and enter a custom diagnosis.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       await visitsAPI.create({
         patient_id: selectedPatient.id,
         symptoms: data.symptoms,
-        diagnosis: data.diagnosis,
-        observations: data.observations,
+        diagnosis: diagnosisValue,
+        observations: observationsValue,
         recommended_tests: data.recommendedTests ? data.recommendedTests.split(',').map(t => t.trim()) : [],
         follow_up_date: data.followUpDate || null,
         vitals: {
@@ -245,25 +266,79 @@ export default function VisitForm() {
 
             <div>
               <label className="label">Diagnosis *</label>
-              <textarea
-                className="input"
-                rows="3"
-                placeholder="e.g., Viral fever, Upper respiratory tract infection"
-                {...register('diagnosis', { required: 'Diagnosis is required' })}
-              />
-              {errors.diagnosis && (
+              {diagnosisOptions.length > 0 ? (
+                <>
+                  <select
+                    className="input"
+                    value={selectedDiagnosis}
+                    onChange={(e) => setSelectedDiagnosis(e.target.value)}
+                  >
+                    <option value="">Select a diagnosis...</option>
+                    {diagnosisOptions.map(option => (
+                      <option key={option.id} value={option.name}>
+                        {option.name}
+                      </option>
+                    ))}
+                    <option value="OTHER">Other (specify below)</option>
+                  </select>
+                  {selectedDiagnosis === 'OTHER' && (
+                    <textarea
+                      className="input mt-2"
+                      rows="2"
+                      placeholder="Enter custom diagnosis..."
+                      value={customDiagnosis}
+                      onChange={(e) => setCustomDiagnosis(e.target.value)}
+                    />
+                  )}
+                </>
+              ) : (
+                <textarea
+                  className="input"
+                  rows="3"
+                  placeholder="e.g., Viral fever, Upper respiratory tract infection"
+                  {...register('diagnosis', { required: 'Diagnosis is required' })}
+                />
+              )}
+              {errors.diagnosis && !diagnosisOptions.length && (
                 <p className="text-red-500 text-sm mt-1">{errors.diagnosis.message}</p>
               )}
             </div>
 
             <div>
               <label className="label">Clinical Observations</label>
-              <textarea
-                className="input"
-                rows="3"
-                placeholder="e.g., Throat appears inflamed, mild congestion noted"
-                {...register('observations')}
-              />
+              {observationOptions.length > 0 ? (
+                <>
+                  <select
+                    className="input"
+                    value={selectedObservation}
+                    onChange={(e) => setSelectedObservation(e.target.value)}
+                  >
+                    <option value="">Select an observation...</option>
+                    {observationOptions.map(option => (
+                      <option key={option.id} value={option.name}>
+                        {option.name}
+                      </option>
+                    ))}
+                    <option value="OTHER">Other (specify below)</option>
+                  </select>
+                  {selectedObservation === 'OTHER' && (
+                    <textarea
+                      className="input mt-2"
+                      rows="2"
+                      placeholder="Enter custom observation..."
+                      value={customObservation}
+                      onChange={(e) => setCustomObservation(e.target.value)}
+                    />
+                  )}
+                </>
+              ) : (
+                <textarea
+                  className="input"
+                  rows="3"
+                  placeholder="e.g., Throat appears inflamed, mild congestion noted"
+                  {...register('observations')}
+                />
+              )}
             </div>
 
             <div>

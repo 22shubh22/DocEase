@@ -379,3 +379,59 @@ class ChiefComplaintResponse(ChiefComplaintBase):
 
     class Config:
         from_attributes = True
+
+
+# Diagnosis Option Schemas
+class DiagnosisOptionBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    is_active: bool = True
+    display_order: int = 0
+
+
+class DiagnosisOptionCreate(DiagnosisOptionBase):
+    pass
+
+
+class DiagnosisOptionUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    display_order: Optional[int] = None
+
+
+class DiagnosisOptionResponse(DiagnosisOptionBase):
+    id: str
+    clinic_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Observation Option Schemas
+class ObservationOptionBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    is_active: bool = True
+    display_order: int = 0
+
+
+class ObservationOptionCreate(ObservationOptionBase):
+    pass
+
+
+class ObservationOptionUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    display_order: Optional[int] = None
+
+
+class ObservationOptionResponse(ObservationOptionBase):
+    id: str
+    clinic_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

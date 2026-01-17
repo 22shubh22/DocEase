@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
-import { chiefComplaintsAPI } from '../services/api';
+import { chiefComplaintsAPI, diagnosisOptionsAPI, observationOptionsAPI } from '../services/api';
 
 export default function Settings() {
   const { user, updateUser } = useAuthStore();
@@ -44,12 +44,28 @@ export default function Settings() {
   const [editingComplaint, setEditingComplaint] = useState(null);
   const [complaintForm, setComplaintForm] = useState({ name: '', description: '', display_order: 0 });
 
+  const [diagnosisOptions, setDiagnosisOptions] = useState([]);
+  const [loadingDiagnosis, setLoadingDiagnosis] = useState(false);
+  const [showAddDiagnosis, setShowAddDiagnosis] = useState(false);
+  const [editingDiagnosis, setEditingDiagnosis] = useState(null);
+  const [diagnosisForm, setDiagnosisForm] = useState({ name: '', description: '', display_order: 0 });
+
+  const [observationOptions, setObservationOptions] = useState([]);
+  const [loadingObservations, setLoadingObservations] = useState(false);
+  const [showAddObservation, setShowAddObservation] = useState(false);
+  const [editingObservation, setEditingObservation] = useState(null);
+  const [observationForm, setObservationForm] = useState({ name: '', description: '', display_order: 0 });
+
   const isDoctor = user?.role === 'DOCTOR';
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: '👤' },
     { id: 'clinic', label: 'Clinic Settings', icon: '🏥' },
-    ...(isDoctor ? [{ id: 'complaints', label: 'Chief Complaints', icon: '📋' }] : []),
+    ...(isDoctor ? [
+      { id: 'complaints', label: 'Chief Complaints', icon: '📋' },
+      { id: 'diagnosis', label: 'Diagnosis Options', icon: '🩺' },
+      { id: 'observations', label: 'Observations', icon: '👁️' },
+    ] : []),
     { id: 'password', label: 'Change Password', icon: '🔒' },
     { id: 'preferences', label: 'Preferences', icon: '⚙️' },
   ];
@@ -162,6 +178,209 @@ export default function Settings() {
     });
     setShowAddComplaint(false);
   };
+
+  const fetchDiagnosisOptions = async () => {
+    setLoadingDiagnosis(true);
+    try {
+      const response = await diagnosisOptionsAPI.getAll(false);
+      setDiagnosisOptions(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch diagnosis options:', error);
+      toast.error('Failed to load diagnosis options');
+    } finally {
+      setLoadingDiagnosis(false);
+    }
+  };
+
+  const handleAddDiagnosis = async (e) => {
+    e.preventDefault();
+    if (!diagnosisForm.name.trim()) {
+      toast.error('Please enter a diagnosis name');
+      return;
+    }
+    try {
+      await diagnosisOptionsAPI.create({
+        name: diagnosisForm.name,
+        description: diagnosisForm.description,
+        display_order: diagnosisForm.display_order || diagnosisOptions.length + 1,
+        is_active: true,
+      });
+      toast.success('Diagnosis option added');
+      setShowAddDiagnosis(false);
+      setDiagnosisForm({ name: '', description: '', display_order: 0 });
+      fetchDiagnosisOptions();
+    } catch (error) {
+      console.error('Failed to add diagnosis:', error);
+      toast.error(error.errorMessage || 'Failed to add diagnosis option');
+    }
+  };
+
+  const handleUpdateDiagnosis = async (e) => {
+    e.preventDefault();
+    if (!diagnosisForm.name.trim()) {
+      toast.error('Please enter a diagnosis name');
+      return;
+    }
+    try {
+      await diagnosisOptionsAPI.update(editingDiagnosis.id, {
+        name: diagnosisForm.name,
+        description: diagnosisForm.description,
+        display_order: diagnosisForm.display_order,
+        is_active: editingDiagnosis.is_active,
+      });
+      toast.success('Diagnosis option updated');
+      setEditingDiagnosis(null);
+      setDiagnosisForm({ name: '', description: '', display_order: 0 });
+      fetchDiagnosisOptions();
+    } catch (error) {
+      console.error('Failed to update diagnosis:', error);
+      toast.error(error.errorMessage || 'Failed to update diagnosis option');
+    }
+  };
+
+  const handleToggleDiagnosis = async (option) => {
+    try {
+      await diagnosisOptionsAPI.update(option.id, {
+        name: option.name,
+        description: option.description,
+        display_order: option.display_order,
+        is_active: !option.is_active,
+      });
+      toast.success(option.is_active ? 'Diagnosis deactivated' : 'Diagnosis activated');
+      fetchDiagnosisOptions();
+    } catch (error) {
+      console.error('Failed to toggle diagnosis:', error);
+      toast.error(error.errorMessage || 'Failed to update diagnosis status');
+    }
+  };
+
+  const handleDeleteDiagnosis = async (option) => {
+    if (!confirm(`Are you sure you want to delete "${option.name}"?`)) return;
+    try {
+      await diagnosisOptionsAPI.delete(option.id);
+      toast.success('Diagnosis option deleted');
+      fetchDiagnosisOptions();
+    } catch (error) {
+      console.error('Failed to delete diagnosis:', error);
+      toast.error(error.errorMessage || 'Failed to delete diagnosis option');
+    }
+  };
+
+  const startEditDiagnosis = (option) => {
+    setEditingDiagnosis(option);
+    setDiagnosisForm({
+      name: option.name,
+      description: option.description || '',
+      display_order: option.display_order,
+    });
+    setShowAddDiagnosis(false);
+  };
+
+  const fetchObservationOptions = async () => {
+    setLoadingObservations(true);
+    try {
+      const response = await observationOptionsAPI.getAll(false);
+      setObservationOptions(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch observation options:', error);
+      toast.error('Failed to load observation options');
+    } finally {
+      setLoadingObservations(false);
+    }
+  };
+
+  const handleAddObservation = async (e) => {
+    e.preventDefault();
+    if (!observationForm.name.trim()) {
+      toast.error('Please enter an observation name');
+      return;
+    }
+    try {
+      await observationOptionsAPI.create({
+        name: observationForm.name,
+        description: observationForm.description,
+        display_order: observationForm.display_order || observationOptions.length + 1,
+        is_active: true,
+      });
+      toast.success('Observation option added');
+      setShowAddObservation(false);
+      setObservationForm({ name: '', description: '', display_order: 0 });
+      fetchObservationOptions();
+    } catch (error) {
+      console.error('Failed to add observation:', error);
+      toast.error(error.errorMessage || 'Failed to add observation option');
+    }
+  };
+
+  const handleUpdateObservation = async (e) => {
+    e.preventDefault();
+    if (!observationForm.name.trim()) {
+      toast.error('Please enter an observation name');
+      return;
+    }
+    try {
+      await observationOptionsAPI.update(editingObservation.id, {
+        name: observationForm.name,
+        description: observationForm.description,
+        display_order: observationForm.display_order,
+        is_active: editingObservation.is_active,
+      });
+      toast.success('Observation option updated');
+      setEditingObservation(null);
+      setObservationForm({ name: '', description: '', display_order: 0 });
+      fetchObservationOptions();
+    } catch (error) {
+      console.error('Failed to update observation:', error);
+      toast.error(error.errorMessage || 'Failed to update observation option');
+    }
+  };
+
+  const handleToggleObservation = async (option) => {
+    try {
+      await observationOptionsAPI.update(option.id, {
+        name: option.name,
+        description: option.description,
+        display_order: option.display_order,
+        is_active: !option.is_active,
+      });
+      toast.success(option.is_active ? 'Observation deactivated' : 'Observation activated');
+      fetchObservationOptions();
+    } catch (error) {
+      console.error('Failed to toggle observation:', error);
+      toast.error(error.errorMessage || 'Failed to update observation status');
+    }
+  };
+
+  const handleDeleteObservation = async (option) => {
+    if (!confirm(`Are you sure you want to delete "${option.name}"?`)) return;
+    try {
+      await observationOptionsAPI.delete(option.id);
+      toast.success('Observation option deleted');
+      fetchObservationOptions();
+    } catch (error) {
+      console.error('Failed to delete observation:', error);
+      toast.error(error.errorMessage || 'Failed to delete observation option');
+    }
+  };
+
+  const startEditObservation = (option) => {
+    setEditingObservation(option);
+    setObservationForm({
+      name: option.name,
+      description: option.description || '',
+      display_order: option.display_order,
+    });
+    setShowAddObservation(false);
+  };
+
+  useEffect(() => {
+    if (activeTab === 'diagnosis' && isDoctor && diagnosisOptions.length === 0) {
+      fetchDiagnosisOptions();
+    }
+    if (activeTab === 'observations' && isDoctor && observationOptions.length === 0) {
+      fetchObservationOptions();
+    }
+  }, [activeTab]);
 
   const onProfileSubmit = async (data) => {
     setIsSubmitting(true);
@@ -583,6 +802,312 @@ export default function Settings() {
             <p className="text-sm text-blue-800">
               <strong>Tip:</strong> Use the display order to arrange complaints. Lower numbers appear first in the dropdown.
               Deactivated complaints won't appear in the OPD queue but are kept for historical records.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Diagnosis Options */}
+      {activeTab === 'diagnosis' && isDoctor && (
+        <div className="space-y-6">
+          <div className="card">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Diagnosis Options
+              </h2>
+              <button
+                onClick={() => {
+                  setShowAddDiagnosis(true);
+                  setEditingDiagnosis(null);
+                  setDiagnosisForm({ name: '', description: '', display_order: diagnosisOptions.length + 1 });
+                }}
+                className="btn btn-primary"
+              >
+                + Add Diagnosis
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Configure common diagnoses that appear in the visit form dropdown. 
+              Doctors can still enter custom diagnoses if needed.
+            </p>
+
+            {(showAddDiagnosis || editingDiagnosis) && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h3 className="font-medium text-gray-900 mb-3">
+                  {editingDiagnosis ? 'Edit Diagnosis' : 'Add New Diagnosis'}
+                </h3>
+                <form onSubmit={editingDiagnosis ? handleUpdateDiagnosis : handleAddDiagnosis} className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Diagnosis Name *</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="e.g., Dental Caries, Gingivitis"
+                        value={diagnosisForm.name}
+                        onChange={(e) => setDiagnosisForm({ ...diagnosisForm, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Display Order</label>
+                      <input
+                        type="number"
+                        className="input"
+                        placeholder="1"
+                        value={diagnosisForm.display_order}
+                        onChange={(e) => setDiagnosisForm({ ...diagnosisForm, display_order: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="label">Description (Optional)</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="Brief description of the diagnosis"
+                        value={diagnosisForm.description}
+                        onChange={(e) => setDiagnosisForm({ ...diagnosisForm, description: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="submit" className="btn btn-primary">
+                      {editingDiagnosis ? 'Update' : 'Add'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddDiagnosis(false);
+                        setEditingDiagnosis(null);
+                        setDiagnosisForm({ name: '', description: '', display_order: 0 });
+                      }}
+                      className="btn btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {loadingDiagnosis ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                <p className="mt-2 text-gray-500">Loading diagnoses...</p>
+              </div>
+            ) : diagnosisOptions.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <div className="text-4xl mb-2">🩺</div>
+                <p>No diagnosis options configured</p>
+                <p className="text-sm mt-1">Add diagnoses to show them in the visit form dropdown</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {diagnosisOptions.map((option) => (
+                  <div
+                    key={option.id}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      option.is_active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-400 w-8">#{option.display_order}</span>
+                      <div>
+                        <span className={`font-medium ${option.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
+                          {option.name}
+                        </span>
+                        {option.description && (
+                          <p className="text-sm text-gray-500">{option.description}</p>
+                        )}
+                      </div>
+                      {!option.is_active && (
+                        <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Inactive</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => startEditDiagnosis(option)}
+                        className="text-sm text-primary-600 hover:text-primary-700"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleToggleDiagnosis(option)}
+                        className={`text-sm ${option.is_active ? 'text-yellow-600 hover:text-yellow-700' : 'text-green-600 hover:text-green-700'}`}
+                      >
+                        {option.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDiagnosis(option)}
+                        className="text-sm text-red-600 hover:text-red-700"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card bg-blue-50 border border-blue-200">
+            <p className="text-sm text-blue-800">
+              <strong>Tip:</strong> Use the display order to arrange diagnoses. Lower numbers appear first in the dropdown.
+              Deactivated diagnoses won't appear in the visit form but are kept for historical records.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Observation Options */}
+      {activeTab === 'observations' && isDoctor && (
+        <div className="space-y-6">
+          <div className="card">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Clinical Observations
+              </h2>
+              <button
+                onClick={() => {
+                  setShowAddObservation(true);
+                  setEditingObservation(null);
+                  setObservationForm({ name: '', description: '', display_order: observationOptions.length + 1 });
+                }}
+                className="btn btn-primary"
+              >
+                + Add Observation
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Configure common clinical observations that appear in the visit form dropdown. 
+              Doctors can still enter custom observations if needed.
+            </p>
+
+            {(showAddObservation || editingObservation) && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h3 className="font-medium text-gray-900 mb-3">
+                  {editingObservation ? 'Edit Observation' : 'Add New Observation'}
+                </h3>
+                <form onSubmit={editingObservation ? handleUpdateObservation : handleAddObservation} className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Observation Name *</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="e.g., Gums appear healthy, Mild inflammation"
+                        value={observationForm.name}
+                        onChange={(e) => setObservationForm({ ...observationForm, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Display Order</label>
+                      <input
+                        type="number"
+                        className="input"
+                        placeholder="1"
+                        value={observationForm.display_order}
+                        onChange={(e) => setObservationForm({ ...observationForm, display_order: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="label">Description (Optional)</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="Brief description of the observation"
+                        value={observationForm.description}
+                        onChange={(e) => setObservationForm({ ...observationForm, description: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="submit" className="btn btn-primary">
+                      {editingObservation ? 'Update' : 'Add'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddObservation(false);
+                        setEditingObservation(null);
+                        setObservationForm({ name: '', description: '', display_order: 0 });
+                      }}
+                      className="btn btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {loadingObservations ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                <p className="mt-2 text-gray-500">Loading observations...</p>
+              </div>
+            ) : observationOptions.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <div className="text-4xl mb-2">👁️</div>
+                <p>No observation options configured</p>
+                <p className="text-sm mt-1">Add observations to show them in the visit form dropdown</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {observationOptions.map((option) => (
+                  <div
+                    key={option.id}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      option.is_active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-400 w-8">#{option.display_order}</span>
+                      <div>
+                        <span className={`font-medium ${option.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
+                          {option.name}
+                        </span>
+                        {option.description && (
+                          <p className="text-sm text-gray-500">{option.description}</p>
+                        )}
+                      </div>
+                      {!option.is_active && (
+                        <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Inactive</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => startEditObservation(option)}
+                        className="text-sm text-primary-600 hover:text-primary-700"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleToggleObservation(option)}
+                        className={`text-sm ${option.is_active ? 'text-yellow-600 hover:text-yellow-700' : 'text-green-600 hover:text-green-700'}`}
+                      >
+                        {option.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteObservation(option)}
+                        className="text-sm text-red-600 hover:text-red-700"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card bg-blue-50 border border-blue-200">
+            <p className="text-sm text-blue-800">
+              <strong>Tip:</strong> Use the display order to arrange observations. Lower numbers appear first in the dropdown.
+              Deactivated observations won't appear in the visit form but are kept for historical records.
             </p>
           </div>
         </div>

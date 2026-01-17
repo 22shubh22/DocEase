@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.api import auth, patients, opd, visits, prescriptions, invoices, clinic, users, admin, chief_complaints
+from app.api import auth, patients, opd, visits, prescriptions, invoices, clinic, users, admin, chief_complaints, diagnosis_options, observation_options
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -37,6 +37,8 @@ app.include_router(clinic.router, prefix="/api/clinic", tags=["Clinic"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(chief_complaints.router, prefix="/api/chief-complaints", tags=["Chief Complaints"])
+app.include_router(diagnosis_options.router, prefix="/api/diagnosis-options", tags=["Diagnosis Options"])
+app.include_router(observation_options.router, prefix="/api/observation-options", tags=["Observation Options"])
 
 @app.get("/health")
 async def health_check():
