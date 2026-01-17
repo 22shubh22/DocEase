@@ -1,17 +1,18 @@
 import { useForm } from 'react-hook-form';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import useAuthStore from '../../store/authStore';
-import { patientsAPI } from '../../services/api';
+import { patientsAPI, visitsAPI } from '../../services/api';
 
 export default function VisitForm() {
   const navigate = useNavigate();
+  const { id } = useParams();
   const [searchParams] = useSearchParams();
   const patientIdFromUrl = searchParams.get('patientId');
 
   const { user } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [patients, setPatients] = useState([]);
   const [loadingPatients, setLoadingPatients] = useState(true);
   const [selectedPatient, setSelectedPatient] = useState(null);
@@ -41,6 +42,7 @@ export default function VisitForm() {
         }
       } catch (error) {
         console.error('Failed to fetch patients:', error);
+        toast.error('Failed to load patients list.');
       } finally {
         setLoadingPatients(false);
       }
@@ -57,28 +59,16 @@ export default function VisitForm() {
   }, [watchedPatientId, patients]);
 
   const onSubmit = async (data) => {
+    if (!selectedPatient) {
+      toast.error('Please select a patient first.');
+      return;
+    }
+
     setIsSubmitting(true);
-    setSuccessMessage('');
 
     try {
-      const visitData = {
-        patient_id: selectedPatient?.id,
-        symptoms: data.symptoms,
-        diagnosis: data.diagnosis,
-        observations: data.observations,
-        recommended_tests: data.recommendedTests ? data.recommendedTests.split(',').map(t => t.trim()) : [],
-        follow_up_date: data.followUpDate || null,
-        vitals: {
-          bp: data.bp,
-          temperature: data.temperature,
-          pulse: data.pulse,
-          weight: data.weight,
-          height: data.height,
-          spo2: data.spo2,
-        }
-      };
-
-      const response = await patientsAPI.createVisit(selectedPatient.id, {
+      await visitsAPI.create({
+        patient_id: selectedPatient.id,
         symptoms: data.symptoms,
         diagnosis: data.diagnosis,
         observations: data.observations,
@@ -93,9 +83,8 @@ export default function VisitForm() {
           spo2: data.spo2,
         }
       });
-      const newVisit = response.data.visit;
-
-      setSuccessMessage(`Visit recorded successfully!`);
+      
+      toast.success('Visit recorded successfully!');
 
       setTimeout(() => {
         navigate(`/patients/${selectedPatient.id}`);
@@ -103,6 +92,7 @@ export default function VisitForm() {
 
     } catch (error) {
       console.error('Error recording visit:', error);
+      toast.error(error.errorMessage || 'Failed to record visit. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -122,12 +112,6 @@ export default function VisitForm() {
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Record Patient Visit</h1>
         <p className="text-gray-600 mt-1">Document patient consultation and vitals</p>
       </div>
-
-      {successMessage && (
-        <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-          {successMessage}
-        </div>
-      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Patient Selection */}
