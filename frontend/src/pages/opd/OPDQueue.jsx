@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import { parseISO, format } from 'date-fns';
 import { opdAPI, patientsAPI, chiefComplaintsAPI } from '../../services/api';
 
 export default function OPDQueue() {
@@ -365,7 +366,7 @@ export default function OPDQueue() {
                     <div>
                       <span className="text-gray-600">Check-in:</span>
                       <span className="ml-1 font-medium">
-                        {item.created_at ? new Date(item.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}
+                        {item.created_at ? format(parseISO(item.created_at), 'hh:mm a') : '-'}
                       </span>
                     </div>
                     <div className="sm:col-span-2 lg:col-span-2">
