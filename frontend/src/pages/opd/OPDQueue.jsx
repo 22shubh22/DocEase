@@ -396,7 +396,7 @@ export default function OPDQueue() {
                   {item.status === 'IN_PROGRESS' && (
                     <>
                       <Link
-                        to={`/visits/new?patientId=${item.patient_id}`}
+                        to={`/visits/new?patientId=${item.patient_id}&complaint=${encodeURIComponent(item.chief_complaint || '')}`}
                         className="btn btn-primary text-sm"
                       >
                         Record Visit

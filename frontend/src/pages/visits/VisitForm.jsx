@@ -10,6 +10,7 @@ export default function VisitForm() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const patientIdFromUrl = searchParams.get('patientId');
+  const complaintFromUrl = searchParams.get('complaint');
 
   const { user } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -20,6 +21,7 @@ export default function VisitForm() {
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm({
     defaultValues: {
       patientId: '',
+      symptoms: complaintFromUrl || '',
     }
   });
 
