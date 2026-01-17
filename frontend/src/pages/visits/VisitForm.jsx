@@ -78,7 +78,21 @@ export default function VisitForm() {
         }
       };
 
-      const response = await patientsAPI.createVisit(selectedPatient.id, visitData);
+      const response = await patientsAPI.createVisit(selectedPatient.id, {
+        symptoms: data.symptoms,
+        diagnosis: data.diagnosis,
+        observations: data.observations,
+        recommended_tests: data.recommendedTests ? data.recommendedTests.split(',').map(t => t.trim()) : [],
+        follow_up_date: data.followUpDate || null,
+        vitals: {
+          blood_pressure: data.bp,
+          temperature: data.temperature,
+          pulse: data.pulse,
+          weight: data.weight,
+          height: data.height,
+          spo2: data.spo2,
+        }
+      });
       const newVisit = response.data.visit;
 
       setSuccessMessage(`Visit recorded successfully!`);
