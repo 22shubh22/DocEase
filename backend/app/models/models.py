@@ -47,6 +47,7 @@ class Clinic(Base):
     __tablename__ = "clinics"
 
     id = Column(String, primary_key=True, default=generate_uuid)
+    clinic_code = Column(String, unique=True, nullable=True, index=True)  # "CL-0001"
     name = Column(String, nullable=False)
     address = Column(Text)
     phone = Column(String)
@@ -97,6 +98,7 @@ class Doctor(Base):
     __tablename__ = "doctors"
 
     id = Column(String, primary_key=True, default=generate_uuid)
+    doctor_code = Column(String, unique=True, nullable=True, index=True)  # "DR-0001"
     user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
     specialization = Column(String)
     qualification = Column(String)

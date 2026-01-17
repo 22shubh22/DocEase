@@ -90,6 +90,7 @@ class ClinicUpdate(ClinicBase):
 
 class ClinicResponse(ClinicBase):
     id: str
+    clinic_code: Optional[str] = None
     logo_url: Optional[str] = None
     owner_doctor_id: Optional[str] = None
     created_at: Optional[datetime] = None
@@ -111,6 +112,7 @@ class DoctorUpdate(DoctorBase):
 
 class DoctorResponse(DoctorBase):
     id: str
+    doctor_code: Optional[str] = None
     user_id: str
     signature_url: Optional[str] = None
 

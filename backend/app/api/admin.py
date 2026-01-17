@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import or_
+from typing import List, Optional
 from app.core.deps import get_db, get_current_user
 from app.models.models import User, Clinic, Doctor, Patient, ClinicAdmin, RoleEnum
 from app.schemas.schemas import (
@@ -9,6 +10,36 @@ from app.schemas.schemas import (
     UserResponseWithPassword, UserUpdateByAdmin, SetClinicOwner
 )
 from app.core.security import get_password_hash
+
+
+def generate_clinic_code(db: Session) -> str:
+    """Generate next clinic code like CL-0001, CL-0002, etc."""
+    max_num = 0
+    all_clinics = db.query(Clinic).all()
+    for c in all_clinics:
+        if c.clinic_code and '-' in c.clinic_code:
+            try:
+                num = int(c.clinic_code.split('-')[1])
+                if num > max_num:
+                    max_num = num
+            except (ValueError, IndexError):
+                continue
+    return f"CL-{str(max_num + 1).zfill(4)}"
+
+
+def generate_doctor_code(db: Session) -> str:
+    """Generate next doctor code like DR-0001, DR-0002, etc."""
+    max_num = 0
+    all_doctors = db.query(Doctor).all()
+    for d in all_doctors:
+        if d.doctor_code and '-' in d.doctor_code:
+            try:
+                num = int(d.doctor_code.split('-')[1])
+                if num > max_num:
+                    max_num = num
+            except (ValueError, IndexError):
+                continue
+    return f"DR-{str(max_num + 1).zfill(4)}"
 
 router = APIRouter()
 
@@ -57,7 +88,8 @@ async def create_clinic(
     current_user: User = Depends(require_admin)
 ):
     try:
-        clinic = Clinic(**clinic_data.dict())
+        clinic_code = generate_clinic_code(db)
+        clinic = Clinic(**clinic_data.dict(), clinic_code=clinic_code)
         db.add(clinic)
         db.flush()
 
@@ -81,11 +113,13 @@ async def get_clinic_details(
     admin_clinic_ids = [ca.clinic_id for ca in current_user.managed_clinics]
     if clinic_id not in admin_clinic_ids:
         raise HTTPException(status_code=404, detail="Clinic not found")
-    
-    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+
+    clinic = db.query(Clinic).options(
+        joinedload(Clinic.doctors).joinedload(Doctor.user)
+    ).filter(Clinic.id == clinic_id).first()
     if not clinic:
         raise HTTPException(status_code=404, detail="Clinic not found")
-    
+
     return clinic
 
 
@@ -161,10 +195,11 @@ async def get_clinic_doctors(
             "last_login": doctor.last_login,
             "initial_password": doctor.initial_password,
             "doctor_id": doctor.doctor.id if doctor.doctor else None,
+            "doctor_code": doctor.doctor.doctor_code if doctor.doctor else None,
             "is_owner": clinic.owner_doctor_id == doctor.doctor.id if doctor.doctor else False
         }
         result.append(doctor_dict)
-    
+
     return result
 
 
@@ -196,19 +231,21 @@ async def add_doctor_to_clinic(
     )
     db.add(user)
     db.flush()
-    
-    doctor = Doctor(user_id=user.id, clinic_id=clinic_id)
+
+    doctor_code = generate_doctor_code(db)
+    doctor = Doctor(user_id=user.id, clinic_id=clinic_id, doctor_code=doctor_code)
     db.add(doctor)
     db.flush()
-    
+
     is_owner = False
     if clinic.owner_doctor_id is None:
         clinic.owner_doctor_id = doctor.id
         is_owner = True
-    
+
     db.commit()
     db.refresh(user)
-    
+    db.refresh(doctor)
+
     return {
         "id": user.id,
         "email": user.email,
@@ -220,6 +257,8 @@ async def add_doctor_to_clinic(
         "created_at": user.created_at,
         "last_login": user.last_login,
         "initial_password": user.initial_password,
+        "doctor_id": doctor.id,
+        "doctor_code": doctor.doctor_code,
         "is_owner": is_owner
     }
 
@@ -334,5 +373,90 @@ async def set_clinic_owner(
     clinic.owner_doctor_id = doctor.id
     db.commit()
     db.refresh(clinic)
-    
+
     return clinic
+
+
+@router.get("/doctors")
+async def get_all_doctors(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    search: Optional[str] = Query(None),
+    clinic_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Get all doctors across all clinics managed by the admin.
+    Supports pagination, search, and filtering by clinic.
+    """
+    admin_clinic_ids = [ca.clinic_id for ca in current_user.managed_clinics]
+
+    if not admin_clinic_ids:
+        return {"doctors": [], "pagination": {"total": 0, "page": page, "limit": limit, "totalPages": 0}}
+
+    # Base query with joins
+    query = db.query(Doctor).join(
+        User, Doctor.user_id == User.id
+    ).join(
+        Clinic, Doctor.clinic_id == Clinic.id
+    ).filter(
+        Doctor.clinic_id.in_(admin_clinic_ids)
+    )
+
+    # Apply clinic filter if provided
+    if clinic_id and clinic_id in admin_clinic_ids:
+        query = query.filter(Doctor.clinic_id == clinic_id)
+
+    # Apply search filter
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            or_(
+                User.full_name.ilike(search_term),
+                User.email.ilike(search_term),
+                Doctor.doctor_code.ilike(search_term),
+                Doctor.specialization.ilike(search_term)
+            )
+        )
+
+    # Get total count
+    total = query.count()
+
+    # Apply pagination
+    skip = (page - 1) * limit
+    doctors = query.order_by(Doctor.created_at.desc()).offset(skip).limit(limit).all()
+
+    # Build response
+    result = []
+    for doctor in doctors:
+        clinic = db.query(Clinic).filter(Clinic.id == doctor.clinic_id).first()
+        user = doctor.user
+
+        result.append({
+            "doctor_id": doctor.id,
+            "doctor_code": doctor.doctor_code,
+            "user_id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "phone": user.phone,
+            "specialization": doctor.specialization,
+            "qualification": doctor.qualification,
+            "registration_number": doctor.registration_number,
+            "is_active": user.is_active,
+            "is_owner": clinic.owner_doctor_id == doctor.id if clinic else False,
+            "clinic_id": clinic.id if clinic else None,
+            "clinic_code": clinic.clinic_code if clinic else None,
+            "clinic_name": clinic.name if clinic else None,
+            "created_at": doctor.created_at
+        })
+
+    return {
+        "doctors": result,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": (total + limit - 1) // limit if limit > 0 else 0
+        }
+    }

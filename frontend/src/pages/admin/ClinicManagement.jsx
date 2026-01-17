@@ -25,6 +25,15 @@ export default function ClinicManagement() {
     full_name: '',
     phone: ''
   });
+  const [showEditClinic, setShowEditClinic] = useState(false);
+  const [editClinic, setEditClinic] = useState({
+    name: '',
+    address: '',
+    phone: '',
+    email: '',
+    opd_start_time: '',
+    opd_end_time: ''
+  });
 
   useEffect(() => {
     fetchData();
@@ -54,7 +63,10 @@ export default function ClinicManagement() {
       fetchData();
     } catch (error) {
       console.error('Failed to add doctor:', error);
-      alert(error.response?.data?.detail || 'Failed to add doctor');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      const errorMessage = error.response?.data?.detail || 'Failed to add doctor';
+      alert(errorMessage);
     }
   };
 
@@ -91,7 +103,10 @@ export default function ClinicManagement() {
       fetchData();
     } catch (error) {
       console.error('Failed to update doctor:', error);
-      alert(error.response?.data?.detail || 'Failed to update doctor');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      const errorMessage = error.response?.data?.detail || 'Failed to update doctor';
+      alert(errorMessage);
     }
   };
 
@@ -104,7 +119,10 @@ export default function ClinicManagement() {
       fetchData();
     } catch (error) {
       console.error('Failed to remove doctor:', error);
-      alert(error.response?.data?.detail || 'Failed to remove doctor');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      const errorMessage = error.response?.data?.detail || 'Failed to remove doctor';
+      alert(errorMessage);
     }
   };
 
@@ -117,7 +135,37 @@ export default function ClinicManagement() {
       fetchData();
     } catch (error) {
       console.error('Failed to set owner:', error);
-      alert(error.response?.data?.detail || 'Failed to set clinic owner');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      const errorMessage = error.response?.data?.detail || 'Failed to set clinic owner';
+      alert(errorMessage);
+    }
+  };
+
+  const handleOpenEditClinic = () => {
+    setEditClinic({
+      name: clinic.name || '',
+      address: clinic.address || '',
+      phone: clinic.phone || '',
+      email: clinic.email || '',
+      opd_start_time: clinic.opd_start_time || '09:00',
+      opd_end_time: clinic.opd_end_time || '17:00'
+    });
+    setShowEditClinic(true);
+  };
+
+  const handleUpdateClinic = async (e) => {
+    e.preventDefault();
+    try {
+      await adminAPI.updateClinic(clinicId, editClinic);
+      setShowEditClinic(false);
+      fetchData();
+    } catch (error) {
+      console.error('Failed to update clinic:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      const errorMessage = error.response?.data?.detail || 'Failed to update clinic';
+      alert(errorMessage);
     }
   };
 
@@ -153,7 +201,15 @@ export default function ClinicManagement() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 className="font-semibold text-gray-800 mb-4">Clinic Details</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="font-semibold text-gray-800">Clinic Details</h2>
+              <button
+                onClick={handleOpenEditClinic}
+                className="text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-lg transition-colors text-sm"
+              >
+                Edit
+              </button>
+            </div>
             <div className="space-y-3">
               <div>
                 <p className="text-sm text-gray-500">Phone</p>
@@ -427,6 +483,90 @@ export default function ClinicManagement() {
                     setShowEditDoctor(false);
                     setSelectedDoctor(null);
                   }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showEditClinic && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Edit Clinic Details</h2>
+            <form onSubmit={handleUpdateClinic}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Clinic Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editClinic.name}
+                    onChange={(e) => setEditClinic({ ...editClinic, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                  <input
+                    type="text"
+                    value={editClinic.address}
+                    onChange={(e) => setEditClinic({ ...editClinic, address: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                  <input
+                    type="text"
+                    value={editClinic.phone}
+                    onChange={(e) => setEditClinic({ ...editClinic, phone: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={editClinic.email}
+                    onChange={(e) => setEditClinic({ ...editClinic, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">OPD Start Time</label>
+                    <input
+                      type="time"
+                      value={editClinic.opd_start_time}
+                      onChange={(e) => setEditClinic({ ...editClinic, opd_start_time: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">OPD End Time</label>
+                    <input
+                      type="time"
+                      value={editClinic.opd_end_time}
+                      onChange={(e) => setEditClinic({ ...editClinic, opd_end_time: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowEditClinic(false)}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                 >
                   Cancel
