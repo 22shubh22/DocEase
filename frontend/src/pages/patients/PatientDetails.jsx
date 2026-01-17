@@ -139,7 +139,11 @@ export default function PatientDetails() {
                 </div>
                 <div className="flex flex-col text-right">
                   <span className="text-gray-600 text-sm">Patient Since</span>
-                  <span className="font-medium">{new Date(patient.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                  <span className="font-medium">
+                    {patient.created_at && new Date(patient.created_at).getFullYear() > 1971
+                      ? new Date(patient.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+                      : 'N/A'}
+                  </span>
                 </div>
               </div>
             </div>
