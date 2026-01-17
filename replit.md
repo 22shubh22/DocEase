@@ -11,7 +11,16 @@ A comprehensive clinic management system built with FastAPI (backend) and React 
 - Frontend: React + Vite + Tailwind CSS + React Query
 - Database: PostgreSQL (Replit managed)
 
-## Recent Changes (January 3, 2026)
+## Recent Changes (January 17, 2026)
+
+### Chief Complaints Management Tab
+- Added "Chief Complaints" tab to Settings page (visible only to doctors)
+- Doctors can add, edit, delete, and toggle active/inactive status for complaints
+- Complaints are loaded on page mount and display with order, name, description
+- Full payload sent on updates to preserve all fields
+- Error messages from API are surfaced in toast notifications
+
+## Previous Changes (January 3, 2026)
 
 ### Patient Creator Tracking
 - Added `created_by` field to Patient model to track which doctor or assistant added each patient
