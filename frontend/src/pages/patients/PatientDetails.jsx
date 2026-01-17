@@ -264,20 +264,6 @@ export default function PatientDetails() {
         </div>
       )}
 
-      <div className="card bg-gray-50">
-        <h3 className="font-semibold text-gray-900 mb-3">Quick Actions</h3>
-        <div className="flex flex-wrap gap-3">
-          <Link to={`/visits/new?patientId=${patient.id}`} className="btn btn-secondary">
-            📝 Record Visit
-          </Link>
-          <Link to={`/prescriptions/new?patientId=${patient.id}`} className="btn btn-secondary">
-            💊 Add Prescription
-          </Link>
-          <Link to={`/billing/new?patientId=${patient.id}`} className="btn btn-secondary">
-            💰 Create Invoice
-          </Link>
-        </div>
-      </div>
     </div>
   );
 }
