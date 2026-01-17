@@ -20,8 +20,20 @@ def seed_database():
 
         # Check if data already exists
         existing_clinic = db.query(models.Clinic).first()
-        if existing_clinic:
+        if existing_clinic and existing_clinic.clinic_code:
             print("⚠️  Database already seeded. Skipping...")
+            return
+
+        if existing_clinic and not existing_clinic.clinic_code:
+            print("🔄 Updating existing data with codes...")
+            # Update clinic
+            existing_clinic.clinic_code = "CL-001"
+            # Update doctor
+            doctor = db.query(models.Doctor).first()
+            if doctor:
+                doctor.doctor_code = "DR-001"
+            db.commit()
+            print("✅ Updated existing data with codes")
             return
 
         # Create clinic
@@ -30,6 +42,7 @@ def seed_database():
             address="123 Main Street, Downtown",
             phone="+1234567890",
             email="contact@cityhealthclinic.com",
+            clinic_code="CL-001",
             opd_start_time="09:00",
             opd_end_time="18:00",
         )
@@ -55,6 +68,7 @@ def seed_database():
         # Create doctor profile
         doctor = models.Doctor(
             user_id=doctor_user.id,
+            doctor_code="DR-001",
             specialization="General Physician",
             qualification="MBBS, MD",
             registration_number="MED123456",
