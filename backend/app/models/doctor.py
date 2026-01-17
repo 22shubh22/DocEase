@@ -12,6 +12,7 @@ class Doctor(Base):
 
     id = Column(String, primary_key=True, default=generate_uuid)
     user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
+    doctor_code = Column(String, unique=True)
     specialization = Column(String)
     qualification = Column(String)
     registration_number = Column(String)

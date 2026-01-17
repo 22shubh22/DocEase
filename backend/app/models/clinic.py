@@ -16,6 +16,8 @@ class Clinic(Base):
     phone = Column(String)
     email = Column(String)
     logo_url = Column(String)
+    clinic_code = Column(String, unique=True)
+    owner_doctor_id = Column(String)
     opd_start_time = Column(String)
     opd_end_time = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
