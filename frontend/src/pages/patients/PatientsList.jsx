@@ -101,6 +101,9 @@ export default function PatientsList() {
                 <th className="hidden lg:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Blood Group
                 </th>
+                <th className="hidden xl:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Created By
+                </th>
                 <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -135,6 +138,12 @@ export default function PatientsList() {
                     </td>
                     <td className="hidden lg:table-cell px-6 py-4 whitespace-nowrap">
                       <span className="badge badge-info">{patient.blood_group || 'N/A'}</span>
+                    </td>
+                    <td className="hidden xl:table-cell px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{patient.created_by_name || 'System'}</div>
+                      <div className="text-xs text-gray-500">
+                        {patient.created_at ? new Date(patient.created_at).toLocaleDateString() : 'N/A'}
+                      </div>
                     </td>
                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end gap-2">

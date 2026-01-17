@@ -132,13 +132,15 @@ export default function PatientDetails() {
                 <span className="text-gray-600">Blood Group</span>
                 <span className="badge badge-info">{patient.blood_group || 'N/A'}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Created By</span>
-                <span className="font-medium">{patient.created_by_name || 'System'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Patient Since</span>
-                <span className="font-medium">{new Date(patient.created_at).toLocaleDateString()}</span>
+              <div className="flex justify-between items-center py-1 border-t border-gray-50 mt-2">
+                <div className="flex flex-col">
+                  <span className="text-gray-600 text-sm">Created By</span>
+                  <span className="font-medium">{patient.created_by_name || 'System'}</span>
+                </div>
+                <div className="flex flex-col text-right">
+                  <span className="text-gray-600 text-sm">Patient Since</span>
+                  <span className="font-medium">{new Date(patient.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                </div>
               </div>
             </div>
           </div>
