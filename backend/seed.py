@@ -26,14 +26,18 @@ def seed_database():
 
         if existing_clinic and not existing_clinic.clinic_code:
             print("🔄 Updating existing data with codes...")
-            # Update clinic
-            existing_clinic.clinic_code = "CL-001"
-            # Update doctor
-            doctor = db.query(models.Doctor).first()
-            if doctor:
-                doctor.doctor_code = "DR-001"
+            # Update clinics
+            clinics = db.query(models.Clinic).filter(models.Clinic.clinic_code == None).all()
+            for i, c in enumerate(clinics):
+                c.clinic_code = f"CL-{str(i+1).zfill(3)}"
+            
+            # Update doctors
+            doctors = db.query(models.Doctor).filter(models.Doctor.doctor_code == None).all()
+            for i, d in enumerate(doctors):
+                d.doctor_code = f"DR-{str(i+1).zfill(3)}"
+                
             db.commit()
-            print("✅ Updated existing data with codes")
+            print(f"✅ Updated {len(clinics)} clinics and {len(doctors)} doctors with codes")
             return
 
         # Create clinic
