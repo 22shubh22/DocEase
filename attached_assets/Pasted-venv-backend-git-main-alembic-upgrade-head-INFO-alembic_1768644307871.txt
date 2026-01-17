@@ -1,0 +1,88 @@
+venv) ➜  backend git:(main) ✗ alembic upgrade head
+
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> f008910a9304, add_patient_creator
+INFO  [alembic.runtime.migration] Running upgrade f008910a9304 -> c639c6900bc9, Add chief_complaint to appointments
+Traceback (most recent call last):
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 922, in do_execute
+    cursor.execute(statement, parameters)
+psycopg2.errors.UndefinedObject: constraint "clinics_clinic_code_key" of relation "clinics" does not exist
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/bin/alembic", line 8, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/config.py", line 641, in main
+    CommandLine(prog=prog).main(argv=argv)
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/config.py", line 631, in main
+    self.run_cmd(cfg, options)
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/config.py", line 608, in run_cmd
+    fn(
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/command.py", line 403, in upgrade
+    script.run_env()
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/script/base.py", line 583, in run_env
+    util.load_python_file(self.dir, "env.py")
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/util/pyfiles.py", line 95, in load_python_file
+    module = load_module_py(module_id, path)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/util/pyfiles.py", line 113, in load_module_py
+    spec.loader.exec_module(module)  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap_external>", line 940, in exec_module
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/alembic/env.py", line 63, in <module>
+    run_migrations_online()
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/alembic/env.py", line 58, in run_migrations_online
+    context.run_migrations()
+  File "<string>", line 8, in run_migrations
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/runtime/environment.py", line 948, in run_migrations
+    self.get_context().run_migrations(**kw)
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/runtime/migration.py", line 627, in run_migrations
+    step.migration_fn(**kw)
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/alembic/versions/c639c6900bc9_add_chief_complaint_to_appointments.py", line 24, in upgrade
+    op.drop_constraint('clinics_clinic_code_key', 'clinics', type_='unique')
+  File "<string>", line 8, in drop_constraint
+  File "<string>", line 3, in drop_constraint
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/operations/ops.py", line 222, in drop_constraint
+    return operations.invoke(op)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/operations/base.py", line 445, in invoke
+    return fn(self, operation)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/operations/toimpl.py", line 201, in drop_constraint
+    operations.impl.drop_constraint(
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/ddl/impl.py", line 350, in drop_constraint
+    self._exec(schema.DropConstraint(const))
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/ddl/impl.py", line 207, in _exec
+    return conn.execute(construct, multiparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1416, in execute
+    return meth(
+           ^^^^^
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/sqlalchemy/sql/ddl.py", line 181, in _execute_on_connection
+    return connection._execute_ddl(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1528, in _execute_ddl
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2344, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 922, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedObject) constraint "clinics_clinic_code_key" of relation "clinics" does not exist
+
+[SQL: ALTER TABLE clinics DROP CONSTRAINT clinics_clinic_code_key]
+(Background on this error at: https://sqlalche.me/e/20/f405)
