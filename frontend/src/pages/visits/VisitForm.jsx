@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import useAuthStore from '../../store/authStore';
-import { patientsAPI, visitsAPI, diagnosisOptionsAPI, observationOptionsAPI } from '../../services/api';
+import { patientsAPI, visitsAPI, diagnosisOptionsAPI, observationOptionsAPI, opdAPI } from '../../services/api';
 
 export default function VisitForm() {
   const navigate = useNavigate();
@@ -11,6 +11,7 @@ export default function VisitForm() {
   const [searchParams] = useSearchParams();
   const patientIdFromUrl = searchParams.get('patientId');
   const complaintFromUrl = searchParams.get('complaint');
+  const appointmentIdFromUrl = searchParams.get('appointmentId');
 
   const { user } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -107,15 +108,22 @@ export default function VisitForm() {
         }
       });
       
-      toast.success('Visit recorded successfully!');
-
-      setTimeout(() => {
-        navigate(`/patients/${selectedPatient.id}`);
-      }, 1500);
+      if (appointmentIdFromUrl) {
+        await opdAPI.updateStatus(appointmentIdFromUrl, 'COMPLETED');
+        toast.success('Visit recorded and OPD completed!');
+        setTimeout(() => {
+          navigate('/opd');
+        }, 1500);
+      } else {
+        toast.success('Visit recorded successfully!');
+        setTimeout(() => {
+          navigate(`/patients/${selectedPatient.id}`);
+        }, 1500);
+      }
 
     } catch (error) {
       console.error('Error recording visit:', error);
-      toast.error(error.errorMessage || 'Failed to record visit. Please try again.');
+      toast.error(error.response?.data?.detail || 'Failed to record visit. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -373,7 +381,7 @@ export default function VisitForm() {
               className="btn btn-primary"
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'Saving...' : '✓ Save Visit'}
+              {isSubmitting ? 'Saving...' : (appointmentIdFromUrl ? '✓ Save & Complete OPD' : '✓ Save Visit')}
             </button>
             <button
               type="button"
@@ -393,7 +401,9 @@ export default function VisitForm() {
             </button>
           </div>
           <p className="text-xs text-gray-500 mt-3">
-            💡 After saving, you can add prescriptions for this visit
+            {appointmentIdFromUrl 
+              ? '💡 This will record the visit and mark the patient as done in OPD'
+              : '💡 After saving, you can add prescriptions for this visit'}
           </p>
         </div>
       </form>

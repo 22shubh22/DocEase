@@ -397,17 +397,11 @@ export default function OPDQueue() {
                   {item.status === 'IN_PROGRESS' && (
                     <>
                       <Link
-                        to={`/visits/new?patientId=${item.patient_id}&complaint=${encodeURIComponent(item.chief_complaint || '')}`}
+                        to={`/visits/new?patientId=${item.patient_id}&complaint=${encodeURIComponent(item.chief_complaint || '')}&appointmentId=${item.id}`}
                         className="btn btn-primary text-sm"
                       >
                         Record Visit
                       </Link>
-                      <button
-                        onClick={() => handleStatusChange(item.id, 'COMPLETED')}
-                        className="btn btn-secondary text-sm"
-                      >
-                        Mark Complete
-                      </button>
                     </>
                   )}
                   {item.status === 'COMPLETED' && (
