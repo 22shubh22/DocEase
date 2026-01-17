@@ -20,9 +20,10 @@ export default function AdminDashboard() {
         adminAPI.getClinics()
       ]);
       setStats(statsRes.data);
-      setClinics(clinicsRes.data);
+      setClinics(Array.isArray(clinicsRes.data) ? clinicsRes.data : []);
     } catch (error) {
       console.error('Failed to fetch admin data:', error);
+      setClinics([]);
     } finally {
       setLoading(false);
     }

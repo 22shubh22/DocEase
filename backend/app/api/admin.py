@@ -56,16 +56,20 @@ async def create_clinic(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    clinic = Clinic(**clinic_data.dict())
-    db.add(clinic)
-    db.flush()
-    
-    clinic_admin = ClinicAdmin(admin_id=current_user.id, clinic_id=clinic.id)
-    db.add(clinic_admin)
-    db.commit()
-    db.refresh(clinic)
-    
-    return clinic
+    try:
+        clinic = Clinic(**clinic_data.dict())
+        db.add(clinic)
+        db.flush()
+
+        clinic_admin = ClinicAdmin(admin_id=current_user.id, clinic_id=clinic.id)
+        db.add(clinic_admin)
+        db.commit()
+        db.refresh(clinic)
+
+        return clinic
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/clinics/{clinic_id}", response_model=ClinicWithDoctors)

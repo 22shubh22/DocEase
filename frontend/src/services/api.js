@@ -104,8 +104,8 @@ export const usersAPI = {
 // Admin API
 export const adminAPI = {
   getStats: () => api.get('/admin/stats'),
-  getClinics: () => api.get('/admin/clinics/'),
-  createClinic: (data) => api.post('/admin/clinics/', data),
+  getClinics: () => api.get('/admin/clinics'),
+  createClinic: (data) => api.post('/admin/clinics', data),
   getClinic: (id) => api.get(`/admin/clinics/${id}`),
   updateClinic: (id, data) => api.put(`/admin/clinics/${id}`, data),
   deleteClinic: (id) => api.delete(`/admin/clinics/${id}`),
