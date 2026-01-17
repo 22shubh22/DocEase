@@ -13,6 +13,7 @@ import Billing from './pages/billing/Billing';
 import Settings from './pages/Settings';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ClinicManagement from './pages/admin/ClinicManagement';
+import DoctorList from './pages/admin/DoctorList';
 
 function ProtectedRoute({ children }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -77,6 +78,7 @@ function App() {
 
         {/* Admin Routes */}
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        <Route path="admin/doctors" element={<AdminRoute><DoctorList /></AdminRoute>} />
         <Route path="admin/clinics/:clinicId" element={<AdminRoute><ClinicManagement /></AdminRoute>} />
       </Route>
     </Routes>
