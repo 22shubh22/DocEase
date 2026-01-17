@@ -139,7 +139,14 @@ export default function AdminDashboard() {
             clinics.map((clinic) => (
               <div key={clinic.id} className="p-6 flex items-center justify-between hover:bg-gray-50">
                 <div>
-                  <h3 className="font-medium text-gray-800">{clinic.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-medium text-gray-800">{clinic.name}</h3>
+                    {clinic.clinic_code && (
+                      <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded font-mono">
+                        {clinic.clinic_code}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-500">{clinic.address || 'No address'}</p>
                   <p className="text-sm text-gray-400">{clinic.phone} | {clinic.email}</p>
                 </div>
