@@ -71,7 +71,8 @@ async def search_patients(
         or_(
             Patient.full_name.ilike(f"%{q}%"),
             Patient.phone.contains(q),
-            Patient.patient_code.ilike(f"%{q}%")
+            Patient.patient_code.ilike(f"%{q}%"),
+            Patient.address.ilike(f"%{q}%")
         )
     ).limit(20).all()
 

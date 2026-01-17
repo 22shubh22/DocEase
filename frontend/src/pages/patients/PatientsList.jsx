@@ -69,7 +69,7 @@ export default function PatientsList() {
         <div className="sm:col-span-2">
           <input
             type="text"
-            placeholder="Search by name, patient code, or phone..."
+            placeholder="Search by name, patient code, phone, or address..."
             className="input"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
