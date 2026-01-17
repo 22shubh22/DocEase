@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { opdAPI, patientsAPI } from '../../services/api';
+import { opdAPI, patientsAPI, chiefComplaintsAPI } from '../../services/api';
 
 export default function OPDQueue() {
   const [queue, setQueue] = useState([]);
   const [patients, setPatients] = useState([]);
+  const [chiefComplaints, setChiefComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, waiting: 0, inProgress: 0, completed: 0 });
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState('');
-  const [chiefComplaint, setChiefComplaint] = useState('');
+  const [selectedComplaint, setSelectedComplaint] = useState('');
+  const [customComplaint, setCustomComplaint] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -23,14 +25,16 @@ export default function OPDQueue() {
   const fetchData = async () => {
     try {
       const params = { queue_date: selectedDate, stats_date: selectedDate };
-      const [queueRes, statsRes, patientsRes] = await Promise.all([
+      const [queueRes, statsRes, patientsRes, complaintsRes] = await Promise.all([
         opdAPI.getQueue(params),
         opdAPI.getStats(params),
-        patientsAPI.getAll({ limit: 100 })
+        patientsAPI.getAll({ limit: 100 }),
+        chiefComplaintsAPI.getAll(true)
       ]);
       setQueue(queueRes.data.queue || []);
       setStats(statsRes.data.stats || { total: 0, waiting: 0, inProgress: 0, completed: 0 });
       setPatients(patientsRes.data.patients || []);
+      setChiefComplaints(complaintsRes.data || []);
     } catch (error) {
       console.error('Failed to fetch OPD data:', error);
       toast.error('Failed to load queue data');
@@ -41,7 +45,9 @@ export default function OPDQueue() {
 
   const handleAddToQueue = async (e) => {
     e.preventDefault();
-    if (!selectedPatient || !chiefComplaint) {
+    const complaint = selectedComplaint === 'OTHER' ? customComplaint : selectedComplaint;
+    
+    if (!selectedPatient || !complaint) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -49,13 +55,14 @@ export default function OPDQueue() {
     try {
       await opdAPI.addToQueue({
         patient_id: selectedPatient,
-        chief_complaint: chiefComplaint,
+        chief_complaint: complaint,
       });
       toast.success('Patient added to queue');
       fetchData();
       setShowAddForm(false);
       setSelectedPatient('');
-      setChiefComplaint('');
+      setSelectedComplaint('');
+      setCustomComplaint('');
     } catch (error) {
       console.error('Failed to add to queue:', error);
       toast.error(error.errorMessage || 'Failed to add patient to queue');
@@ -168,15 +175,45 @@ export default function OPDQueue() {
               </div>
               <div>
                 <label className="label">Chief Complaint *</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="e.g., Fever, headache, routine checkup"
-                  value={chiefComplaint}
-                  onChange={(e) => setChiefComplaint(e.target.value)}
-                  required
-                />
+                {chiefComplaints.length > 0 ? (
+                  <select
+                    className="input"
+                    value={selectedComplaint}
+                    onChange={(e) => setSelectedComplaint(e.target.value)}
+                    required
+                  >
+                    <option value="">Select a complaint...</option>
+                    {chiefComplaints.map(complaint => (
+                      <option key={complaint.id} value={complaint.name}>
+                        {complaint.name}
+                      </option>
+                    ))}
+                    <option value="OTHER">Other (specify)</option>
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="e.g., Fever, headache, routine checkup"
+                    value={customComplaint}
+                    onChange={(e) => setCustomComplaint(e.target.value)}
+                    required
+                  />
+                )}
               </div>
+              {selectedComplaint === 'OTHER' && (
+                <div className="md:col-span-2">
+                  <label className="label">Specify Complaint *</label>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="Enter the complaint..."
+                    value={customComplaint}
+                    onChange={(e) => setCustomComplaint(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
             </div>
             <div className="flex gap-3">
               <button type="submit" className="btn btn-primary">
@@ -403,6 +440,11 @@ export default function OPDQueue() {
           <strong>Quick Guide:</strong> Click "Add to Queue" to register patients for today's OPD.
           Use "Start Consultation" to begin, then "Record Visit" to document the consultation.
           Use the arrow buttons to reorder waiting patients if needed.
+          {chiefComplaints.length === 0 && (
+            <span className="block mt-2">
+              <strong>Tip:</strong> Go to Settings to configure common chief complaints for quick selection.
+            </span>
+          )}
         </p>
       </div>
     </div>

@@ -351,3 +351,31 @@ class AdminDashboardStats(BaseModel):
     total_clinics: int
     total_doctors: int
     total_patients: int
+
+
+# Chief Complaint Schemas
+class ChiefComplaintBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    is_active: bool = True
+    display_order: int = 0
+
+
+class ChiefComplaintCreate(ChiefComplaintBase):
+    pass
+
+
+class ChiefComplaintUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    display_order: Optional[int] = None
+
+
+class ChiefComplaintResponse(ChiefComplaintBase):
+    id: str
+    clinic_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

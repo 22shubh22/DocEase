@@ -73,6 +73,14 @@ export const opdAPI = {
   updatePosition: (id, newPosition) => api.put(`/opd/appointments/${id}/position`, { new_position: newPosition }),
 };
 
+// Chief Complaints API
+export const chiefComplaintsAPI = {
+  getAll: (activeOnly = true) => api.get('/chief-complaints/', { params: { active_only: activeOnly } }),
+  create: (data) => api.post('/chief-complaints/', data),
+  update: (id, data) => api.put(`/chief-complaints/${id}`, data),
+  delete: (id) => api.delete(`/chief-complaints/${id}`),
+};
+
 // Visits API
 export const visitsAPI = {
   create: (data) => api.post('/visits/', data),

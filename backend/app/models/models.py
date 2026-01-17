@@ -68,6 +68,7 @@ class Clinic(Base):
     prescriptions = relationship("Prescription", back_populates="clinic", cascade="all, delete-orphan")
     invoices = relationship("Invoice", back_populates="clinic", cascade="all, delete-orphan")
     admins = relationship("ClinicAdmin", back_populates="clinic", cascade="all, delete-orphan")
+    chief_complaints = relationship("ChiefComplaint", back_populates="clinic", cascade="all, delete-orphan")
 
 
 class User(Base):
@@ -271,3 +272,18 @@ class ClinicAdmin(Base):
 
     admin = relationship("User", back_populates="managed_clinics")
     clinic = relationship("Clinic", back_populates="admins")
+
+
+class ChiefComplaint(Base):
+    __tablename__ = "chief_complaints"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    display_order = Column(Integer, default=0)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    clinic = relationship("Clinic", back_populates="chief_complaints")
