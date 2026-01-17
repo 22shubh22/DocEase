@@ -23,8 +23,10 @@ async def create_visit(
 
     visit_number = (last_visit.visit_number + 1) if last_visit else 1
 
+    visit_dict = visit_data.model_dump(exclude={'appointment_id', 'doctor_id'})
     visit = Visit(
-        **visit_data.model_dump(exclude={'appointment_id'}),
+        **visit_dict,
+        doctor_id=visit_data.doctor_id or current_user.id,
         appointment_id=visit_data.appointment_id,
         visit_number=visit_number,
         visit_date=date.today(),

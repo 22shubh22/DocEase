@@ -187,7 +187,6 @@ class AppointmentResponse(AppointmentBase):
 # Visit Schemas
 class VisitBase(BaseModel):
     patient_id: str
-    doctor_id: str
     appointment_id: Optional[str] = None
     symptoms: Optional[str] = None
     diagnosis: Optional[str] = None
@@ -198,7 +197,7 @@ class VisitBase(BaseModel):
 
 
 class VisitCreate(VisitBase):
-    pass
+    doctor_id: Optional[str] = None
 
 
 class VisitUpdate(BaseModel):
@@ -212,6 +211,7 @@ class VisitUpdate(BaseModel):
 
 class VisitResponse(VisitBase):
     id: str
+    doctor_id: str
     visit_date: date
     visit_number: int
     clinic_id: str
