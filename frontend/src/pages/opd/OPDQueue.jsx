@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 import { opdAPI, patientsAPI } from '../../services/api';
 
 export default function OPDQueue() {
@@ -9,21 +10,22 @@ export default function OPDQueue() {
   const [stats, setStats] = useState({ total: 0, waiting: 0, inProgress: 0, completed: 0 });
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState('');
-  const [appointmentTime, setAppointmentTime] = useState('');
   const [chiefComplaint, setChiefComplaint] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
+    const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedDate]);
 
   const fetchData = async () => {
     try {
+      const params = { queue_date: selectedDate, stats_date: selectedDate };
       const [queueRes, statsRes, patientsRes] = await Promise.all([
-        opdAPI.getQueue(),
-        opdAPI.getStats(),
+        opdAPI.getQueue(params),
+        opdAPI.getStats(params),
         patientsAPI.getAll({ limit: 100 })
       ]);
       setQueue(queueRes.data.queue || []);
@@ -31,6 +33,7 @@ export default function OPDQueue() {
       setPatients(patientsRes.data.patients || []);
     } catch (error) {
       console.error('Failed to fetch OPD data:', error);
+      toast.error('Failed to load queue data');
     } finally {
       setLoading(false);
     }
@@ -38,31 +41,59 @@ export default function OPDQueue() {
 
   const handleAddToQueue = async (e) => {
     e.preventDefault();
-    if (!selectedPatient || !appointmentTime || !chiefComplaint) return;
+    if (!selectedPatient || !chiefComplaint) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
 
     try {
       await opdAPI.addToQueue({
         patient_id: selectedPatient,
-        appointment_time: appointmentTime,
         chief_complaint: chiefComplaint,
       });
+      toast.success('Patient added to queue');
       fetchData();
       setShowAddForm(false);
       setSelectedPatient('');
-      setAppointmentTime('');
       setChiefComplaint('');
     } catch (error) {
       console.error('Failed to add to queue:', error);
-      alert('Failed to add patient to queue');
+      toast.error(error.errorMessage || 'Failed to add patient to queue');
     }
   };
 
   const handleStatusChange = async (id, newStatus) => {
     try {
       await opdAPI.updateStatus(id, newStatus);
+      toast.success('Status updated');
       fetchData();
     } catch (error) {
       console.error('Failed to update status:', error);
+      toast.error('Failed to update status');
+    }
+  };
+
+  const handleMoveUp = async (item) => {
+    if (item.queue_number <= 1) return;
+    try {
+      await opdAPI.updatePosition(item.id, item.queue_number - 1);
+      toast.success('Patient moved up in queue');
+      fetchData();
+    } catch (error) {
+      console.error('Failed to move patient:', error);
+      toast.error('Failed to reorder queue');
+    }
+  };
+
+  const handleMoveDown = async (item) => {
+    if (item.queue_number >= queue.length) return;
+    try {
+      await opdAPI.updatePosition(item.id, item.queue_number + 1);
+      toast.success('Patient moved down in queue');
+      fetchData();
+    } catch (error) {
+      console.error('Failed to move patient:', error);
+      toast.error('Failed to reorder queue');
     }
   };
 
@@ -83,24 +114,38 @@ export default function OPDQueue() {
     ? queue
     : queue.filter(item => item.status === filterStatus);
 
+  const isToday = selectedDate === new Date().toISOString().split('T')[0];
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">OPD Queue</h1>
-          <p className="text-gray-600 mt-1">Manage today's patient queue</p>
+          <p className="text-gray-600 mt-1">
+            {isToday ? "Manage today's patient queue" : `Viewing queue for ${new Date(selectedDate).toLocaleDateString()}`}
+          </p>
         </div>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="btn btn-primary"
-        >
-          {showAddForm ? 'Cancel' : '+ Add to Queue'}
-        </button>
+        <div className="flex gap-3 items-center">
+          <input
+            type="date"
+            className="input !w-auto"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+          />
+          {isToday && (
+            <button
+              onClick={() => setShowAddForm(!showAddForm)}
+              className="btn btn-primary"
+            >
+              {showAddForm ? 'Cancel' : '+ Add to Queue'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Add to Queue Form */}
-      {showAddForm && (
+      {showAddForm && isToday && (
         <div className="card bg-blue-50 border border-blue-200">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Add Patient to Queue</h2>
           <form onSubmit={handleAddToQueue} className="space-y-4">
@@ -122,16 +167,6 @@ export default function OPDQueue() {
                 </select>
               </div>
               <div>
-                <label className="label">Appointment Time *</label>
-                <input
-                  type="time"
-                  className="input"
-                  value={appointmentTime}
-                  onChange={(e) => setAppointmentTime(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="md:col-span-2">
                 <label className="label">Chief Complaint *</label>
                 <input
                   type="text"
@@ -162,7 +197,7 @@ export default function OPDQueue() {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card !p-4">
-          <p className="text-sm text-gray-600">Total Today</p>
+          <p className="text-sm text-gray-600">Total {isToday ? 'Today' : ''}</p>
           <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
         </div>
         <div className="card !p-4">
@@ -227,21 +262,46 @@ export default function OPDQueue() {
 
       {/* Queue List */}
       <div className="space-y-3">
-        {filteredQueue.length === 0 ? (
+        {loading ? (
+          <div className="card text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+            <p className="mt-4 text-gray-500">Loading queue...</p>
+          </div>
+        ) : filteredQueue.length === 0 ? (
           <div className="card text-center py-12 text-gray-500">
             <div className="text-4xl mb-2">📋</div>
             <p>No patients in queue</p>
             <p className="text-sm mt-1">Add patients to get started</p>
           </div>
         ) : (
-          filteredQueue.map((item) => (
+          filteredQueue.map((item, index) => (
             <div
               key={item.id}
               className="card hover:shadow-md transition-shadow"
             >
               <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                {/* Queue Number */}
-                <div className="flex-shrink-0">
+                {/* Queue Number with Reorder Buttons */}
+                <div className="flex-shrink-0 flex items-center gap-2">
+                  {isToday && item.status === 'WAITING' && (
+                    <div className="flex flex-col gap-1">
+                      <button
+                        onClick={() => handleMoveUp(item)}
+                        disabled={item.queue_number <= 1}
+                        className="p-1 text-gray-500 hover:text-primary-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Move up in queue"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        onClick={() => handleMoveDown(item)}
+                        disabled={item.queue_number >= queue.length}
+                        className="p-1 text-gray-500 hover:text-primary-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Move down in queue"
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  )}
                   <div className="w-16 h-16 bg-primary-100 rounded-lg flex items-center justify-center">
                     <span className="text-2xl font-bold text-primary-600">
                       {item.queue_number}
@@ -264,24 +324,16 @@ export default function OPDQueue() {
                       {item.status.replace('_', ' ')}
                     </span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
-                    <div>
-                      <span className="text-gray-600">Appointment:</span>
-                      <span className="ml-1 font-medium">{item.appointment_time}</span>
-                    </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
                     <div>
                       <span className="text-gray-600">Check-in:</span>
-                      <span className="ml-1 font-medium">{item.check_in_time || new Date(item.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                      <span className="ml-1 font-medium">
+                        {item.created_at ? new Date(item.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}
+                      </span>
                     </div>
-                    {item.completed_at && (
-                      <div>
-                        <span className="text-gray-600">Completed:</span>
-                        <span className="ml-1 font-medium">{new Date(item.completed_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                      </div>
-                    )}
-                    <div className="sm:col-span-2 lg:col-span-1">
+                    <div className="sm:col-span-2 lg:col-span-2">
                       <span className="text-gray-600">Complaint:</span>
-                      <span className="ml-1 font-medium">{item.chief_complaint}</span>
+                      <span className="ml-1 font-medium">{item.chief_complaint || '-'}</span>
                     </div>
                   </div>
                 </div>
@@ -297,45 +349,47 @@ export default function OPDQueue() {
                         Start Consultation
                       </button>
                       <Link
-                      to={`/patients/${item.patient_id}`}
-                      className="btn btn-secondary text-sm"
-                    >
-                      View Patient
-                    </Link>
-                  </>
-                )}
-                {item.status === 'IN_PROGRESS' && (
-                  <>
-                    <Link
-                      to={`/visits/new?patientId=${item.patient_id}`}
-                      className="btn btn-primary text-sm"
-                    >
-                      Record Visit
-                    </Link>
-                    <button
-                      onClick={() => handleStatusChange(item.id, 'COMPLETED')}
-                      className="btn btn-secondary text-sm"
-                    >
-                      Mark Complete
-                    </button>
-                  </>
-                )}
-                {item.status === 'COMPLETED' && (
-                  <>
-                    <Link
-                      to={`/patients/${item.patient_id}`}
-                      className="btn btn-secondary text-sm"
-                    >
-                      View Patient
-                    </Link>
-                    <button
-                      onClick={() => handleStatusChange(item.id, 'WAITING')}
-                      className="btn btn-secondary text-sm"
-                    >
-                      Reopen
-                    </button>
-                  </>
-                )}
+                        to={`/patients/${item.patient_id}`}
+                        className="btn btn-secondary text-sm"
+                      >
+                        View Patient
+                      </Link>
+                    </>
+                  )}
+                  {item.status === 'IN_PROGRESS' && (
+                    <>
+                      <Link
+                        to={`/visits/new?patientId=${item.patient_id}`}
+                        className="btn btn-primary text-sm"
+                      >
+                        Record Visit
+                      </Link>
+                      <button
+                        onClick={() => handleStatusChange(item.id, 'COMPLETED')}
+                        className="btn btn-secondary text-sm"
+                      >
+                        Mark Complete
+                      </button>
+                    </>
+                  )}
+                  {item.status === 'COMPLETED' && (
+                    <>
+                      <Link
+                        to={`/patients/${item.patient_id}`}
+                        className="btn btn-secondary text-sm"
+                      >
+                        View Patient
+                      </Link>
+                      {isToday && (
+                        <button
+                          onClick={() => handleStatusChange(item.id, 'WAITING')}
+                          className="btn btn-secondary text-sm"
+                        >
+                          Reopen
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -346,9 +400,9 @@ export default function OPDQueue() {
       {/* Help Text */}
       <div className="card bg-blue-50 border border-blue-200">
         <p className="text-sm text-blue-800">
-          💡 <strong>Quick Guide:</strong> Click "Add to Queue" to register patients for today's OPD.
+          <strong>Quick Guide:</strong> Click "Add to Queue" to register patients for today's OPD.
           Use "Start Consultation" to begin, then "Record Visit" to document the consultation.
-          Mark as complete when done.
+          Use the arrow buttons to reorder waiting patients if needed.
         </p>
       </div>
     </div>

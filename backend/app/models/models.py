@@ -148,6 +148,7 @@ class Appointment(Base):
     patient_id = Column(String, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False)
     appointment_date = Column(Date, nullable=False, index=True)
     queue_number = Column(Integer)
+    chief_complaint = Column(String, nullable=True)
     status = Column(Enum(AppointmentStatusEnum), default=AppointmentStatusEnum.WAITING)
     clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
     created_by = Column(String, ForeignKey("users.id"), nullable=False)

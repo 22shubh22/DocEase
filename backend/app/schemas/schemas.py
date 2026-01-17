@@ -157,6 +157,7 @@ class PatientResponse(PatientBase):
 # Appointment Schemas
 class AppointmentBase(BaseModel):
     patient_id: str
+    chief_complaint: Optional[str] = None
 
 
 class AppointmentCreate(AppointmentBase):
@@ -164,13 +165,18 @@ class AppointmentCreate(AppointmentBase):
 
 
 class AppointmentUpdate(BaseModel):
-    status: AppointmentStatusEnum
+    status: Optional[AppointmentStatusEnum] = None
+
+
+class AppointmentPositionUpdate(BaseModel):
+    new_position: int
 
 
 class AppointmentResponse(AppointmentBase):
     id: str
     appointment_date: date
     queue_number: Optional[int] = None
+    chief_complaint: Optional[str] = None
     status: AppointmentStatusEnum
     created_at: datetime
 

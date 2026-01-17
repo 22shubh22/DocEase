@@ -66,10 +66,11 @@ export const patientsAPI = {
 
 // OPD API
 export const opdAPI = {
-  getQueue: () => api.get('/opd/queue'),
-  getStats: () => api.get('/opd/stats'),
+  getQueue: (params) => api.get('/opd/queue', { params }),
+  getStats: (params) => api.get('/opd/stats', { params }),
   addToQueue: (data) => api.post('/opd/appointments/', data),
   updateStatus: (id, status) => api.put(`/opd/appointments/${id}/status`, { status }),
+  updatePosition: (id, newPosition) => api.put(`/opd/appointments/${id}/position`, { new_position: newPosition }),
 };
 
 // Visits API
