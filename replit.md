@@ -13,6 +13,16 @@ A comprehensive clinic management system built with FastAPI (backend) and React 
 
 ## Recent Changes (January 17, 2026)
 
+### Diagnosis and Observation Options Management
+- Added DiagnosisOption and ObservationOption models to database (same structure as ChiefComplaint)
+- Created API endpoints at `/api/diagnosis-options` and `/api/observation-options` (doctor-only)
+- Added "Diagnosis Options" and "Clinical Observations" tabs to Settings page (doctor-only)
+- Doctors can add, edit, delete, and toggle active/inactive status for diagnosis and observation options
+- Updated Visit Form to show dropdowns for diagnosis/observations when options are configured
+- "Other" option allows custom text entry for diagnoses/observations not in the list
+- Seeded 15 dental-specific diagnoses and 15 clinical observations
+- Added validation to require diagnosis when dropdown options exist
+
 ### Chief Complaints Management Tab
 - Added "Chief Complaints" tab to Settings page (visible only to doctors)
 - Doctors can add, edit, delete, and toggle active/inactive status for complaints
