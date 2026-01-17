@@ -430,7 +430,7 @@ async def get_all_doctors(
     # Build response
     result = []
     for doctor in doctors:
-        clinic = db.query(Clinic).filter(Clinic.id == doctor.clinic_id).first()
+        clinic = doctor.clinic
         user = doctor.user
 
         result.append({
