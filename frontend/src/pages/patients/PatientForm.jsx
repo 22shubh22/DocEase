@@ -1,14 +1,13 @@
 import { useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { patientsAPI } from '../../services/api';
 
 export default function PatientForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(!!id);
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm();
@@ -35,7 +34,7 @@ export default function PatientForm() {
           });
         } catch (error) {
           console.error('Error fetching patient:', error);
-          setErrorMessage('Failed to load patient data.');
+          toast.error(error.errorMessage || 'Failed to load patient data.');
         } finally {
           setIsLoading(false);
         }
@@ -46,8 +45,6 @@ export default function PatientForm() {
 
   const onSubmit = async (data) => {
     setIsSubmitting(true);
-    setSuccessMessage('');
-    setErrorMessage('');
 
     try {
       const patientData = {
@@ -56,29 +53,26 @@ export default function PatientForm() {
         gender: data.gender || null,
         blood_group: data.bloodGroup || null,
         phone: data.phone,
-        emergency_contact: data.emergencyContact || null,
+        emergency_contact: data.emergency_contact || null,
         address: data.address || null,
         allergies: data.allergies || null,
-        medical_history: data.medicalHistory || null,
+        medical_history: data.medical_history || null,
         patient_since: data.patientSince || null,
       };
 
       if (id) {
         await patientsAPI.update(id, patientData);
-        setSuccessMessage('Patient updated successfully!');
+        toast.success('Patient updated successfully!');
       } else {
         const response = await patientsAPI.create(patientData);
         const newPatient = response.data;
-        setSuccessMessage(`Patient added successfully! Patient Code: ${newPatient.patient_code}`);
+        toast.success(`Patient added successfully! Code: ${newPatient.patient_code}`);
       }
 
-      setTimeout(() => {
-        navigate('/patients');
-      }, 1500);
-
+      navigate('/patients');
     } catch (error) {
       console.error('Error saving patient:', error);
-      setErrorMessage(error.response?.data?.detail || `Failed to ${id ? 'update' : 'add'} patient. Please try again.`);
+      toast.error(error.errorMessage || `Failed to ${id ? 'update' : 'add'} patient.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -102,18 +96,6 @@ export default function PatientForm() {
           {id ? 'Update patient information' : 'Enter patient details to create a new record'}
         </p>
       </div>
-
-      {successMessage && (
-        <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-          {successMessage}
-        </div>
-      )}
-
-      {errorMessage && (
-        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          {errorMessage}
-        </div>
-      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="card space-y-6">
         <div>

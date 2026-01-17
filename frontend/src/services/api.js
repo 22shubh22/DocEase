@@ -30,6 +30,16 @@ api.interceptors.response.use(
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
+    
+    // Extract error message from backend response
+    const errorMessage = error.response?.data?.detail || 
+                        error.response?.data?.message || 
+                        error.message || 
+                        'An unexpected error occurred';
+    
+    // Attach extracted message to error object
+    error.errorMessage = errorMessage;
+    
     return Promise.reject(error);
   }
 );

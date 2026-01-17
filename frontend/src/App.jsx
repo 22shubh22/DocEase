@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import useAuthStore from './store/authStore';
 import Login from './pages/Login';
 import DashboardLayout from './components/layout/DashboardLayout';
@@ -33,7 +34,9 @@ function App() {
   const user = useAuthStore((state) => state.user);
 
   return (
-    <Routes>
+    <>
+      <Toaster position="top-right" />
+      <Routes>
       <Route
         path="/login"
         element={isAuthenticated ? <Navigate to="/" /> : <Login />}
@@ -82,6 +85,7 @@ function App() {
         <Route path="admin/clinics/:clinicId" element={<AdminRoute><ClinicManagement /></AdminRoute>} />
       </Route>
     </Routes>
+    </>
   );
 }
 

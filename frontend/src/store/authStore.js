@@ -50,7 +50,7 @@ const useAuthStore = create((set) => ({
       set({ user, token, isAuthenticated: true, isLoading: false });
       return { success: true };
     } catch (error) {
-      const errorMessage = error.response?.data?.error?.message || 'Login failed';
+      const errorMessage = error.errorMessage || error.response?.data?.detail || 'Login failed';
       set({ error: errorMessage, isLoading: false });
       return { success: false, error: errorMessage };
     }
