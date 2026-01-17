@@ -1,23 +1,24 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
+import { toast } from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 
 export default function Login() {
   const navigate = useNavigate();
   const { login, isLoading, error } = useAuthStore();
   const { register, handleSubmit, formState: { errors } } = useForm();
-  const [loginError, setLoginError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const onSubmit = async (data) => {
-    setLoginError('');
     const result = await login(data);
     
     if (result.success) {
+      toast.success('Welcome back!');
       navigate('/');
     } else {
-      setLoginError(result.error);
+      // result.error already contains the message from extraction in store
+      toast.error(result.error);
     }
   };
 
@@ -30,12 +31,6 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {(loginError || error) && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {loginError || error}
-            </div>
-          )}
-
           <div>
             <label className="label">Email</label>
             <input
