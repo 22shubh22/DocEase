@@ -1,0 +1,43 @@
+Traceback (most recent call last):
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/bin/alembic", line 8, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/config.py", line 641, in main
+    CommandLine(prog=prog).main(argv=argv)
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/config.py", line 631, in main
+    self.run_cmd(cfg, options)
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/config.py", line 608, in run_cmd
+    fn(
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/command.py", line 403, in upgrade
+    script.run_env()
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/script/base.py", line 583, in run_env
+    util.load_python_file(self.dir, "env.py")
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/util/pyfiles.py", line 95, in load_python_file
+    module = load_module_py(module_id, path)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/alembic/util/pyfiles.py", line 113, in load_module_py
+    spec.loader.exec_module(module)  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap_external>", line 940, in exec_module
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/alembic/env.py", line 60, in <module>
+    run_migrations_online()
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/alembic/env.py", line 43, in run_migrations_online
+    connectable = engine_from_config(
+                  ^^^^^^^^^^^^^^^^^^^
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/sqlalchemy/engine/create.py", line 811, in engine_from_config
+    return create_engine(url, **options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 2, in create_engine
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/sqlalchemy/util/deprecations.py", line 281, in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/sqlalchemy/engine/create.py", line 552, in create_engine
+    entrypoint = u._get_entrypoint()
+                 ^^^^^^^^^^^^^^^^^^^
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/sqlalchemy/engine/url.py", line 755, in _get_entrypoint
+    cls = registry.load(name)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/Users/shubhamgoyal/non-cognavi/DocEase/backend/venv/lib/python3.11/site-packages/sqlalchemy/util/langhelpers.py", line 374, in load
+    raise exc.NoSuchModuleError(
+sqlalchemy.exc.NoSuchModuleError: Can't load plugin: sqlalchemy.dialects:driver
