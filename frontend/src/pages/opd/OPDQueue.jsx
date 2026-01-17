@@ -1,132 +1,69 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-
-// Mock patients for selection
-const mockPatients = [
-  { id: '1', patientCode: 'PT-0001', fullName: 'Rajesh Kumar', age: 45, phone: '+91 9876543210' },
-  { id: '2', patientCode: 'PT-0002', fullName: 'Priya Sharma', age: 32, phone: '+91 9876543211' },
-  { id: '3', patientCode: 'PT-0003', fullName: 'Amit Patel', age: 58, phone: '+91 9876543212' },
-];
-
-// In-memory OPD queue storage
-const opdQueueStore = {
-  queue: [
-    {
-      id: 'opd-1',
-      queueNumber: 1,
-      patientId: '1',
-      patientCode: 'PT-0001',
-      patientName: 'Rajesh Kumar',
-      age: 45,
-      phone: '+91 9876543210',
-      status: 'COMPLETED',
-      appointmentTime: '09:00 AM',
-      checkInTime: '09:05 AM',
-      completedTime: '09:30 AM',
-      chiefComplaint: 'Regular checkup',
-    },
-    {
-      id: 'opd-2',
-      queueNumber: 2,
-      patientId: '2',
-      patientCode: 'PT-0002',
-      patientName: 'Priya Sharma',
-      age: 32,
-      phone: '+91 9876543211',
-      status: 'IN_PROGRESS',
-      appointmentTime: '09:30 AM',
-      checkInTime: '09:28 AM',
-      chiefComplaint: 'Fever and headache',
-    },
-    {
-      id: 'opd-3',
-      queueNumber: 3,
-      patientId: '3',
-      patientCode: 'PT-0003',
-      patientName: 'Amit Patel',
-      age: 58,
-      phone: '+91 9876543212',
-      status: 'WAITING',
-      appointmentTime: '10:00 AM',
-      checkInTime: '09:45 AM',
-      chiefComplaint: 'Follow-up visit',
-    },
-  ],
-  nextQueueNumber: 4,
-
-  add(appointmentData) {
-    const patient = mockPatients.find(p => p.id === appointmentData.patientId);
-    const newAppointment = {
-      id: `opd-${Date.now()}`,
-      queueNumber: this.nextQueueNumber++,
-      patientId: patient.id,
-      patientCode: patient.patientCode,
-      patientName: patient.fullName,
-      age: patient.age,
-      phone: patient.phone,
-      status: 'WAITING',
-      appointmentTime: appointmentData.appointmentTime,
-      checkInTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      chiefComplaint: appointmentData.chiefComplaint,
-    };
-    this.queue.push(newAppointment);
-    return newAppointment;
-  },
-
-  updateStatus(id, status) {
-    const appointment = this.queue.find(a => a.id === id);
-    if (appointment) {
-      appointment.status = status;
-      if (status === 'COMPLETED') {
-        appointment.completedTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-      }
-    }
-  },
-
-  getStats() {
-    return {
-      total: this.queue.length,
-      waiting: this.queue.filter(a => a.status === 'WAITING').length,
-      inProgress: this.queue.filter(a => a.status === 'IN_PROGRESS').length,
-      completed: this.queue.filter(a => a.status === 'COMPLETED').length,
-    };
-  }
-};
+import { opdAPI, patientsAPI } from '../../services/api';
 
 export default function OPDQueue() {
-  const [queue, setQueue] = useState(opdQueueStore.queue);
+  const [queue, setQueue] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ total: 0, waiting: 0, inProgress: 0, completed: 0 });
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState('');
   const [appointmentTime, setAppointmentTime] = useState('');
   const [chiefComplaint, setChiefComplaint] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
 
-  const stats = opdQueueStore.getStats();
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
 
-  const handleAddToQueue = (e) => {
-    e.preventDefault();
-
-    if (!selectedPatient || !appointmentTime || !chiefComplaint) {
-      alert('Please fill all fields');
-      return;
+  const fetchData = async () => {
+    try {
+      const [queueRes, statsRes, patientsRes] = await Promise.all([
+        opdAPI.getQueue(),
+        opdAPI.getStats(),
+        patientsAPI.getAll({ limit: 100 })
+      ]);
+      setQueue(queueRes.data.queue || []);
+      setStats(statsRes.data.stats || { total: 0, waiting: 0, inProgress: 0, completed: 0 });
+      setPatients(patientsRes.data.patients || []);
+    } catch (error) {
+      console.error('Failed to fetch OPD data:', error);
+    } finally {
+      setLoading(false);
     }
-
-    opdQueueStore.add({
-      patientId: selectedPatient,
-      appointmentTime,
-      chiefComplaint,
-    });
-
-    setQueue([...opdQueueStore.queue]);
-    setShowAddForm(false);
-    setSelectedPatient('');
-    setAppointmentTime('');
-    setChiefComplaint('');
   };
 
-  const handleStatusChange = (id, newStatus) => {
-    opdQueueStore.updateStatus(id, newStatus);
-    setQueue([...opdQueueStore.queue]);
+  const handleAddToQueue = async (e) => {
+    e.preventDefault();
+    if (!selectedPatient || !appointmentTime || !chiefComplaint) return;
+
+    try {
+      await opdAPI.addToQueue({
+        patient_id: selectedPatient,
+        appointment_time: appointmentTime,
+        chief_complaint: chiefComplaint,
+      });
+      fetchData();
+      setShowAddForm(false);
+      setSelectedPatient('');
+      setAppointmentTime('');
+      setChiefComplaint('');
+    } catch (error) {
+      console.error('Failed to add to queue:', error);
+      alert('Failed to add patient to queue');
+    }
+  };
+
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      await opdAPI.updateStatus(id, newStatus);
+      fetchData();
+    } catch (error) {
+      console.error('Failed to update status:', error);
+    }
   };
 
   const getStatusBadgeClass = (status) => {
@@ -177,9 +114,9 @@ export default function OPDQueue() {
                   required
                 >
                   <option value="">Choose a patient...</option>
-                  {mockPatients.map(patient => (
+                  {patients.map(patient => (
                     <option key={patient.id} value={patient.id}>
-                      {patient.patientCode} - {patient.fullName}
+                      {patient.patient_code} - {patient.full_name}
                     </option>
                   ))}
                 </select>
@@ -307,7 +244,7 @@ export default function OPDQueue() {
                 <div className="flex-shrink-0">
                   <div className="w-16 h-16 bg-primary-100 rounded-lg flex items-center justify-center">
                     <span className="text-2xl font-bold text-primary-600">
-                      {item.queueNumber}
+                      {item.queue_number}
                     </span>
                   </div>
                 </div>
@@ -317,10 +254,10 @@ export default function OPDQueue() {
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">
-                        {item.patientName}
+                        {item.patient_name || item.patient?.full_name}
                       </h3>
                       <p className="text-sm text-gray-600">
-                        {item.patientCode} • {item.age} yrs • {item.phone}
+                        {item.patient_code || item.patient?.patient_code} • {item.patient?.age} yrs • {item.patient?.phone}
                       </p>
                     </div>
                     <span className={getStatusBadgeClass(item.status)}>
@@ -330,21 +267,21 @@ export default function OPDQueue() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
                     <div>
                       <span className="text-gray-600">Appointment:</span>
-                      <span className="ml-1 font-medium">{item.appointmentTime}</span>
+                      <span className="ml-1 font-medium">{item.appointment_time}</span>
                     </div>
                     <div>
                       <span className="text-gray-600">Check-in:</span>
-                      <span className="ml-1 font-medium">{item.checkInTime}</span>
+                      <span className="ml-1 font-medium">{item.check_in_time || new Date(item.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                     </div>
-                    {item.completedTime && (
+                    {item.completed_at && (
                       <div>
                         <span className="text-gray-600">Completed:</span>
-                        <span className="ml-1 font-medium">{item.completedTime}</span>
+                        <span className="ml-1 font-medium">{new Date(item.completed_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                       </div>
                     )}
                     <div className="sm:col-span-2 lg:col-span-1">
                       <span className="text-gray-600">Complaint:</span>
-                      <span className="ml-1 font-medium">{item.chiefComplaint}</span>
+                      <span className="ml-1 font-medium">{item.chief_complaint}</span>
                     </div>
                   </div>
                 </div>
@@ -360,45 +297,45 @@ export default function OPDQueue() {
                         Start Consultation
                       </button>
                       <Link
-                        to={`/patients/${item.patientId}`}
-                        className="btn btn-secondary text-sm"
-                      >
-                        View Patient
-                      </Link>
-                    </>
-                  )}
-                  {item.status === 'IN_PROGRESS' && (
-                    <>
-                      <Link
-                        to={`/visits/new?patientId=${item.patientId}`}
-                        className="btn btn-primary text-sm"
-                      >
-                        Record Visit
-                      </Link>
-                      <button
-                        onClick={() => handleStatusChange(item.id, 'COMPLETED')}
-                        className="btn btn-secondary text-sm"
-                      >
-                        Mark Complete
-                      </button>
-                    </>
-                  )}
-                  {item.status === 'COMPLETED' && (
-                    <>
-                      <Link
-                        to={`/patients/${item.patientId}`}
-                        className="btn btn-secondary text-sm"
-                      >
-                        View Patient
-                      </Link>
-                      <button
-                        onClick={() => handleStatusChange(item.id, 'WAITING')}
-                        className="btn btn-secondary text-sm"
-                      >
-                        Reopen
-                      </button>
-                    </>
-                  )}
+                      to={`/patients/${item.patient_id}`}
+                      className="btn btn-secondary text-sm"
+                    >
+                      View Patient
+                    </Link>
+                  </>
+                )}
+                {item.status === 'IN_PROGRESS' && (
+                  <>
+                    <Link
+                      to={`/visits/new?patientId=${item.patient_id}`}
+                      className="btn btn-primary text-sm"
+                    >
+                      Record Visit
+                    </Link>
+                    <button
+                      onClick={() => handleStatusChange(item.id, 'COMPLETED')}
+                      className="btn btn-secondary text-sm"
+                    >
+                      Mark Complete
+                    </button>
+                  </>
+                )}
+                {item.status === 'COMPLETED' && (
+                  <>
+                    <Link
+                      to={`/patients/${item.patient_id}`}
+                      className="btn btn-secondary text-sm"
+                    >
+                      View Patient
+                    </Link>
+                    <button
+                      onClick={() => handleStatusChange(item.id, 'WAITING')}
+                      className="btn btn-secondary text-sm"
+                    >
+                      Reopen
+                    </button>
+                  </>
+                )}
                 </div>
               </div>
             </div>
@@ -411,21 +348,8 @@ export default function OPDQueue() {
         <p className="text-sm text-blue-800">
           💡 <strong>Quick Guide:</strong> Click "Add to Queue" to register patients for today's OPD.
           Use "Start Consultation" to begin, then "Record Visit" to document the consultation.
-          Mark as complete when done. Queue data is stored in memory and resets on page refresh.
+          Mark as complete when done.
         </p>
-      </div>
-
-      {/* Debug Info */}
-      <div className="card bg-gray-50">
-        <h3 className="font-semibold text-gray-900 mb-2">Debug: Queue in Memory</h3>
-        <p className="text-sm text-gray-600">
-          Total in queue: {opdQueueStore.queue.length}
-        </p>
-        {opdQueueStore.queue.length > 0 && (
-          <pre className="mt-2 text-xs bg-white p-2 rounded border overflow-auto max-h-40">
-            {JSON.stringify(opdQueueStore.queue, null, 2)}
-          </pre>
-        )}
       </div>
     </div>
   );
