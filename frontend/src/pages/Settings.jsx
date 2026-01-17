@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
+import { chiefComplaintsAPI } from '../services/api';
 
 export default function Settings() {
   const { user, updateUser } = useAuthStore();
@@ -36,12 +38,130 @@ export default function Settings() {
 
   const { register: registerPassword, handleSubmit: handlePasswordSubmit, formState: { errors: passwordErrors }, reset: resetPassword } = useForm();
 
+  const [chiefComplaints, setChiefComplaints] = useState([]);
+  const [loadingComplaints, setLoadingComplaints] = useState(false);
+  const [showAddComplaint, setShowAddComplaint] = useState(false);
+  const [editingComplaint, setEditingComplaint] = useState(null);
+  const [complaintForm, setComplaintForm] = useState({ name: '', description: '', display_order: 0 });
+
+  const isDoctor = user?.role === 'DOCTOR';
+
   const tabs = [
     { id: 'profile', label: 'Profile', icon: '👤' },
     { id: 'clinic', label: 'Clinic Settings', icon: '🏥' },
+    ...(isDoctor ? [{ id: 'complaints', label: 'Chief Complaints', icon: '📋' }] : []),
     { id: 'password', label: 'Change Password', icon: '🔒' },
     { id: 'preferences', label: 'Preferences', icon: '⚙️' },
   ];
+
+  useEffect(() => {
+    if (isDoctor) {
+      fetchChiefComplaints();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'complaints' && isDoctor && chiefComplaints.length === 0) {
+      fetchChiefComplaints();
+    }
+  }, [activeTab]);
+
+  const fetchChiefComplaints = async () => {
+    setLoadingComplaints(true);
+    try {
+      const response = await chiefComplaintsAPI.getAll(false);
+      setChiefComplaints(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch chief complaints:', error);
+      toast.error('Failed to load chief complaints');
+    } finally {
+      setLoadingComplaints(false);
+    }
+  };
+
+  const handleAddComplaint = async (e) => {
+    e.preventDefault();
+    if (!complaintForm.name.trim()) {
+      toast.error('Please enter a complaint name');
+      return;
+    }
+    try {
+      await chiefComplaintsAPI.create({
+        name: complaintForm.name,
+        description: complaintForm.description,
+        display_order: complaintForm.display_order || chiefComplaints.length + 1,
+        is_active: true,
+      });
+      toast.success('Chief complaint added');
+      setShowAddComplaint(false);
+      setComplaintForm({ name: '', description: '', display_order: 0 });
+      fetchChiefComplaints();
+    } catch (error) {
+      console.error('Failed to add complaint:', error);
+      toast.error(error.errorMessage || 'Failed to add chief complaint');
+    }
+  };
+
+  const handleUpdateComplaint = async (e) => {
+    e.preventDefault();
+    if (!complaintForm.name.trim()) {
+      toast.error('Please enter a complaint name');
+      return;
+    }
+    try {
+      await chiefComplaintsAPI.update(editingComplaint.id, {
+        name: complaintForm.name,
+        description: complaintForm.description,
+        display_order: complaintForm.display_order,
+        is_active: editingComplaint.is_active,
+      });
+      toast.success('Chief complaint updated');
+      setEditingComplaint(null);
+      setComplaintForm({ name: '', description: '', display_order: 0 });
+      fetchChiefComplaints();
+    } catch (error) {
+      console.error('Failed to update complaint:', error);
+      toast.error(error.errorMessage || 'Failed to update chief complaint');
+    }
+  };
+
+  const handleToggleActive = async (complaint) => {
+    try {
+      await chiefComplaintsAPI.update(complaint.id, {
+        name: complaint.name,
+        description: complaint.description,
+        display_order: complaint.display_order,
+        is_active: !complaint.is_active,
+      });
+      toast.success(complaint.is_active ? 'Complaint deactivated' : 'Complaint activated');
+      fetchChiefComplaints();
+    } catch (error) {
+      console.error('Failed to toggle complaint:', error);
+      toast.error(error.errorMessage || 'Failed to update complaint status');
+    }
+  };
+
+  const handleDeleteComplaint = async (complaint) => {
+    if (!confirm(`Are you sure you want to delete "${complaint.name}"?`)) return;
+    try {
+      await chiefComplaintsAPI.delete(complaint.id);
+      toast.success('Chief complaint deleted');
+      fetchChiefComplaints();
+    } catch (error) {
+      console.error('Failed to delete complaint:', error);
+      toast.error(error.errorMessage || 'Failed to delete chief complaint');
+    }
+  };
+
+  const startEditComplaint = (complaint) => {
+    setEditingComplaint(complaint);
+    setComplaintForm({
+      name: complaint.name,
+      description: complaint.description || '',
+      display_order: complaint.display_order,
+    });
+    setShowAddComplaint(false);
+  };
 
   const onProfileSubmit = async (data) => {
     setIsSubmitting(true);
@@ -312,6 +432,159 @@ export default function Settings() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Chief Complaints */}
+      {activeTab === 'complaints' && isDoctor && (
+        <div className="space-y-6">
+          <div className="card">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Chief Complaints
+              </h2>
+              <button
+                onClick={() => {
+                  setShowAddComplaint(true);
+                  setEditingComplaint(null);
+                  setComplaintForm({ name: '', description: '', display_order: chiefComplaints.length + 1 });
+                }}
+                className="btn btn-primary"
+              >
+                + Add Complaint
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Configure the common complaints that appear in the OPD queue dropdown. 
+              Patients can still enter custom complaints if needed.
+            </p>
+
+            {(showAddComplaint || editingComplaint) && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h3 className="font-medium text-gray-900 mb-3">
+                  {editingComplaint ? 'Edit Complaint' : 'Add New Complaint'}
+                </h3>
+                <form onSubmit={editingComplaint ? handleUpdateComplaint : handleAddComplaint} className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Complaint Name *</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="e.g., Toothache, Routine Checkup"
+                        value={complaintForm.name}
+                        onChange={(e) => setComplaintForm({ ...complaintForm, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Display Order</label>
+                      <input
+                        type="number"
+                        className="input"
+                        placeholder="1"
+                        value={complaintForm.display_order}
+                        onChange={(e) => setComplaintForm({ ...complaintForm, display_order: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="label">Description (Optional)</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="Brief description of the complaint"
+                        value={complaintForm.description}
+                        onChange={(e) => setComplaintForm({ ...complaintForm, description: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="submit" className="btn btn-primary">
+                      {editingComplaint ? 'Update' : 'Add'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddComplaint(false);
+                        setEditingComplaint(null);
+                        setComplaintForm({ name: '', description: '', display_order: 0 });
+                      }}
+                      className="btn btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {loadingComplaints ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                <p className="mt-2 text-gray-500">Loading complaints...</p>
+              </div>
+            ) : chiefComplaints.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <div className="text-4xl mb-2">📋</div>
+                <p>No chief complaints configured</p>
+                <p className="text-sm mt-1">Add complaints to show them in the OPD queue dropdown</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {chiefComplaints.map((complaint) => (
+                  <div
+                    key={complaint.id}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      complaint.is_active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-400 w-8">#{complaint.display_order}</span>
+                      <div>
+                        <span className={`font-medium ${complaint.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
+                          {complaint.name}
+                        </span>
+                        {complaint.description && (
+                          <p className="text-sm text-gray-500">{complaint.description}</p>
+                        )}
+                      </div>
+                      {!complaint.is_active && (
+                        <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Inactive</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => startEditComplaint(complaint)}
+                        className="text-sm text-primary-600 hover:text-primary-700"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleToggleActive(complaint)}
+                        className={`text-sm ${complaint.is_active ? 'text-yellow-600 hover:text-yellow-700' : 'text-green-600 hover:text-green-700'}`}
+                      >
+                        {complaint.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteComplaint(complaint)}
+                        className="text-sm text-red-600 hover:text-red-700"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card bg-blue-50 border border-blue-200">
+            <p className="text-sm text-blue-800">
+              <strong>Tip:</strong> Use the display order to arrange complaints. Lower numbers appear first in the dropdown.
+              Deactivated complaints won't appear in the OPD queue but are kept for historical records.
+            </p>
+          </div>
         </div>
       )}
 
