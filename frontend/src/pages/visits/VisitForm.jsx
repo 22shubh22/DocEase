@@ -1,35 +1,8 @@
 import { useForm } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useAuthStore from '../../store/authStore';
-
-// Mock patients for selection
-const mockPatients = [
-  { id: '1', patientCode: 'PT-0001', fullName: 'Rajesh Kumar', age: 45, allergies: ['Penicillin'] },
-  { id: '2', patientCode: 'PT-0002', fullName: 'Priya Sharma', age: 32, allergies: [] },
-  { id: '3', patientCode: 'PT-0003', fullName: 'Amit Patel', age: 58, allergies: ['Aspirin', 'Sulfa drugs'] },
-];
-
-// In-memory visit storage
-const visitsStore = {
-  visits: [],
-  nextId: 1,
-
-  add(visit) {
-    const newVisit = {
-      ...visit,
-      id: `visit-${this.nextId++}`,
-      visitDate: new Date().toISOString(),
-      visitNumber: this.nextId,
-    };
-    this.visits.push(newVisit);
-    return newVisit;
-  },
-
-  getAll() {
-    return this.visits;
-  }
-};
+import { patientsAPI } from '../../services/api';
 
 export default function VisitForm() {
   const navigate = useNavigate();
@@ -39,40 +12,62 @@ export default function VisitForm() {
   const { user } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [selectedPatient, setSelectedPatient] = useState(
-    patientIdFromUrl ? mockPatients.find(p => p.id === patientIdFromUrl) : null
-  );
+  const [patients, setPatients] = useState([]);
+  const [loadingPatients, setLoadingPatients] = useState(true);
+  const [selectedPatient, setSelectedPatient] = useState(null);
 
-  const { register, handleSubmit, formState: { errors }, reset, watch } = useForm({
+  const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm({
     defaultValues: {
-      patientId: patientIdFromUrl || '',
+      patientId: '',
     }
   });
 
   const watchedPatientId = watch('patientId');
 
-  // Update selected patient when selection changes
-  useState(() => {
+  useEffect(() => {
+    const fetchPatients = async () => {
+      try {
+        setLoadingPatients(true);
+        const response = await patientsAPI.getAll({ limit: 100 });
+        const patientsList = response.data.patients || [];
+        setPatients(patientsList);
+        
+        if (patientIdFromUrl) {
+          const patient = patientsList.find(p => p.id === patientIdFromUrl);
+          if (patient) {
+            setSelectedPatient(patient);
+            setValue('patientId', patient.id);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch patients:', error);
+      } finally {
+        setLoadingPatients(false);
+      }
+    };
+
+    fetchPatients();
+  }, [patientIdFromUrl, setValue]);
+
+  useEffect(() => {
     if (watchedPatientId) {
-      const patient = mockPatients.find(p => p.id === watchedPatientId);
+      const patient = patients.find(p => p.id === watchedPatientId);
       setSelectedPatient(patient);
     }
-  }, [watchedPatientId]);
+  }, [watchedPatientId, patients]);
 
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     setSuccessMessage('');
 
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-
     try {
       const visitData = {
-        ...data,
-        patientId: selectedPatient?.id,
-        patientName: selectedPatient?.fullName,
-        doctorId: user?.id,
-        doctorName: user?.fullName,
+        patient_id: selectedPatient?.id,
+        symptoms: data.symptoms,
+        diagnosis: data.diagnosis,
+        observations: data.observations,
+        recommended_tests: data.recommendedTests ? data.recommendedTests.split(',').map(t => t.trim()) : [],
+        follow_up_date: data.followUpDate || null,
         vitals: {
           bp: data.bp,
           temperature: data.temperature,
@@ -83,20 +78,10 @@ export default function VisitForm() {
         }
       };
 
-      // Remove individual vitals from main data
-      delete visitData.bp;
-      delete visitData.temperature;
-      delete visitData.pulse;
-      delete visitData.weight;
-      delete visitData.height;
-      delete visitData.spo2;
+      const response = await patientsAPI.createVisit(selectedPatient.id, visitData);
+      const newVisit = response.data.visit;
 
-      const newVisit = visitsStore.add(visitData);
-
-      console.log('Visit recorded:', newVisit);
-      console.log('All visits:', visitsStore.getAll());
-
-      setSuccessMessage(`Visit recorded successfully! Visit #${newVisit.visitNumber}`);
+      setSuccessMessage(`Visit recorded successfully!`);
 
       setTimeout(() => {
         navigate(`/patients/${selectedPatient.id}`);
@@ -139,21 +124,22 @@ export default function VisitForm() {
           <div className="space-y-4">
             <div>
               <label className="label">Select Patient *</label>
-              <select
-                className="input"
-                {...register('patientId', { required: 'Please select a patient' })}
-                onChange={(e) => {
-                  const patient = mockPatients.find(p => p.id === e.target.value);
-                  setSelectedPatient(patient);
-                }}
-              >
-                <option value="">Choose a patient...</option>
-                {mockPatients.map(patient => (
-                  <option key={patient.id} value={patient.id}>
-                    {patient.patientCode} - {patient.fullName} ({patient.age} yrs)
-                  </option>
-                ))}
-              </select>
+              {loadingPatients ? (
+                <div className="animate-pulse bg-gray-200 h-10 rounded"></div>
+              ) : (
+                <select
+                  className="input"
+                  {...register('patientId', { required: 'Please select a patient' })}
+                  disabled={!!patientIdFromUrl}
+                >
+                  <option value="">Choose a patient...</option>
+                  {patients.map(patient => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.patient_code} - {patient.full_name} ({patient.age} yrs)
+                    </option>
+                  ))}
+                </select>
+              )}
               {errors.patientId && (
                 <p className="text-red-500 text-sm mt-1">{errors.patientId.message}</p>
               )}
@@ -336,19 +322,6 @@ export default function VisitForm() {
           </p>
         </div>
       </form>
-
-      {/* Debug Info */}
-      <div className="card mt-6 bg-gray-50">
-        <h3 className="font-semibold text-gray-900 mb-2">Debug: Visits in Memory</h3>
-        <p className="text-sm text-gray-600">
-          Total visits recorded: {visitsStore.getAll().length}
-        </p>
-        {visitsStore.getAll().length > 0 && (
-          <pre className="mt-2 text-xs bg-white p-2 rounded border overflow-auto max-h-40">
-            {JSON.stringify(visitsStore.getAll(), null, 2)}
-          </pre>
-        )}
-      </div>
     </div>
   );
 }
