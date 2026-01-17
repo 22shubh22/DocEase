@@ -139,12 +139,18 @@ async def create_patient(
     
     patient_code = f"PT-{str(max_num + 1).zfill(4)}"
 
+    patient_dict = patient_data.model_dump()
+    patient_since = patient_dict.pop('patient_since', None)
+    
     patient = Patient(
-        **patient_data.model_dump(),
+        **patient_dict,
         patient_code=patient_code,
         clinic_id=current_user.clinic_id,
         created_by=current_user.id
     )
+    
+    if patient_since:
+        patient.created_at = patient_since
 
     db.add(patient)
     db.commit()
@@ -170,8 +176,13 @@ async def update_patient(
         raise HTTPException(status_code=404, detail="Patient not found")
 
     update_data = patient_data.model_dump(exclude_unset=True)
+    patient_since = update_data.pop('patient_since', None)
+    
     for field, value in update_data.items():
         setattr(patient, field, value)
+    
+    if patient_since:
+        patient.created_at = patient_since
 
     db.commit()
     db.refresh(patient)

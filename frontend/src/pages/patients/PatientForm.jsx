@@ -31,6 +31,7 @@ export default function PatientForm() {
             address: patient.address,
             allergies: patient.allergies,
             medicalHistory: patient.medical_history,
+            patientSince: patient.created_at ? patient.created_at.split('T')[0] : '',
           });
         } catch (error) {
           console.error('Error fetching patient:', error);
@@ -59,6 +60,7 @@ export default function PatientForm() {
         address: data.address || null,
         allergies: data.allergies || null,
         medical_history: data.medicalHistory || null,
+        patient_since: data.patientSince || null,
       };
 
       if (id) {
@@ -173,6 +175,18 @@ export default function PatientForm() {
                 <option value="O+">O+</option>
                 <option value="O-">O-</option>
               </select>
+            </div>
+
+            <div>
+              <label className="label">Patient Since</label>
+              <input
+                type="date"
+                className="input"
+                {...register('patientSince')}
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                When did this patient first visit? (Leave empty for today's date)
+              </p>
             </div>
           </div>
         </div>

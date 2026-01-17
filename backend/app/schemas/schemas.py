@@ -134,12 +134,13 @@ class PatientBase(BaseModel):
 
 
 class PatientCreate(PatientBase):
-    pass
+    patient_since: Optional[date] = None
 
 
 class PatientUpdate(PatientBase):
     full_name: Optional[str] = None
     phone: Optional[str] = None
+    patient_since: Optional[date] = None
 
 
 class PatientResponse(PatientBase):
