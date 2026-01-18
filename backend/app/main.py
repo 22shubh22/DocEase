@@ -1,8 +1,20 @@
+import logging
+import re
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.api import auth, patients, opd, visits, prescriptions, invoices, clinic, users, admin, chief_complaints, diagnosis_options, observation_options
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def mask_database_url(url: str) -> str:
+    """Mask password in database URL for safe logging."""
+    return re.sub(r'://([^:]+):([^@]+)@', r'://\1:****@', url)
+
+logger.info(f"Starting DocEase API with DATABASE_URL: {mask_database_url(settings.DATABASE_URL)}")
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
