@@ -9,6 +9,8 @@ import PatientForm from './pages/patients/PatientForm';
 import PatientDetails from './pages/patients/PatientDetails';
 import OPDQueue from './pages/opd/OPDQueue';
 import VisitForm from './pages/visits/VisitForm';
+import VisitDetails from './pages/visits/VisitDetails';
+import DoctorVisitsList from './pages/visits/DoctorVisitsList';
 import PrescriptionForm from './pages/prescriptions/PrescriptionForm';
 import Billing from './pages/billing/Billing';
 import Settings from './pages/Settings';
@@ -62,7 +64,9 @@ function App() {
         <Route path="opd" element={<OPDQueue />} />
 
         {/* Visits */}
+        <Route path="visits" element={<DoctorVisitsList />} />
         <Route path="visits/new" element={<VisitForm />} />
+        <Route path="visits/:id" element={<VisitDetails />} />
 
         {/* Prescriptions */}
         <Route path="prescriptions/new" element={<PrescriptionForm />} />

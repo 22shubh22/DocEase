@@ -71,6 +71,7 @@ export const opdAPI = {
   addToQueue: (data) => api.post('/opd/appointments/', data),
   updateStatus: (id, status) => api.put(`/opd/appointments/${id}/status`, { status }),
   updatePosition: (id, newPosition) => api.put(`/opd/appointments/${id}/position`, { new_position: newPosition }),
+  getVisitByAppointment: (appointmentId) => api.get(`/opd/appointments/${appointmentId}/visit`),
 };
 
 // Chief Complaints API
@@ -99,6 +100,7 @@ export const observationOptionsAPI = {
 
 // Visits API
 export const visitsAPI = {
+  getAll: (params) => api.get('/visits/', { params }),
   create: (data) => api.post('/visits/', data),
   getById: (id) => api.get(`/visits/${id}`),
   update: (id, data) => api.put(`/visits/${id}`, data),

@@ -224,7 +224,24 @@ async def get_patient_visits(
         Visit.clinic_id == current_user.clinic_id
     ).order_by(Visit.visit_date.desc()).all()
 
-    return {"visits": visits}
+    visit_list = []
+    for visit in visits:
+        visit_list.append({
+            "id": visit.id,
+            "visit_date": visit.visit_date.isoformat() if visit.visit_date else None,
+            "visit_number": visit.visit_number,
+            "patient_id": visit.patient_id,
+            "doctor_id": visit.doctor_id,
+            "symptoms": visit.symptoms,
+            "diagnosis": visit.diagnosis,
+            "observations": visit.observations,
+            "recommended_tests": visit.recommended_tests,
+            "follow_up_date": visit.follow_up_date.isoformat() if visit.follow_up_date else None,
+            "vitals": visit.vitals,
+            "created_at": visit.created_at.isoformat() if visit.created_at else None,
+        })
+
+    return {"visits": visit_list}
 
 
 @router.get("/{patient_id}/prescriptions", response_model=dict)
@@ -239,4 +256,17 @@ async def get_patient_prescriptions(
         Prescription.clinic_id == current_user.clinic_id
     ).order_by(Prescription.prescription_date.desc()).all()
 
-    return {"prescriptions": prescriptions}
+    prescription_list = []
+    for p in prescriptions:
+        prescription_list.append({
+            "id": p.id,
+            "visit_id": p.visit_id,
+            "patient_id": p.patient_id,
+            "doctor_id": p.doctor_id,
+            "prescription_date": p.prescription_date.isoformat() if p.prescription_date else None,
+            "medicines": p.medicines,
+            "notes": p.notes,
+            "created_at": p.created_at.isoformat() if p.created_at else None,
+        })
+
+    return {"prescriptions": prescription_list}

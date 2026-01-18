@@ -24,6 +24,7 @@ export default function VisitForm() {
   const [customDiagnosis, setCustomDiagnosis] = useState('');
   const [selectedObservation, setSelectedObservation] = useState('');
   const [customObservation, setCustomObservation] = useState('');
+  const [existingVisit, setExistingVisit] = useState(null);
 
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm({
     defaultValues: {
@@ -43,17 +44,67 @@ export default function VisitForm() {
           diagnosisOptionsAPI.getAll(true),
           observationOptionsAPI.getAll(true)
         ]);
-        
+
         const patientsList = patientsRes.data.patients || [];
         setPatients(patientsList);
         setDiagnosisOptions(diagnosisRes.data || []);
         setObservationOptions(observationsRes.data || []);
-        
+
         if (patientIdFromUrl) {
           const patient = patientsList.find(p => p.id === patientIdFromUrl);
           if (patient) {
             setSelectedPatient(patient);
             setValue('patientId', patient.id);
+          }
+        }
+
+        // Check if appointment already has a visit (OPD reopen case)
+        if (appointmentIdFromUrl) {
+          try {
+            const visitRes = await opdAPI.getVisitByAppointment(appointmentIdFromUrl);
+            if (visitRes.data.visit) {
+              const visit = visitRes.data.visit;
+              setExistingVisit(visit);
+
+              // Pre-fill form with existing visit data
+              setValue('symptoms', visit.symptoms || '');
+
+              // Handle diagnosis - check if it's a preset option or custom
+              const diagnosisList = diagnosisRes.data || [];
+              const diagnosisMatch = diagnosisList.find(d => d.name === visit.diagnosis);
+              if (diagnosisMatch) {
+                setSelectedDiagnosis(visit.diagnosis);
+              } else if (visit.diagnosis) {
+                setSelectedDiagnosis('OTHER');
+                setCustomDiagnosis(visit.diagnosis);
+              }
+
+              // Handle observation - check if it's a preset option or custom
+              const observationList = observationsRes.data || [];
+              const observationMatch = observationList.find(o => o.name === visit.observations);
+              if (observationMatch) {
+                setSelectedObservation(visit.observations);
+              } else if (visit.observations) {
+                setSelectedObservation('OTHER');
+                setCustomObservation(visit.observations);
+              }
+
+              setValue('recommendedTests', (visit.recommended_tests || []).join(', '));
+              setValue('followUpDate', visit.follow_up_date || '');
+
+              // Pre-fill vitals
+              if (visit.vitals) {
+                setValue('bp', visit.vitals.blood_pressure || '');
+                setValue('temperature', visit.vitals.temperature || '');
+                setValue('pulse', visit.vitals.pulse || '');
+                setValue('weight', visit.vitals.weight || '');
+                setValue('height', visit.vitals.height || '');
+                setValue('spo2', visit.vitals.spo2 || '');
+              }
+            }
+          } catch (visitError) {
+            console.error('Failed to fetch existing visit:', visitError);
+            // Not an error - appointment may not have a visit yet
           }
         }
       } catch (error) {
@@ -65,7 +116,7 @@ export default function VisitForm() {
     };
 
     fetchData();
-  }, [patientIdFromUrl, setValue]);
+  }, [patientIdFromUrl, appointmentIdFromUrl, setValue]);
 
   useEffect(() => {
     if (watchedPatientId) {
@@ -93,6 +144,7 @@ export default function VisitForm() {
     try {
       await visitsAPI.create({
         patient_id: selectedPatient.id,
+        appointment_id: appointmentIdFromUrl || null,
         symptoms: data.symptoms,
         diagnosis: diagnosisValue,
         observations: observationsValue,
@@ -107,10 +159,9 @@ export default function VisitForm() {
           spo2: data.spo2,
         }
       });
-      
+
       if (appointmentIdFromUrl) {
-        await opdAPI.updateStatus(appointmentIdFromUrl, 'COMPLETED');
-        toast.success('Visit recorded and OPD completed!');
+        toast.success(existingVisit ? 'Visit updated and OPD completed!' : 'Visit recorded and OPD completed!');
         setTimeout(() => {
           navigate('/opd');
         }, 1500);
@@ -140,8 +191,14 @@ export default function VisitForm() {
             ← Back
           </button>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Record Patient Visit</h1>
-        <p className="text-gray-600 mt-1">Document patient consultation and vitals</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+          {existingVisit ? 'Update Patient Visit' : 'Record Patient Visit'}
+        </h1>
+        <p className="text-gray-600 mt-1">
+          {existingVisit
+            ? `Updating Visit #${existingVisit.visit_number} from ${existingVisit.visit_date}`
+            : 'Document patient consultation and vitals'}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -381,7 +438,7 @@ export default function VisitForm() {
               className="btn btn-primary"
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'Saving...' : (appointmentIdFromUrl ? '✓ Save & Complete OPD' : '✓ Save Visit')}
+              {isSubmitting ? 'Saving...' : (existingVisit ? '✓ Update & Complete OPD' : (appointmentIdFromUrl ? '✓ Save & Complete OPD' : '✓ Save Visit'))}
             </button>
             <button
               type="button"
@@ -401,9 +458,11 @@ export default function VisitForm() {
             </button>
           </div>
           <p className="text-xs text-gray-500 mt-3">
-            {appointmentIdFromUrl 
-              ? '💡 This will record the visit and mark the patient as done in OPD'
-              : '💡 After saving, you can add prescriptions for this visit'}
+            {existingVisit
+              ? '💡 This will update the existing visit and mark the patient as done in OPD'
+              : appointmentIdFromUrl
+                ? '💡 This will record the visit and mark the patient as done in OPD'
+                : '💡 After saving, you can add prescriptions for this visit'}
           </p>
         </div>
       </form>

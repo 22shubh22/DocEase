@@ -5,7 +5,7 @@ from datetime import date, datetime
 from typing import Optional
 from app.db.database import get_db
 from app.core.deps import get_current_user
-from app.models.models import User, Appointment, Invoice, Patient, AppointmentStatusEnum
+from app.models.models import User, Appointment, Invoice, Patient, AppointmentStatusEnum, Visit
 from app.schemas.schemas import AppointmentCreate, AppointmentUpdate, AppointmentPositionUpdate
 
 router = APIRouter()
@@ -116,7 +116,8 @@ async def add_to_queue(
         chief_complaint=appointment_data.chief_complaint,
         status=AppointmentStatusEnum.WAITING,
         clinic_id=current_user.clinic_id,
-        created_by=current_user.id
+        created_by=current_user.id,
+        created_at=datetime.now()
     )
 
     db.add(appointment)
@@ -197,3 +198,39 @@ async def update_queue_position(
     db.commit()
 
     return {"message": "Position updated", "appointment": {"id": appointment.id, "queue_number": appointment.queue_number}}
+
+
+@router.get("/appointments/{appointment_id}/visit", response_model=dict)
+async def get_visit_by_appointment(
+    appointment_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get visit details linked to an appointment (for OPD reopen case)"""
+    appointment = db.query(Appointment).filter(
+        Appointment.id == appointment_id,
+        Appointment.clinic_id == current_user.clinic_id
+    ).first()
+
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+
+    # Find visit linked to this appointment
+    visit = db.query(Visit).filter(Visit.appointment_id == appointment_id).first()
+
+    if not visit:
+        return {"visit": None}
+
+    return {
+        "visit": {
+            "id": visit.id,
+            "symptoms": visit.symptoms,
+            "diagnosis": visit.diagnosis,
+            "observations": visit.observations,
+            "recommended_tests": visit.recommended_tests or [],
+            "follow_up_date": visit.follow_up_date.isoformat() if visit.follow_up_date else None,
+            "vitals": visit.vitals or {},
+            "visit_number": visit.visit_number,
+            "visit_date": visit.visit_date.isoformat() if visit.visit_date else None,
+        }
+    }
