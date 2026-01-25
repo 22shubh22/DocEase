@@ -1,6 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { patientsAPI } from '../../services/api';
+import { toast } from 'react-hot-toast';
+import { patientsAPI, opdAPI, chiefComplaintsAPI } from '../../services/api';
 
 const formatDateTime = (dateString) => {
   if (!dateString) return '';
@@ -25,9 +26,30 @@ export default function PatientDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // OPD Modal state
+  const [showOPDModal, setShowOPDModal] = useState(false);
+  const [chiefComplaints, setChiefComplaints] = useState([]);
+  const [selectedComplaints, setSelectedComplaints] = useState([]);
+  const [customComplaint, setCustomComplaint] = useState('');
+  const [addingToOPD, setAddingToOPD] = useState(false);
+  const [nextQueueNumber, setNextQueueNumber] = useState(null);
+
   useEffect(() => {
     fetchPatientData();
   }, [id]);
+
+  // Fetch chief complaints for OPD modal
+  useEffect(() => {
+    const fetchComplaints = async () => {
+      try {
+        const response = await chiefComplaintsAPI.getAll(true);
+        setChiefComplaints(response.data || []);
+      } catch (error) {
+        console.error('Failed to fetch complaints:', error);
+      }
+    };
+    fetchComplaints();
+  }, []);
 
   const fetchPatientData = async () => {
     try {
@@ -43,6 +65,56 @@ export default function PatientDetails() {
       setError('Failed to load patient data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // OPD Modal handlers
+  const openOPDModal = async () => {
+    setSelectedComplaints([]);
+    setCustomComplaint('');
+    setNextQueueNumber(null);
+    setShowOPDModal(true);
+
+    // Fetch current queue stats to calculate next queue number
+    try {
+      const response = await opdAPI.getStats({});
+      setNextQueueNumber((response.data.stats?.total || 0) + 1);
+    } catch (error) {
+      console.error('Failed to fetch queue stats:', error);
+    }
+  };
+
+  const closeOPDModal = () => {
+    setShowOPDModal(false);
+    setSelectedComplaints([]);
+    setCustomComplaint('');
+  };
+
+  const handleAddToOPD = async () => {
+    const allComplaints = [...selectedComplaints];
+    if (customComplaint.trim()) {
+      const customs = customComplaint.split(',').map(c => c.trim()).filter(c => c);
+      allComplaints.push(...customs);
+    }
+
+    if (allComplaints.length === 0) {
+      toast.error('Please select at least one complaint');
+      return;
+    }
+
+    setAddingToOPD(true);
+    try {
+      await opdAPI.addToQueue({
+        patient_id: patient.id,
+        chief_complaints: allComplaints,
+      });
+      toast.success(`${patient.full_name} added to OPD queue`);
+      closeOPDModal();
+    } catch (error) {
+      console.error('Failed to add to OPD:', error);
+      toast.error(error.errorMessage || 'Failed to add patient to OPD queue');
+    } finally {
+      setAddingToOPD(false);
     }
   };
 
@@ -87,6 +159,12 @@ export default function PatientDetails() {
           <p className="text-gray-600 mt-1">Patient ID: {patient.patient_code}</p>
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={openOPDModal}
+            className="btn btn-primary"
+          >
+            + Add to OPD
+          </button>
           <Link
             to={`/patients/${patient.id}/edit`}
             className="btn btn-secondary"
@@ -275,6 +353,97 @@ export default function PatientDetails() {
         </div>
       )}
 
+      {/* Add to OPD Modal */}
+      {showOPDModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">
+              Add to OPD Queue
+            </h2>
+            <p className="text-sm text-gray-500 mb-2">
+              Adding to queue for: <strong>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</strong>
+              {nextQueueNumber && <span className="ml-2">• Queue #<strong>{nextQueueNumber}</strong></span>}
+            </p>
+            <p className="text-sm text-gray-600 mb-4">
+              Patient: <strong>{patient.full_name}</strong> ({patient.patient_code})
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="label">Chief Complaints *</label>
+
+                {/* Selected complaints as chips */}
+                {selectedComplaints.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {selectedComplaints.map((complaint, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm"
+                      >
+                        {complaint}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedComplaints(selectedComplaints.filter((_, i) => i !== index))}
+                          className="hover:text-red-900 font-bold"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Dropdown to add complaints */}
+                {chiefComplaints.length > 0 && (
+                  <select
+                    className="input mb-2"
+                    value=""
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value && !selectedComplaints.includes(value)) {
+                        setSelectedComplaints([...selectedComplaints, value]);
+                      }
+                    }}
+                  >
+                    <option value="">Select a complaint...</option>
+                    {chiefComplaints
+                      .filter(c => !selectedComplaints.includes(c.name))
+                      .map(c => (
+                        <option key={c.id} value={c.name}>{c.name}</option>
+                      ))}
+                  </select>
+                )}
+
+                {/* Custom complaint input */}
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Custom complaints (comma separated)"
+                  value={customComplaint}
+                  onChange={(e) => setCustomComplaint(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={closeOPDModal}
+                className="btn btn-secondary"
+                disabled={addingToOPD}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddToOPD}
+                className="btn btn-primary"
+                disabled={addingToOPD}
+              >
+                {addingToOPD ? 'Adding...' : 'Add to Queue'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -85,6 +85,7 @@ export default function VisitDetails() {
   }
 
   const patient = visit.patient;
+  const doctor = visit.doctor;
   const vitals = visit.vitals || {};
 
   return (
@@ -105,6 +106,9 @@ export default function VisitDetails() {
           </h1>
           <p className="text-gray-600 mt-1">
             Visit #{visit.visit_number} - {formatDateTime(visit.visit_date)}
+            {doctor && (
+              <span className="ml-2">• Attended by Dr. {doctor.name}</span>
+            )}
           </p>
         </div>
         <div className="flex gap-3">
@@ -164,6 +168,20 @@ export default function VisitDetails() {
                       {allergy}
                     </span>
                   ))}
+                </div>
+              </div>
+            )}
+            {doctor && (
+              <div className="pt-2 border-t">
+                <span className="text-gray-600 block mb-2">Attending Doctor</span>
+                <div>
+                  <span className="font-medium">Dr. {doctor.name}</span>
+                  {doctor.specialization && (
+                    <span className="text-gray-500 text-sm ml-2">({doctor.specialization})</span>
+                  )}
+                  {doctor.registration_number && (
+                    <p className="text-gray-500 text-xs mt-1">Reg. No: {doctor.registration_number}</p>
+                  )}
                 </div>
               </div>
             )}
@@ -368,7 +386,8 @@ export default function VisitDetails() {
           tests: visit.recommended_tests,
           followUpDate: visit.follow_up_date,
           medicines: visit.medicines,
-          prescriptionNotes: visit.prescription_notes
+          prescriptionNotes: visit.prescription_notes,
+          doctor: visit.doctor
         }}
         printSettings={user?.printSettings || { top: 280, left: 40 }}
       />

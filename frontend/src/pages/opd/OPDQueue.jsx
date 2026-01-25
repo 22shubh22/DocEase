@@ -482,6 +482,11 @@ export default function OPDQueue() {
                   )}
                   {item.status === 'COMPLETED' && (
                     <>
+                      {item.doctor && (
+                        <span className="text-sm text-gray-600 mr-2">
+                          Attended by Dr. {item.doctor.name}
+                        </span>
+                      )}
                       <Link
                         to={`/patients/${item.patient_id}`}
                         className="btn btn-secondary text-sm"

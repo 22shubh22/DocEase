@@ -4,7 +4,7 @@ Run this to populate the database with initial demo data
 """
 
 from sqlalchemy.orm import Session
-from app.db.database import SessionLocal, engine
+from app.core.database import SessionLocal, engine
 from app.models import models
 from app.core.security import get_password_hash
 

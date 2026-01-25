@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime
 from decimal import Decimal
-from app.db.database import get_db
+from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.models import User, Invoice, InvoiceItem
 from app.schemas.schemas import InvoiceCreate, InvoiceUpdate

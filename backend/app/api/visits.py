@@ -3,9 +3,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from datetime import date, datetime
 from typing import Optional
-from app.db.database import get_db
+from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.models.models import User, Visit, Appointment, AppointmentStatusEnum, Doctor, Patient, VisitMedicine
+from app.models.models import User, Visit, Appointment, AppointmentStatusEnum, Doctor, Patient, VisitMedicine, User as UserModel
 from app.schemas.schemas import VisitCreate, VisitUpdate
 
 router = APIRouter()
@@ -203,6 +203,10 @@ async def get_visit_by_id(
     # Get patient info
     patient = db.query(Patient).filter(Patient.id == visit.patient_id).first()
 
+    # Get doctor info
+    doctor = db.query(Doctor).filter(Doctor.id == visit.doctor_id).first()
+    doctor_user = db.query(User).filter(User.id == doctor.user_id).first() if doctor else None
+
     # Get medicines for this visit
     medicines = db.query(VisitMedicine).filter(VisitMedicine.visit_id == visit_id).all()
     medicines_data = [
@@ -238,6 +242,13 @@ async def get_visit_by_id(
                 "allergies": patient.allergies or [],
                 "phone": patient.phone
             } if patient else None,
+            "doctor": {
+                "id": doctor.id,
+                "name": doctor_user.full_name if doctor_user else None,
+                "doctor_code": doctor.doctor_code,
+                "specialization": doctor.specialization,
+                "registration_number": doctor.registration_number
+            } if doctor else None,
             "medicines": medicines_data
         }
     }

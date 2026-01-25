@@ -3,9 +3,9 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from datetime import date, datetime
 from typing import Optional
-from app.db.database import get_db
+from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.models.models import User, Appointment, Invoice, Patient, AppointmentStatusEnum, Visit
+from app.models.models import User, Appointment, Invoice, Patient, AppointmentStatusEnum, Visit, Doctor
 from app.schemas.schemas import AppointmentCreate, AppointmentUpdate, AppointmentPositionUpdate
 
 router = APIRouter()
@@ -21,7 +21,8 @@ async def get_queue(
     target_date = queue_date or date.today()
 
     appointments = db.query(Appointment).options(
-        joinedload(Appointment.patient)
+        joinedload(Appointment.patient),
+        joinedload(Appointment.visit).joinedload(Visit.doctor).joinedload(Doctor.user)
     ).filter(
         Appointment.clinic_id == current_user.clinic_id,
         Appointment.appointment_date == target_date
@@ -29,6 +30,19 @@ async def get_queue(
 
     queue = []
     for apt in appointments:
+        # Get doctor info for completed appointments (already eager loaded)
+        doctor_info = None
+        if apt.status == AppointmentStatusEnum.COMPLETED and apt.visit:
+            visit = apt.visit
+            if visit.doctor:
+                doctor = visit.doctor
+                doctor_user = doctor.user
+                doctor_info = {
+                    "id": doctor.id,
+                    "name": doctor_user.full_name if doctor_user else None,
+                    "doctor_code": doctor.doctor_code,
+                }
+
         queue.append({
             "id": apt.id,
             "patient_id": apt.patient_id,
@@ -46,6 +60,7 @@ async def get_queue(
             "chief_complaints": apt.chief_complaints or [],
             "status": apt.status.value,
             "created_at": apt.created_at.isoformat() if apt.created_at else None,
+            "doctor": doctor_info,
         })
 
     return {"queue": queue, "date": target_date.isoformat()}
@@ -216,11 +231,16 @@ async def get_visit_by_appointment(
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
 
-    # Find visit linked to this appointment
-    visit = db.query(Visit).filter(Visit.appointment_id == appointment_id).first()
+    # Find visit linked to this appointment with eager loading
+    visit = db.query(Visit).options(
+        joinedload(Visit.doctor).joinedload(Doctor.user)
+    ).filter(Visit.appointment_id == appointment_id).first()
 
     if not visit:
         return {"visit": None}
+
+    doctor = visit.doctor
+    doctor_user = doctor.user if doctor else None
 
     return {
         "visit": {
@@ -233,5 +253,12 @@ async def get_visit_by_appointment(
             "vitals": visit.vitals or {},
             "visit_number": visit.visit_number,
             "visit_date": visit.visit_date.isoformat() if visit.visit_date else None,
+            "doctor": {
+                "id": doctor.id,
+                "name": doctor_user.full_name if doctor_user else None,
+                "doctor_code": doctor.doctor_code,
+                "specialization": doctor.specialization,
+                "registration_number": doctor.registration_number
+            } if doctor else None,
         }
     }

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
+from sqlalchemy import or_, and_, func
 from typing import Optional
-from app.db.database import get_db
+from app.core.database import get_db
 from app.core.deps import get_current_user, get_current_doctor
 from app.models.models import User, Patient, Visit, VisitMedicine
 from app.schemas.schemas import PatientCreate, PatientUpdate, PatientResponse
@@ -65,15 +65,28 @@ async def search_patients(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Search patients by name, phone, or patient code"""
+    """Search patients by name, phone, patient code, or address.
+    Supports multiple search terms separated by spaces.
+    All terms must match (in any field) for a patient to be included.
+    """
+    # Split query into terms
+    terms = q.strip().split()
+
+    # Build conditions: each term must appear in at least one field
+    conditions = []
+    for term in terms:
+        term_condition = or_(
+            Patient.full_name.ilike(f"%{term}%"),
+            Patient.phone.contains(term),
+            Patient.patient_code.ilike(f"%{term}%"),
+            Patient.address.ilike(f"%{term}%")
+        )
+        conditions.append(term_condition)
+
+    # All term conditions must be satisfied (AND logic)
     patients = db.query(Patient).filter(
         Patient.clinic_id == current_user.clinic_id,
-        or_(
-            Patient.full_name.ilike(f"%{q}%"),
-            Patient.phone.contains(q),
-            Patient.patient_code.ilike(f"%{q}%"),
-            Patient.address.ilike(f"%{q}%")
-        )
+        and_(*conditions)
     ).limit(20).all()
 
     return {"patients": [patient_to_dict(p) for p in patients]}

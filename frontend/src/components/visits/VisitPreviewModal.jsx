@@ -197,6 +197,7 @@ export default function VisitPreviewModal({
                 medicines={data.medicines}
                 prescriptionNotes={data.prescriptionNotes}
                 printSettings={printSettings}
+                doctor={data.doctor}
               />
             </div>
           </div>

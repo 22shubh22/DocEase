@@ -10,7 +10,8 @@ const VisitPrintContent = forwardRef(({
   followUpDate,
   medicines,
   prescriptionNotes,
-  printSettings
+  printSettings,
+  doctor
 }, ref) => {
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
@@ -158,7 +159,16 @@ const VisitPrintContent = forwardRef(({
         <div className="text-right">
           <div className="inline-block text-center">
             <div className="border-b border-gray-400 w-48 mb-1"></div>
-            <div className="text-sm text-gray-600">Doctor's Signature</div>
+            {doctor ? (
+              <div>
+                <div className="text-sm font-medium">Dr. {doctor.name}</div>
+                {doctor.registration_number && (
+                  <div className="text-xs text-gray-500">Reg. No: {doctor.registration_number}</div>
+                )}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-600">Doctor's Signature</div>
+            )}
           </div>
         </div>
       </div>
