@@ -44,6 +44,7 @@ export default function VisitForm() {
   const [showPrescriptionSection, setShowPrescriptionSection] = useState(true);
   const [medicines, setMedicines] = useState([{ id: Date.now(), medicine_name: '', dosage: '', duration: '' }]);
   const [prescriptionNotes, setPrescriptionNotes] = useState('');
+  const [amount, setAmount] = useState('');
 
   // Print preview state (for OPD flow)
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -223,6 +224,11 @@ export default function VisitForm() {
                   duration: m.duration || '',
                 })));
                 setPrescriptionNotes(visit.prescription_notes || '');
+              }
+
+              // Pre-fill amount
+              if (visit.amount !== null && visit.amount !== undefined) {
+                setAmount(visit.amount.toString());
               }
             }
           } catch (visitError) {
@@ -473,6 +479,7 @@ export default function VisitForm() {
         },
         // Include prescription data directly in visit
         prescription_notes: prescriptionNotes || null,
+        amount: amount ? parseFloat(amount) : null,
         medicines: validMedicines.map(m => ({
           medicine_name: m.medicine_name,
           dosage: m.dosage || null,
@@ -1031,6 +1038,31 @@ export default function VisitForm() {
               Click "Add Prescription" to prescribe medicines for this visit.
             </p>
           )}
+        </div>
+
+        {/* Billing Section */}
+        <div className="card">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">
+            Billing
+          </h2>
+          <div>
+            <label className="label">Amount Charged</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className="input pl-8"
+                placeholder="0.00"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </div>
+            <p className="text-sm text-gray-500 mt-1">
+              Internal tracking only - amount charged to patient
+            </p>
+          </div>
         </div>
 
         {/* Action Buttons */}

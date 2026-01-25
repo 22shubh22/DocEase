@@ -202,6 +202,7 @@ class VisitBase(BaseModel):
     follow_up_date: Optional[date] = None
     vitals: Optional[dict] = None
     prescription_notes: Optional[str] = None
+    amount: Optional[Decimal] = None
 
 
 class VisitCreate(VisitBase):
@@ -218,6 +219,7 @@ class VisitUpdate(BaseModel):
     vitals: Optional[dict] = None
     prescription_notes: Optional[str] = None
     medicines: Optional[List[VisitMedicineCreate]] = None
+    amount: Optional[Decimal] = None
 
 
 class VisitMedicineResponse(BaseModel):
@@ -554,3 +556,32 @@ class SymptomOptionResponse(SymptomOptionBase):
 
     class Config:
         from_attributes = True
+
+
+# Collection Report Schemas
+class CollectionVisitItem(BaseModel):
+    visit_id: str
+    patient_name: str
+    patient_code: str
+    doctor_name: str
+    amount: float
+    visit_time: str
+
+
+class CollectionBreakdown(BaseModel):
+    date: str
+    total: float
+    visit_count: int
+    visits: List[CollectionVisitItem]
+
+
+class CollectionPeriod(BaseModel):
+    start: str
+    end: str
+
+
+class CollectionSummaryResponse(BaseModel):
+    total_collection: float
+    visit_count: int
+    period: CollectionPeriod
+    breakdown: List[CollectionBreakdown]

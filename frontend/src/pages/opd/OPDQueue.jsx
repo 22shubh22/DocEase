@@ -18,6 +18,9 @@ export default function OPDQueue() {
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [followUpsDue, setFollowUpsDue] = useState([]);
+  const [showFollowUps, setShowFollowUps] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -28,16 +31,33 @@ export default function OPDQueue() {
   const fetchData = async () => {
     try {
       const params = { queue_date: selectedDate, stats_date: selectedDate };
-      const [queueRes, statsRes, patientsRes, complaintsRes] = await Promise.all([
+      const isViewingToday = selectedDate === new Date().toISOString().split('T')[0];
+
+      const requests = [
         opdAPI.getQueue(params),
         opdAPI.getStats(params),
         patientsAPI.getAll({ limit: 100 }),
         chiefComplaintsAPI.getAll(true)
-      ]);
+      ];
+
+      // Only fetch follow-ups for today's queue
+      if (isViewingToday) {
+        requests.push(opdAPI.getFollowUpsDue());
+      }
+
+      const responses = await Promise.all(requests);
+      const [queueRes, statsRes, patientsRes, complaintsRes] = responses;
+
       setQueue(queueRes.data.queue || []);
       setStats(statsRes.data.stats || { total: 0, waiting: 0, inProgress: 0, completed: 0 });
       setPatients(patientsRes.data.patients || []);
       setChiefComplaints(complaintsRes.data || []);
+
+      if (isViewingToday && responses[4]) {
+        setFollowUpsDue(responses[4].data.follow_ups || []);
+      } else {
+        setFollowUpsDue([]);
+      }
     } catch (error) {
       console.error('Failed to fetch OPD data:', error);
       toast.error('Failed to load queue data');
@@ -61,12 +81,22 @@ export default function OPDQueue() {
       return;
     }
 
+    // Check for duplicate patient in queue
+    if (isPatientInQueue(selectedPatient)) {
+      const patientName = patients.find(p => p.id === selectedPatient)?.full_name || 'This patient';
+      if (!window.confirm(`${patientName} is already in today's queue. Add again?`)) {
+        return;
+      }
+    }
+
+    setIsSubmitting(true);
     try {
-      await opdAPI.addToQueue({
+      const response = await opdAPI.addToQueue({
         patient_id: selectedPatient,
         chief_complaints: allComplaints,
       });
-      toast.success('Patient added to queue');
+      const queueNumber = response.data?.appointment?.queue_number;
+      toast.success(queueNumber ? `Patient added as #${queueNumber}` : 'Patient added to queue');
       fetchData();
       setShowAddForm(false);
       setSelectedPatient('');
@@ -75,6 +105,8 @@ export default function OPDQueue() {
     } catch (error) {
       console.error('Failed to add to queue:', error);
       toast.error(error.errorMessage || 'Failed to add patient to queue');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -162,6 +194,54 @@ export default function OPDQueue() {
 
   const isToday = selectedDate === new Date().toISOString().split('T')[0];
 
+  // Check if patient is already in today's queue (waiting or in progress)
+  const isPatientInQueue = (patientId) => {
+    return queue.some(item =>
+      item.patient_id === patientId &&
+      ['WAITING', 'IN_PROGRESS'].includes(item.status)
+    );
+  };
+
+  // Add follow-up patient to queue with diagnosis as complaints
+  const handleAddFollowUpToQueue = async (followUp) => {
+    // Check if patient is already in queue
+    if (isPatientInQueue(followUp.patient_id)) {
+      toast.error(`${followUp.patient_name} is already in today's queue`);
+      return;
+    }
+
+    try {
+      // Use previous diagnosis as chief complaints with "Follow-up:" prefix
+      const complaints = (followUp.diagnosis || []).map(d => `Follow-up: ${d}`);
+      if (complaints.length === 0) {
+        complaints.push('Follow-up visit');
+      }
+
+      const response = await opdAPI.addToQueue({
+        patient_id: followUp.patient_id,
+        chief_complaints: complaints,
+      });
+      const queueNumber = response.data?.appointment?.queue_number;
+      toast.success(queueNumber ? `${followUp.patient_name} added as #${queueNumber}` : 'Patient added to queue');
+      fetchData();
+    } catch (error) {
+      console.error('Failed to add follow-up to queue:', error);
+      toast.error(error.errorMessage || 'Failed to add patient to queue');
+    }
+  };
+
+  // Calculate total amount collected today
+  const totalAmountCollected = queue
+    .filter(item => item.status === 'COMPLETED' && item.visit?.amount)
+    .reduce((sum, item) => sum + parseFloat(item.visit.amount || 0), 0);
+
+  // Compute form validity for submit button
+  const computedComplaints = [...selectedComplaints];
+  if (customComplaint.trim()) {
+    computedComplaints.push(...customComplaint.split(',').map(c => c.trim()).filter(c => c));
+  }
+  const isFormValid = selectedPatient && computedComplaints.length > 0;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -179,12 +259,20 @@ export default function OPDQueue() {
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
           />
-          {isToday && (
+          {isToday ? (
             <button
               onClick={() => setShowAddForm(!showAddForm)}
               className="btn btn-primary"
             >
               {showAddForm ? 'Cancel' : '+ Add to Queue'}
+            </button>
+          ) : (
+            <button
+              className="btn btn-secondary opacity-50 cursor-not-allowed"
+              disabled
+              title="Can only add patients to today's queue"
+            >
+              + Add to Queue
             </button>
           )}
         </div>
@@ -211,6 +299,11 @@ export default function OPDQueue() {
                     </option>
                   ))}
                 </select>
+                {patients.length === 0 && (
+                  <p className="text-sm text-gray-500 mt-2">
+                    No patients found. <Link to="/patients/new" className="text-primary-600 underline">Create a patient</Link> first.
+                  </p>
+                )}
               </div>
               <div className="md:col-span-2">
                 <label className="label">Chief Complaints *</label>
@@ -259,6 +352,13 @@ export default function OPDQueue() {
                     </select>
                   )}
 
+                  {/* Message when no preset complaints */}
+                  {chiefComplaints.length === 0 && (
+                    <p className="text-sm text-amber-600">
+                      No preset complaints configured. Enter custom complaints below or configure in Settings.
+                    </p>
+                  )}
+
                   {/* Custom complaint input */}
                   <div>
                     <input
@@ -276,13 +376,18 @@ export default function OPDQueue() {
               </div>
             </div>
             <div className="flex gap-3">
-              <button type="submit" className="btn btn-primary">
-                Add to Queue
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={isSubmitting || !isFormValid}
+              >
+                {isSubmitting ? 'Adding...' : 'Add to Queue'}
               </button>
               <button
                 type="button"
                 onClick={() => setShowAddForm(false)}
                 className="btn btn-secondary"
+                disabled={isSubmitting}
               >
                 Cancel
               </button>
@@ -310,6 +415,90 @@ export default function OPDQueue() {
           <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
         </div>
       </div>
+
+      {/* Secondary Stats: Amount Collected */}
+      {isToday && stats.completed > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="card !p-4 bg-green-50 border border-green-200">
+            <p className="text-sm text-green-700">Amount Collected Today</p>
+            <p className="text-2xl font-bold text-green-700">
+              ₹{totalAmountCollected.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Follow-up Alert Banner */}
+      {isToday && followUpsDue.length > 0 && (
+        <div className="card !p-4 bg-amber-50 border border-amber-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                <span className="text-xl">📅</span>
+              </div>
+              <div>
+                <p className="font-medium text-amber-800">
+                  {followUpsDue.length} patient{followUpsDue.length > 1 ? 's' : ''} due for follow-up today
+                </p>
+                <p className="text-sm text-amber-600">
+                  These patients have follow-up appointments scheduled for today
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowFollowUps(!showFollowUps)}
+              className="btn btn-secondary text-sm"
+            >
+              {showFollowUps ? 'Hide' : 'View'}
+            </button>
+          </div>
+
+          {showFollowUps && (
+            <div className="mt-4 space-y-2 border-t border-amber-200 pt-4">
+              {followUpsDue.map(fu => {
+                const alreadyInQueue = isPatientInQueue(fu.patient_id);
+                return (
+                  <div
+                    key={fu.visit_id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-white rounded-lg border border-amber-100"
+                  >
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {fu.patient_name}
+                        <span className="text-gray-500 text-sm ml-2">({fu.patient_code})</span>
+                      </p>
+                      {fu.diagnosis && fu.diagnosis.length > 0 && (
+                        <p className="text-sm text-gray-600">
+                          Previous: {fu.diagnosis.slice(0, 3).join(', ')}
+                          {fu.diagnosis.length > 3 && '...'}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      {alreadyInQueue ? (
+                        <span className="text-sm text-green-600 font-medium">Already in queue</span>
+                      ) : (
+                        <button
+                          onClick={() => handleAddFollowUpToQueue(fu)}
+                          className="btn btn-primary text-sm"
+                        >
+                          Add to Queue
+                        </button>
+                      )}
+                      <Link
+                        to={`/patients/${fu.patient_id}`}
+                        className="btn btn-secondary text-sm"
+                      >
+                        View Patient
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Search and Filter */}
       <div className="card !p-4">
@@ -482,11 +671,23 @@ export default function OPDQueue() {
                   )}
                   {item.status === 'COMPLETED' && (
                     <>
-                      {item.doctor && (
-                        <span className="text-sm text-gray-600 mr-2">
-                          Attended by Dr. {item.doctor.name}
-                        </span>
-                      )}
+                      <div className="flex flex-col gap-1 mr-2">
+                        {item.doctor && (
+                          <span className="text-sm text-gray-600">
+                            Attended by Dr. {item.doctor.name}
+                          </span>
+                        )}
+                        {item.visit?.amount && (
+                          <span className="text-sm font-medium text-green-600">
+                            ₹{parseFloat(item.visit.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </span>
+                        )}
+                        {item.visit?.follow_up_date && (
+                          <span className="text-xs text-amber-600">
+                            Follow-up: {new Date(item.visit.follow_up_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                          </span>
+                        )}
+                      </div>
                       <Link
                         to={`/patients/${item.patient_id}`}
                         className="btn btn-secondary text-sm"

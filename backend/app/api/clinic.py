@@ -84,6 +84,27 @@ async def update_clinic(
     return {"message": "Clinic updated successfully", "clinic": clinic_to_dict(clinic)}
 
 
+@router.get("/doctors", response_model=dict)
+async def get_clinic_doctors(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all doctors in the clinic"""
+    doctors = db.query(Doctor).filter(Doctor.clinic_id == current_user.clinic_id).all()
+
+    doctor_list = []
+    for doctor in doctors:
+        user = db.query(User).filter(User.id == doctor.user_id).first()
+        doctor_list.append({
+            "id": doctor.id,
+            "name": user.full_name if user else "Unknown",
+            "specialization": doctor.specialization,
+            "doctor_code": doctor.doctor_code,
+        })
+
+    return {"doctors": doctor_list}
+
+
 @router.get("/doctor-profile", response_model=dict)
 async def get_doctor_profile(
     current_user: User = Depends(get_current_user),

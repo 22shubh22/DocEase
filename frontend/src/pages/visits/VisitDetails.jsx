@@ -285,8 +285,8 @@ export default function VisitDetails() {
         </div>
       </div>
 
-      {/* Recommended Tests & Follow-up */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Recommended Tests, Follow-up & Billing */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="card">
           <h2 className="text-lg font-semibold mb-4 pb-2 border-b">Recommended Tests</h2>
           {visit.recommended_tests && visit.recommended_tests.length > 0 ? (
@@ -325,6 +325,20 @@ export default function VisitDetails() {
             </div>
           ) : (
             <p className="text-gray-500">No follow-up scheduled</p>
+          )}
+        </div>
+
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-4 pb-2 border-b">Billing</h2>
+          {visit.amount ? (
+            <div>
+              <span className="text-2xl font-semibold text-green-600">
+                ₹{parseFloat(visit.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              <p className="text-gray-600 mt-1">Amount charged</p>
+            </div>
+          ) : (
+            <p className="text-gray-500">No amount recorded</p>
           )}
         </div>
       </div>

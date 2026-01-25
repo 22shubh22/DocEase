@@ -182,6 +182,7 @@ class Visit(Base):
     follow_up_date = Column(Date)
     vitals = Column(JSON)
     prescription_notes = Column(Text)
+    amount = Column(Numeric(10, 2), nullable=True)
     clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

@@ -43,6 +43,15 @@ async def get_queue(
                     "doctor_code": doctor.doctor_code,
                 }
 
+        # Include visit info for completed appointments
+        visit_info = None
+        if apt.status == AppointmentStatusEnum.COMPLETED and apt.visit:
+            visit_info = {
+                "id": apt.visit.id,
+                "amount": float(apt.visit.amount) if apt.visit.amount else None,
+                "follow_up_date": apt.visit.follow_up_date.isoformat() if apt.visit.follow_up_date else None,
+            }
+
         queue.append({
             "id": apt.id,
             "patient_id": apt.patient_id,
@@ -61,6 +70,7 @@ async def get_queue(
             "status": apt.status.value,
             "created_at": apt.created_at.isoformat() if apt.created_at else None,
             "doctor": doctor_info,
+            "visit": visit_info,
         })
 
     return {"queue": queue, "date": target_date.isoformat()}
@@ -214,6 +224,39 @@ async def update_queue_position(
     db.commit()
 
     return {"message": "Position updated", "appointment": {"id": appointment.id, "queue_number": appointment.queue_number}}
+
+
+@router.get("/follow-ups-due", response_model=dict)
+async def get_follow_ups_due(
+    target_date: Optional[date] = Query(None, description="Date to check follow-ups (defaults to today)"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get patients with follow-ups due on a specific date (defaults to today)"""
+    check_date = target_date or date.today()
+
+    visits = db.query(Visit).options(
+        joinedload(Visit.patient)
+    ).filter(
+        Visit.clinic_id == current_user.clinic_id,
+        Visit.follow_up_date == check_date
+    ).all()
+
+    return {
+        "follow_ups": [
+            {
+                "visit_id": str(v.id),
+                "patient_id": str(v.patient_id),
+                "patient_name": v.patient.full_name if v.patient else None,
+                "patient_code": v.patient.patient_code if v.patient else None,
+                "last_visit_date": v.visit_date.isoformat() if v.visit_date else None,
+                "diagnosis": v.diagnosis or [],
+            }
+            for v in visits
+        ],
+        "count": len(visits),
+        "date": check_date.isoformat()
+    }
 
 
 @router.get("/appointments/{appointment_id}/visit", response_model=dict)

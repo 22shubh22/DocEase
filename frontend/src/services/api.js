@@ -72,6 +72,7 @@ export const opdAPI = {
   updateStatus: (id, status) => api.put(`/opd/appointments/${id}/status`, { status }),
   updatePosition: (id, newPosition) => api.put(`/opd/appointments/${id}/position`, { new_position: newPosition }),
   getVisitByAppointment: (appointmentId) => api.get(`/opd/appointments/${appointmentId}/visit`),
+  getFollowUpsDue: (params) => api.get('/opd/follow-ups-due', { params }),
 };
 
 // Chief Complaints API
@@ -144,6 +145,7 @@ export const visitsAPI = {
   create: (data) => api.post('/visits/', data),
   getById: (id) => api.get(`/visits/${id}`),
   update: (id, data) => api.put(`/visits/${id}`, data),
+  getCollections: (params) => api.get('/visits/collections/summary', { params }),
 };
 
 // Invoices API
@@ -159,6 +161,7 @@ export const invoicesAPI = {
 export const clinicAPI = {
   getInfo: () => api.get('/clinic/'),
   update: (data) => api.put('/clinic/', data),
+  getDoctors: () => api.get('/clinic/doctors'),
   getDoctorProfile: () => api.get('/clinic/doctor-profile'),
   updateDoctorProfile: (data) => api.put('/clinic/doctor-profile', data),
 };

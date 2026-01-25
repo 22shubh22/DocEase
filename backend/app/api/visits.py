@@ -1,14 +1,104 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func, cast, Date
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, Literal
+from collections import defaultdict
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.models import User, Visit, Appointment, AppointmentStatusEnum, Doctor, Patient, VisitMedicine, User as UserModel
-from app.schemas.schemas import VisitCreate, VisitUpdate
+from app.schemas.schemas import VisitCreate, VisitUpdate, CollectionSummaryResponse
 
 router = APIRouter()
+
+
+@router.get("/collections/summary", response_model=CollectionSummaryResponse)
+async def get_collection_summary(
+    start_date: Optional[date] = Query(None, description="Start date for collection period (defaults to today)"),
+    end_date: Optional[date] = Query(None, description="End date for collection period (defaults to today)"),
+    group_by: Literal["day", "month"] = Query("day", description="Group collections by day or month"),
+    doctor_id: Optional[str] = Query(None, description="Filter by specific doctor ID"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get collection summary for the clinic with day-wise or month-wise breakdown.
+    Shows all visits with amounts for all doctors in the clinic, or filtered by doctor.
+    """
+    # Default to today if no dates provided
+    if not start_date:
+        start_date = date.today()
+    if not end_date:
+        end_date = date.today()
+
+    # Query visits with amounts for the clinic within date range
+    query = db.query(Visit).join(
+        Patient, Visit.patient_id == Patient.id
+    ).join(
+        Doctor, Visit.doctor_id == Doctor.id
+    ).filter(
+        Visit.clinic_id == current_user.clinic_id,
+        Visit.amount.isnot(None),
+        cast(Visit.visit_date, Date) >= start_date,
+        cast(Visit.visit_date, Date) <= end_date
+    )
+
+    # Apply doctor filter if provided
+    if doctor_id:
+        query = query.filter(Visit.doctor_id == doctor_id)
+
+    query = query.order_by(Visit.visit_date.desc())
+
+    visits = query.all()
+
+    # Group visits by date
+    grouped_data = defaultdict(lambda: {"total": 0.0, "visits": []})
+    total_collection = 0.0
+
+    for visit in visits:
+        # Get date key based on grouping
+        if group_by == "month":
+            date_key = visit.visit_date.strftime("%Y-%m")
+        else:
+            date_key = visit.visit_date.strftime("%Y-%m-%d")
+
+        # Get patient and doctor info
+        patient = db.query(Patient).filter(Patient.id == visit.patient_id).first()
+        doctor = db.query(Doctor).filter(Doctor.id == visit.doctor_id).first()
+        doctor_user = db.query(UserModel).filter(UserModel.id == doctor.user_id).first() if doctor else None
+
+        amount = float(visit.amount) if visit.amount else 0.0
+        total_collection += amount
+        grouped_data[date_key]["total"] += amount
+        grouped_data[date_key]["visits"].append({
+            "visit_id": visit.id,
+            "patient_name": patient.full_name if patient else "Unknown",
+            "patient_code": patient.patient_code if patient else "",
+            "doctor_name": doctor_user.full_name if doctor_user else "Unknown",
+            "amount": amount,
+            "visit_time": visit.visit_date.strftime("%I:%M %p") if visit.visit_date else ""
+        })
+
+    # Build breakdown list sorted by date (most recent first)
+    breakdown = []
+    for date_key in sorted(grouped_data.keys(), reverse=True):
+        data = grouped_data[date_key]
+        breakdown.append({
+            "date": date_key,
+            "total": data["total"],
+            "visit_count": len(data["visits"]),
+            "visits": data["visits"]
+        })
+
+    return {
+        "total_collection": total_collection,
+        "visit_count": len(visits),
+        "period": {
+            "start": start_date.isoformat(),
+            "end": end_date.isoformat()
+        },
+        "breakdown": breakdown
+    }
 
 
 @router.get("/", response_model=dict)
@@ -107,7 +197,7 @@ async def create_visit(
 
     if existing_visit:
         # Update existing visit instead of creating a new one
-        update_fields = ['symptoms', 'diagnosis', 'observations', 'recommended_tests', 'follow_up_date', 'vitals', 'prescription_notes']
+        update_fields = ['symptoms', 'diagnosis', 'observations', 'recommended_tests', 'follow_up_date', 'vitals', 'prescription_notes', 'amount']
         for field in update_fields:
             value = getattr(visit_data, field, None)
             if value is not None:
@@ -231,6 +321,7 @@ async def get_visit_by_id(
             "follow_up_date": visit.follow_up_date.isoformat() if visit.follow_up_date else None,
             "vitals": visit.vitals,
             "prescription_notes": visit.prescription_notes,
+            "amount": float(visit.amount) if visit.amount else None,
             "created_at": visit.created_at.isoformat() if visit.created_at else None,
             "patient": {
                 "id": patient.id,
@@ -311,6 +402,7 @@ async def update_visit(
             "follow_up_date": visit.follow_up_date.isoformat() if visit.follow_up_date else None,
             "vitals": visit.vitals,
             "prescription_notes": visit.prescription_notes,
+            "amount": float(visit.amount) if visit.amount else None,
             "medicines": [
                 {
                     "id": med.id,

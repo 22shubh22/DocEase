@@ -17,6 +17,7 @@ export default function PatientsList() {
   const [customComplaint, setCustomComplaint] = useState('');
   const [addingToOPD, setAddingToOPD] = useState(false);
   const [nextQueueNumber, setNextQueueNumber] = useState(null);
+  const [todayQueue, setTodayQueue] = useState([]);
 
   useEffect(() => {
     fetchPatients();
@@ -74,20 +75,33 @@ export default function PatientsList() {
     }
   };
 
+  // Check if patient is already in today's queue
+  const isPatientInQueue = (patientId) => {
+    return todayQueue.some(item =>
+      item.patient_id === patientId &&
+      ['WAITING', 'IN_PROGRESS'].includes(item.status)
+    );
+  };
+
   // OPD Modal handlers
   const openOPDModal = async (patient) => {
     setSelectedPatientForOPD(patient);
     setSelectedComplaints([]);
     setCustomComplaint('');
     setNextQueueNumber(null);
+    setTodayQueue([]);
     setShowOPDModal(true);
 
-    // Fetch current queue stats to calculate next queue number
+    // Fetch current queue stats and queue data
     try {
-      const response = await opdAPI.getStats({});
-      setNextQueueNumber((response.data.stats?.total || 0) + 1);
+      const [statsResponse, queueResponse] = await Promise.all([
+        opdAPI.getStats({}),
+        opdAPI.getQueue({})
+      ]);
+      setNextQueueNumber((statsResponse.data.stats?.total || 0) + 1);
+      setTodayQueue(queueResponse.data.queue || []);
     } catch (error) {
-      console.error('Failed to fetch queue stats:', error);
+      console.error('Failed to fetch queue data:', error);
     }
   };
 
@@ -286,6 +300,17 @@ export default function PatientsList() {
             <p className="text-sm text-gray-600 mb-4">
               Patient: <strong>{selectedPatientForOPD.full_name}</strong> ({selectedPatientForOPD.patient_code})
             </p>
+
+            {isPatientInQueue(selectedPatientForOPD.id) && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                <p className="text-yellow-800 text-sm font-medium">
+                  This patient already has an appointment today
+                </p>
+                <p className="text-yellow-700 text-xs mt-1">
+                  You can still add another appointment if needed.
+                </p>
+              </div>
+            )}
 
             <div className="space-y-4">
               <div>
