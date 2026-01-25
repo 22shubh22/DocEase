@@ -36,8 +36,6 @@ export default function DashboardLayout() {
     { name: 'Dashboard', path: '/', icon: '📊' },
     { name: 'Patients', path: '/patients', icon: '👥' },
     { name: 'OPD Queue', path: '/opd', icon: '🏥' },
-    { name: 'My Visits', path: '/visits', icon: '📋' },
-    { name: 'Billing', path: '/billing', icon: '💰' },
   ];
 
   const navigation = isAdmin ? [

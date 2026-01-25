@@ -4,7 +4,7 @@ from sqlalchemy import or_, func
 from typing import Optional
 from app.db.database import get_db
 from app.core.deps import get_current_user, get_current_doctor
-from app.models.models import User, Patient, Visit, Prescription
+from app.models.models import User, Patient, Visit, VisitMedicine
 from app.schemas.schemas import PatientCreate, PatientUpdate, PatientResponse
 
 router = APIRouter()
@@ -218,7 +218,7 @@ async def get_patient_visits(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get all visits for a patient"""
+    """Get all visits for a patient with medicines"""
     visits = db.query(Visit).filter(
         Visit.patient_id == patient_id,
         Visit.clinic_id == current_user.clinic_id
@@ -226,6 +226,18 @@ async def get_patient_visits(
 
     visit_list = []
     for visit in visits:
+        # Get medicines for this visit
+        medicines = db.query(VisitMedicine).filter(VisitMedicine.visit_id == visit.id).all()
+        medicines_data = [
+            {
+                "id": m.id,
+                "medicine_name": m.medicine_name,
+                "dosage": m.dosage,
+                "duration": m.duration,
+            }
+            for m in medicines
+        ]
+
         visit_list.append({
             "id": visit.id,
             "visit_date": visit.visit_date.isoformat() if visit.visit_date else None,
@@ -238,6 +250,8 @@ async def get_patient_visits(
             "recommended_tests": visit.recommended_tests,
             "follow_up_date": visit.follow_up_date.isoformat() if visit.follow_up_date else None,
             "vitals": visit.vitals,
+            "prescription_notes": visit.prescription_notes,
+            "medicines": medicines_data,
             "created_at": visit.created_at.isoformat() if visit.created_at else None,
         })
 
@@ -250,23 +264,46 @@ async def get_patient_prescriptions(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get all prescriptions for a patient"""
-    prescriptions = db.query(Prescription).filter(
-        Prescription.patient_id == patient_id,
-        Prescription.clinic_id == current_user.clinic_id
-    ).order_by(Prescription.prescription_date.desc()).all()
+    """Get all prescriptions (visits with medicines) for a patient"""
+    # Get visits that have medicines
+    visits = db.query(Visit).filter(
+        Visit.patient_id == patient_id,
+        Visit.clinic_id == current_user.clinic_id
+    ).order_by(Visit.visit_date.desc()).all()
 
     prescription_list = []
-    for p in prescriptions:
+    for visit in visits:
+        # Get medicines for this visit
+        medicines = db.query(VisitMedicine).filter(VisitMedicine.visit_id == visit.id).all()
+
+        # Only include visits that have medicines (prescriptions)
+        if not medicines:
+            continue
+
+        medicines_data = [
+            {
+                "id": m.id,
+                "medicine_name": m.medicine_name,
+                "dosage": m.dosage,
+                "duration": m.duration,
+            }
+            for m in medicines
+        ]
+
         prescription_list.append({
-            "id": p.id,
-            "visit_id": p.visit_id,
-            "patient_id": p.patient_id,
-            "doctor_id": p.doctor_id,
-            "prescription_date": p.prescription_date.isoformat() if p.prescription_date else None,
-            "medicines": p.medicines,
-            "notes": p.notes,
-            "created_at": p.created_at.isoformat() if p.created_at else None,
+            "id": visit.id,  # Using visit_id as prescription_id
+            "visit_id": visit.id,
+            "patient_id": visit.patient_id,
+            "doctor_id": visit.doctor_id,
+            "prescription_date": visit.visit_date.isoformat() if visit.visit_date else None,
+            "medicines": medicines_data,
+            "notes": visit.prescription_notes,
+            "visit": {
+                "id": visit.id,
+                "visit_date": visit.visit_date.isoformat() if visit.visit_date else None,
+                "diagnosis": visit.diagnosis,
+            },
+            "created_at": visit.created_at.isoformat() if visit.created_at else None,
         })
 
     return {"prescriptions": prescription_list}

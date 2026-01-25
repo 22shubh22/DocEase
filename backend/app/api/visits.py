@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 from app.db.database import get_db
 from app.core.deps import get_current_user
-from app.models.models import User, Visit, Appointment, AppointmentStatusEnum, Doctor, Patient
+from app.models.models import User, Visit, Appointment, AppointmentStatusEnum, Doctor, Patient, VisitMedicine
 from app.schemas.schemas import VisitCreate, VisitUpdate
 
 router = APIRouter()
@@ -107,11 +107,25 @@ async def create_visit(
 
     if existing_visit:
         # Update existing visit instead of creating a new one
-        update_fields = ['symptoms', 'diagnosis', 'observations', 'recommended_tests', 'follow_up_date', 'vitals']
+        update_fields = ['symptoms', 'diagnosis', 'observations', 'recommended_tests', 'follow_up_date', 'vitals', 'prescription_notes']
         for field in update_fields:
             value = getattr(visit_data, field, None)
             if value is not None:
                 setattr(existing_visit, field, value)
+
+        # Handle medicines update - delete existing and add new
+        if visit_data.medicines is not None:
+            # Delete existing medicines
+            db.query(VisitMedicine).filter(VisitMedicine.visit_id == existing_visit.id).delete()
+            # Add new medicines
+            for med_data in visit_data.medicines:
+                medicine = VisitMedicine(
+                    visit_id=existing_visit.id,
+                    medicine_name=med_data.medicine_name,
+                    dosage=med_data.dosage,
+                    duration=med_data.duration
+                )
+                db.add(medicine)
 
         # Update appointment status to COMPLETED
         appointment = db.query(Appointment).filter(
@@ -132,17 +146,30 @@ async def create_visit(
 
     visit_number = (last_visit.visit_number + 1) if last_visit else 1
 
-    visit_dict = visit_data.model_dump(exclude={'appointment_id', 'doctor_id'})
+    # Exclude medicines from visit_dict as they need separate handling
+    visit_dict = visit_data.model_dump(exclude={'appointment_id', 'doctor_id', 'medicines'})
     visit = Visit(
         **visit_dict,
         doctor_id=visit_data.doctor_id or doctor.id,
         appointment_id=visit_data.appointment_id,
         visit_number=visit_number,
-        visit_date=date.today(),
+        visit_date=datetime.now(),
         clinic_id=current_user.clinic_id
     )
 
     db.add(visit)
+    db.flush()  # Get the visit ID before adding medicines
+
+    # Add medicines if provided
+    if visit_data.medicines:
+        for med_data in visit_data.medicines:
+            medicine = VisitMedicine(
+                visit_id=visit.id,
+                medicine_name=med_data.medicine_name,
+                dosage=med_data.dosage,
+                duration=med_data.duration
+            )
+            db.add(medicine)
 
     # Update appointment status if exists
     if visit_data.appointment_id:
@@ -164,9 +191,7 @@ async def get_visit_by_id(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get visit by ID with patient and prescription details"""
-    from app.models.models import Prescription, PrescriptionMedicine
-
+    """Get visit by ID with patient and medicines details"""
     visit = db.query(Visit).filter(
         Visit.id == visit_id,
         Visit.clinic_id == current_user.clinic_id
@@ -178,31 +203,17 @@ async def get_visit_by_id(
     # Get patient info
     patient = db.query(Patient).filter(Patient.id == visit.patient_id).first()
 
-    # Get prescriptions with medicines for this visit
-    prescriptions = db.query(Prescription).filter(Prescription.visit_id == visit_id).all()
-    prescriptions_data = []
-    for rx in prescriptions:
-        medicines = db.query(PrescriptionMedicine).filter(
-            PrescriptionMedicine.prescription_id == rx.id
-        ).all()
-        prescriptions_data.append({
-            "id": rx.id,
-            "prescription_date": rx.prescription_date.isoformat() if rx.prescription_date else None,
-            "notes": rx.notes,
-            "pdf_url": rx.pdf_url,
-            "medicines": [
-                {
-                    "id": med.id,
-                    "medicine_name": med.medicine_name,
-                    "dosage": med.dosage,
-                    "frequency": med.frequency,
-                    "duration": med.duration,
-                    "instructions": med.instructions,
-                    "quantity": med.quantity
-                }
-                for med in medicines
-            ]
-        })
+    # Get medicines for this visit
+    medicines = db.query(VisitMedicine).filter(VisitMedicine.visit_id == visit_id).all()
+    medicines_data = [
+        {
+            "id": med.id,
+            "medicine_name": med.medicine_name,
+            "dosage": med.dosage,
+            "duration": med.duration
+        }
+        for med in medicines
+    ]
 
     return {
         "visit": {
@@ -215,6 +226,7 @@ async def get_visit_by_id(
             "recommended_tests": visit.recommended_tests or [],
             "follow_up_date": visit.follow_up_date.isoformat() if visit.follow_up_date else None,
             "vitals": visit.vitals,
+            "prescription_notes": visit.prescription_notes,
             "created_at": visit.created_at.isoformat() if visit.created_at else None,
             "patient": {
                 "id": patient.id,
@@ -226,7 +238,7 @@ async def get_visit_by_id(
                 "allergies": patient.allergies or [],
                 "phone": patient.phone
             } if patient else None,
-            "prescriptions": prescriptions_data
+            "medicines": medicines_data
         }
     }
 
@@ -248,10 +260,54 @@ async def update_visit(
         raise HTTPException(status_code=404, detail="Visit not found")
 
     update_data = visit_data.model_dump(exclude_unset=True)
+
+    # Handle medicines separately
+    medicines_data = update_data.pop('medicines', None)
+
     for field, value in update_data.items():
         setattr(visit, field, value)
+
+    # Handle medicines update if provided
+    if medicines_data is not None:
+        # Delete existing medicines
+        db.query(VisitMedicine).filter(VisitMedicine.visit_id == visit_id).delete()
+        # Add new medicines
+        for med_data in medicines_data:
+            medicine = VisitMedicine(
+                visit_id=visit_id,
+                medicine_name=med_data.get('medicine_name') or med_data.medicine_name,
+                dosage=med_data.get('dosage') if isinstance(med_data, dict) else med_data.dosage,
+                duration=med_data.get('duration') if isinstance(med_data, dict) else med_data.duration
+            )
+            db.add(medicine)
 
     db.commit()
     db.refresh(visit)
 
-    return {"message": "Visit updated successfully", "visit": visit}
+    # Get updated medicines
+    medicines = db.query(VisitMedicine).filter(VisitMedicine.visit_id == visit_id).all()
+
+    return {
+        "message": "Visit updated successfully",
+        "visit": {
+            "id": visit.id,
+            "visit_date": visit.visit_date.isoformat() if visit.visit_date else None,
+            "visit_number": visit.visit_number,
+            "symptoms": visit.symptoms,
+            "diagnosis": visit.diagnosis,
+            "observations": visit.observations,
+            "recommended_tests": visit.recommended_tests or [],
+            "follow_up_date": visit.follow_up_date.isoformat() if visit.follow_up_date else None,
+            "vitals": visit.vitals,
+            "prescription_notes": visit.prescription_notes,
+            "medicines": [
+                {
+                    "id": med.id,
+                    "medicine_name": med.medicine_name,
+                    "dosage": med.dosage,
+                    "duration": med.duration
+                }
+                for med in medicines
+            ]
+        }
+    }

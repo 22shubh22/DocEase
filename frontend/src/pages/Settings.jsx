@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
-import { chiefComplaintsAPI, diagnosisOptionsAPI, observationOptionsAPI } from '../services/api';
+import { chiefComplaintsAPI, diagnosisOptionsAPI, observationOptionsAPI, testOptionsAPI, medicineOptionsAPI, dosageOptionsAPI, durationOptionsAPI, symptomOptionsAPI } from '../services/api';
 
 export default function Settings() {
   const { user, updateUser } = useAuthStore();
@@ -56,6 +56,36 @@ export default function Settings() {
   const [editingObservation, setEditingObservation] = useState(null);
   const [observationForm, setObservationForm] = useState({ name: '', description: '', display_order: 0 });
 
+  const [testOptions, setTestOptions] = useState([]);
+  const [loadingTests, setLoadingTests] = useState(false);
+  const [showAddTest, setShowAddTest] = useState(false);
+  const [editingTest, setEditingTest] = useState(null);
+  const [testForm, setTestForm] = useState({ name: '', description: '', display_order: 0 });
+
+  const [medicineOptions, setMedicineOptions] = useState([]);
+  const [loadingMedicines, setLoadingMedicines] = useState(false);
+  const [showAddMedicine, setShowAddMedicine] = useState(false);
+  const [editingMedicine, setEditingMedicine] = useState(null);
+  const [medicineForm, setMedicineForm] = useState({ name: '', description: '', display_order: 0 });
+
+  const [dosageOptions, setDosageOptions] = useState([]);
+  const [loadingDosages, setLoadingDosages] = useState(false);
+  const [showAddDosage, setShowAddDosage] = useState(false);
+  const [editingDosage, setEditingDosage] = useState(null);
+  const [dosageForm, setDosageForm] = useState({ name: '', description: '', display_order: 0 });
+
+  const [durationOptions, setDurationOptions] = useState([]);
+  const [loadingDurations, setLoadingDurations] = useState(false);
+  const [showAddDuration, setShowAddDuration] = useState(false);
+  const [editingDuration, setEditingDuration] = useState(null);
+  const [durationForm, setDurationForm] = useState({ name: '', description: '', display_order: 0 });
+
+  const [symptomOptions, setSymptomOptions] = useState([]);
+  const [loadingSymptoms, setLoadingSymptoms] = useState(false);
+  const [showAddSymptom, setShowAddSymptom] = useState(false);
+  const [editingSymptom, setEditingSymptom] = useState(null);
+  const [symptomForm, setSymptomForm] = useState({ name: '', description: '', display_order: 0 });
+
   const isDoctor = user?.role === 'DOCTOR';
 
   const tabs = [
@@ -63,8 +93,13 @@ export default function Settings() {
     { id: 'clinic', label: 'Clinic Settings', icon: '🏥' },
     ...(isDoctor ? [
       { id: 'complaints', label: 'Chief Complaints', icon: '📋' },
+      { id: 'symptoms', label: 'Symptom Options', icon: '🤒' },
       { id: 'diagnosis', label: 'Diagnosis Options', icon: '🩺' },
       { id: 'observations', label: 'Observations', icon: '👁️' },
+      { id: 'tests', label: 'Test Options', icon: '🧪' },
+      { id: 'medicines', label: 'Medicines', icon: '💊' },
+      { id: 'dosages', label: 'Dosage Options', icon: '📏' },
+      { id: 'durations', label: 'Duration Options', icon: '⏱️' },
     ] : []),
     { id: 'password', label: 'Change Password', icon: '🔒' },
     { id: 'preferences', label: 'Preferences', icon: '⚙️' },
@@ -373,12 +408,516 @@ export default function Settings() {
     setShowAddObservation(false);
   };
 
+  const fetchTestOptions = async () => {
+    setLoadingTests(true);
+    try {
+      const response = await testOptionsAPI.getAll(false);
+      setTestOptions(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch test options:', error);
+      toast.error('Failed to load test options');
+    } finally {
+      setLoadingTests(false);
+    }
+  };
+
+  const handleAddTest = async (e) => {
+    e.preventDefault();
+    if (!testForm.name.trim()) {
+      toast.error('Please enter a test name');
+      return;
+    }
+    try {
+      await testOptionsAPI.create({
+        name: testForm.name,
+        description: testForm.description,
+        display_order: testForm.display_order || testOptions.length + 1,
+        is_active: true,
+      });
+      toast.success('Test option added');
+      setShowAddTest(false);
+      setTestForm({ name: '', description: '', display_order: 0 });
+      fetchTestOptions();
+    } catch (error) {
+      console.error('Failed to add test:', error);
+      toast.error(error.errorMessage || 'Failed to add test option');
+    }
+  };
+
+  const handleUpdateTest = async (e) => {
+    e.preventDefault();
+    if (!testForm.name.trim()) {
+      toast.error('Please enter a test name');
+      return;
+    }
+    try {
+      await testOptionsAPI.update(editingTest.id, {
+        name: testForm.name,
+        description: testForm.description,
+        display_order: testForm.display_order,
+        is_active: editingTest.is_active,
+      });
+      toast.success('Test option updated');
+      setEditingTest(null);
+      setTestForm({ name: '', description: '', display_order: 0 });
+      fetchTestOptions();
+    } catch (error) {
+      console.error('Failed to update test:', error);
+      toast.error(error.errorMessage || 'Failed to update test option');
+    }
+  };
+
+  const handleToggleTest = async (option) => {
+    try {
+      await testOptionsAPI.update(option.id, {
+        name: option.name,
+        description: option.description,
+        display_order: option.display_order,
+        is_active: !option.is_active,
+      });
+      toast.success(option.is_active ? 'Test deactivated' : 'Test activated');
+      fetchTestOptions();
+    } catch (error) {
+      console.error('Failed to toggle test:', error);
+      toast.error(error.errorMessage || 'Failed to update test status');
+    }
+  };
+
+  const handleDeleteTest = async (option) => {
+    if (!confirm(`Are you sure you want to delete "${option.name}"?`)) return;
+    try {
+      await testOptionsAPI.delete(option.id);
+      toast.success('Test option deleted');
+      fetchTestOptions();
+    } catch (error) {
+      console.error('Failed to delete test:', error);
+      toast.error(error.errorMessage || 'Failed to delete test option');
+    }
+  };
+
+  const startEditTest = (option) => {
+    setEditingTest(option);
+    setTestForm({
+      name: option.name,
+      description: option.description || '',
+      display_order: option.display_order,
+    });
+    setShowAddTest(false);
+  };
+
+  // Medicine Options handlers
+  const fetchMedicineOptions = async () => {
+    setLoadingMedicines(true);
+    try {
+      const response = await medicineOptionsAPI.getAll(false);
+      setMedicineOptions(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch medicine options:', error);
+      toast.error('Failed to load medicine options');
+    } finally {
+      setLoadingMedicines(false);
+    }
+  };
+
+  const handleAddMedicine = async (e) => {
+    e.preventDefault();
+    if (!medicineForm.name.trim()) {
+      toast.error('Please enter a medicine name');
+      return;
+    }
+    try {
+      await medicineOptionsAPI.create({
+        name: medicineForm.name,
+        description: medicineForm.description,
+        display_order: medicineForm.display_order || medicineOptions.length + 1,
+        is_active: true,
+      });
+      toast.success('Medicine option added');
+      setShowAddMedicine(false);
+      setMedicineForm({ name: '', description: '', display_order: 0 });
+      fetchMedicineOptions();
+    } catch (error) {
+      console.error('Failed to add medicine:', error);
+      toast.error(error.errorMessage || 'Failed to add medicine option');
+    }
+  };
+
+  const handleUpdateMedicine = async (e) => {
+    e.preventDefault();
+    if (!medicineForm.name.trim()) {
+      toast.error('Please enter a medicine name');
+      return;
+    }
+    try {
+      await medicineOptionsAPI.update(editingMedicine.id, {
+        name: medicineForm.name,
+        description: medicineForm.description,
+        display_order: medicineForm.display_order,
+        is_active: editingMedicine.is_active,
+      });
+      toast.success('Medicine option updated');
+      setEditingMedicine(null);
+      setMedicineForm({ name: '', description: '', display_order: 0 });
+      fetchMedicineOptions();
+    } catch (error) {
+      console.error('Failed to update medicine:', error);
+      toast.error(error.errorMessage || 'Failed to update medicine option');
+    }
+  };
+
+  const handleToggleMedicine = async (option) => {
+    try {
+      await medicineOptionsAPI.update(option.id, {
+        name: option.name,
+        description: option.description,
+        display_order: option.display_order,
+        is_active: !option.is_active,
+      });
+      toast.success(option.is_active ? 'Medicine deactivated' : 'Medicine activated');
+      fetchMedicineOptions();
+    } catch (error) {
+      console.error('Failed to toggle medicine:', error);
+      toast.error(error.errorMessage || 'Failed to update medicine status');
+    }
+  };
+
+  const handleDeleteMedicine = async (option) => {
+    if (!confirm(`Are you sure you want to delete "${option.name}"?`)) return;
+    try {
+      await medicineOptionsAPI.delete(option.id);
+      toast.success('Medicine option deleted');
+      fetchMedicineOptions();
+    } catch (error) {
+      console.error('Failed to delete medicine:', error);
+      toast.error(error.errorMessage || 'Failed to delete medicine option');
+    }
+  };
+
+  const startEditMedicine = (option) => {
+    setEditingMedicine(option);
+    setMedicineForm({
+      name: option.name,
+      description: option.description || '',
+      display_order: option.display_order,
+    });
+    setShowAddMedicine(false);
+  };
+
+  // Dosage Options handlers
+  const fetchDosageOptions = async () => {
+    setLoadingDosages(true);
+    try {
+      const response = await dosageOptionsAPI.getAll(false);
+      setDosageOptions(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch dosage options:', error);
+      toast.error('Failed to load dosage options');
+    } finally {
+      setLoadingDosages(false);
+    }
+  };
+
+  const handleAddDosage = async (e) => {
+    e.preventDefault();
+    if (!dosageForm.name.trim()) {
+      toast.error('Please enter a dosage name');
+      return;
+    }
+    try {
+      await dosageOptionsAPI.create({
+        name: dosageForm.name,
+        description: dosageForm.description,
+        display_order: dosageForm.display_order || dosageOptions.length + 1,
+        is_active: true,
+      });
+      toast.success('Dosage option added');
+      setShowAddDosage(false);
+      setDosageForm({ name: '', description: '', display_order: 0 });
+      fetchDosageOptions();
+    } catch (error) {
+      console.error('Failed to add dosage:', error);
+      toast.error(error.errorMessage || 'Failed to add dosage option');
+    }
+  };
+
+  const handleUpdateDosage = async (e) => {
+    e.preventDefault();
+    if (!dosageForm.name.trim()) {
+      toast.error('Please enter a dosage name');
+      return;
+    }
+    try {
+      await dosageOptionsAPI.update(editingDosage.id, {
+        name: dosageForm.name,
+        description: dosageForm.description,
+        display_order: dosageForm.display_order,
+        is_active: editingDosage.is_active,
+      });
+      toast.success('Dosage option updated');
+      setEditingDosage(null);
+      setDosageForm({ name: '', description: '', display_order: 0 });
+      fetchDosageOptions();
+    } catch (error) {
+      console.error('Failed to update dosage:', error);
+      toast.error(error.errorMessage || 'Failed to update dosage option');
+    }
+  };
+
+  const handleToggleDosage = async (option) => {
+    try {
+      await dosageOptionsAPI.update(option.id, {
+        name: option.name,
+        description: option.description,
+        display_order: option.display_order,
+        is_active: !option.is_active,
+      });
+      toast.success(option.is_active ? 'Dosage deactivated' : 'Dosage activated');
+      fetchDosageOptions();
+    } catch (error) {
+      console.error('Failed to toggle dosage:', error);
+      toast.error(error.errorMessage || 'Failed to update dosage status');
+    }
+  };
+
+  const handleDeleteDosage = async (option) => {
+    if (!confirm(`Are you sure you want to delete "${option.name}"?`)) return;
+    try {
+      await dosageOptionsAPI.delete(option.id);
+      toast.success('Dosage option deleted');
+      fetchDosageOptions();
+    } catch (error) {
+      console.error('Failed to delete dosage:', error);
+      toast.error(error.errorMessage || 'Failed to delete dosage option');
+    }
+  };
+
+  const startEditDosage = (option) => {
+    setEditingDosage(option);
+    setDosageForm({
+      name: option.name,
+      description: option.description || '',
+      display_order: option.display_order,
+    });
+    setShowAddDosage(false);
+  };
+
+  // Duration Options handlers
+  const fetchDurationOptions = async () => {
+    setLoadingDurations(true);
+    try {
+      const response = await durationOptionsAPI.getAll(false);
+      setDurationOptions(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch duration options:', error);
+      toast.error('Failed to load duration options');
+    } finally {
+      setLoadingDurations(false);
+    }
+  };
+
+  const handleAddDuration = async (e) => {
+    e.preventDefault();
+    if (!durationForm.name.trim()) {
+      toast.error('Please enter a duration name');
+      return;
+    }
+    try {
+      await durationOptionsAPI.create({
+        name: durationForm.name,
+        description: durationForm.description,
+        display_order: durationForm.display_order || durationOptions.length + 1,
+        is_active: true,
+      });
+      toast.success('Duration option added');
+      setShowAddDuration(false);
+      setDurationForm({ name: '', description: '', display_order: 0 });
+      fetchDurationOptions();
+    } catch (error) {
+      console.error('Failed to add duration:', error);
+      toast.error(error.errorMessage || 'Failed to add duration option');
+    }
+  };
+
+  const handleUpdateDuration = async (e) => {
+    e.preventDefault();
+    if (!durationForm.name.trim()) {
+      toast.error('Please enter a duration name');
+      return;
+    }
+    try {
+      await durationOptionsAPI.update(editingDuration.id, {
+        name: durationForm.name,
+        description: durationForm.description,
+        display_order: durationForm.display_order,
+        is_active: editingDuration.is_active,
+      });
+      toast.success('Duration option updated');
+      setEditingDuration(null);
+      setDurationForm({ name: '', description: '', display_order: 0 });
+      fetchDurationOptions();
+    } catch (error) {
+      console.error('Failed to update duration:', error);
+      toast.error(error.errorMessage || 'Failed to update duration option');
+    }
+  };
+
+  const handleToggleDuration = async (option) => {
+    try {
+      await durationOptionsAPI.update(option.id, {
+        name: option.name,
+        description: option.description,
+        display_order: option.display_order,
+        is_active: !option.is_active,
+      });
+      toast.success(option.is_active ? 'Duration deactivated' : 'Duration activated');
+      fetchDurationOptions();
+    } catch (error) {
+      console.error('Failed to toggle duration:', error);
+      toast.error(error.errorMessage || 'Failed to update duration status');
+    }
+  };
+
+  const handleDeleteDuration = async (option) => {
+    if (!confirm(`Are you sure you want to delete "${option.name}"?`)) return;
+    try {
+      await durationOptionsAPI.delete(option.id);
+      toast.success('Duration option deleted');
+      fetchDurationOptions();
+    } catch (error) {
+      console.error('Failed to delete duration:', error);
+      toast.error(error.errorMessage || 'Failed to delete duration option');
+    }
+  };
+
+  const startEditDuration = (option) => {
+    setEditingDuration(option);
+    setDurationForm({
+      name: option.name,
+      description: option.description || '',
+      display_order: option.display_order,
+    });
+    setShowAddDuration(false);
+  };
+
+  // Symptom Options handlers
+  const fetchSymptomOptions = async () => {
+    setLoadingSymptoms(true);
+    try {
+      const response = await symptomOptionsAPI.getAll(false);
+      setSymptomOptions(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch symptom options:', error);
+      toast.error('Failed to load symptom options');
+    } finally {
+      setLoadingSymptoms(false);
+    }
+  };
+
+  const handleAddSymptom = async (e) => {
+    e.preventDefault();
+    if (!symptomForm.name.trim()) {
+      toast.error('Please enter a symptom name');
+      return;
+    }
+    try {
+      await symptomOptionsAPI.create({
+        name: symptomForm.name,
+        description: symptomForm.description,
+        display_order: symptomForm.display_order || symptomOptions.length + 1,
+        is_active: true,
+      });
+      toast.success('Symptom option added');
+      setShowAddSymptom(false);
+      setSymptomForm({ name: '', description: '', display_order: 0 });
+      fetchSymptomOptions();
+    } catch (error) {
+      console.error('Failed to add symptom:', error);
+      toast.error(error.errorMessage || 'Failed to add symptom option');
+    }
+  };
+
+  const handleUpdateSymptom = async (e) => {
+    e.preventDefault();
+    if (!symptomForm.name.trim()) {
+      toast.error('Please enter a symptom name');
+      return;
+    }
+    try {
+      await symptomOptionsAPI.update(editingSymptom.id, {
+        name: symptomForm.name,
+        description: symptomForm.description,
+        display_order: symptomForm.display_order,
+        is_active: editingSymptom.is_active,
+      });
+      toast.success('Symptom option updated');
+      setEditingSymptom(null);
+      setSymptomForm({ name: '', description: '', display_order: 0 });
+      fetchSymptomOptions();
+    } catch (error) {
+      console.error('Failed to update symptom:', error);
+      toast.error(error.errorMessage || 'Failed to update symptom option');
+    }
+  };
+
+  const handleToggleSymptom = async (option) => {
+    try {
+      await symptomOptionsAPI.update(option.id, {
+        name: option.name,
+        description: option.description,
+        display_order: option.display_order,
+        is_active: !option.is_active,
+      });
+      toast.success(option.is_active ? 'Symptom deactivated' : 'Symptom activated');
+      fetchSymptomOptions();
+    } catch (error) {
+      console.error('Failed to toggle symptom:', error);
+      toast.error(error.errorMessage || 'Failed to update symptom status');
+    }
+  };
+
+  const handleDeleteSymptom = async (option) => {
+    if (!confirm(`Are you sure you want to delete "${option.name}"?`)) return;
+    try {
+      await symptomOptionsAPI.delete(option.id);
+      toast.success('Symptom option deleted');
+      fetchSymptomOptions();
+    } catch (error) {
+      console.error('Failed to delete symptom:', error);
+      toast.error(error.errorMessage || 'Failed to delete symptom option');
+    }
+  };
+
+  const startEditSymptom = (option) => {
+    setEditingSymptom(option);
+    setSymptomForm({
+      name: option.name,
+      description: option.description || '',
+      display_order: option.display_order,
+    });
+    setShowAddSymptom(false);
+  };
+
   useEffect(() => {
     if (activeTab === 'diagnosis' && isDoctor && diagnosisOptions.length === 0) {
       fetchDiagnosisOptions();
     }
     if (activeTab === 'observations' && isDoctor && observationOptions.length === 0) {
       fetchObservationOptions();
+    }
+    if (activeTab === 'tests' && isDoctor && testOptions.length === 0) {
+      fetchTestOptions();
+    }
+    if (activeTab === 'medicines' && isDoctor && medicineOptions.length === 0) {
+      fetchMedicineOptions();
+    }
+    if (activeTab === 'dosages' && isDoctor && dosageOptions.length === 0) {
+      fetchDosageOptions();
+    }
+    if (activeTab === 'durations' && isDoctor && durationOptions.length === 0) {
+      fetchDurationOptions();
+    }
+    if (activeTab === 'symptoms' && isDoctor && symptomOptions.length === 0) {
+      fetchSymptomOptions();
     }
   }, [activeTab]);
 
@@ -1108,6 +1647,771 @@ export default function Settings() {
             <p className="text-sm text-blue-800">
               <strong>Tip:</strong> Use the display order to arrange observations. Lower numbers appear first in the dropdown.
               Deactivated observations won't appear in the visit form but are kept for historical records.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Test Options */}
+      {activeTab === 'tests' && isDoctor && (
+        <div className="space-y-6">
+          <div className="card">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Recommended Tests
+              </h2>
+              <button
+                onClick={() => {
+                  setShowAddTest(true);
+                  setEditingTest(null);
+                  setTestForm({ name: '', description: '', display_order: testOptions.length + 1 });
+                }}
+                className="btn btn-primary"
+              >
+                + Add Test
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Configure common recommended tests that appear in the visit form dropdown.
+              Doctors can still enter custom tests if needed.
+            </p>
+
+            {(showAddTest || editingTest) && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h3 className="font-medium text-gray-900 mb-3">
+                  {editingTest ? 'Edit Test' : 'Add New Test'}
+                </h3>
+                <form onSubmit={editingTest ? handleUpdateTest : handleAddTest} className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Test Name *</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="e.g., CBC, Blood Sugar, X-Ray"
+                        value={testForm.name}
+                        onChange={(e) => setTestForm({ ...testForm, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Display Order</label>
+                      <input
+                        type="number"
+                        className="input"
+                        placeholder="1"
+                        value={testForm.display_order}
+                        onChange={(e) => setTestForm({ ...testForm, display_order: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="label">Description (Optional)</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="Brief description of the test"
+                        value={testForm.description}
+                        onChange={(e) => setTestForm({ ...testForm, description: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="submit" className="btn btn-primary">
+                      {editingTest ? 'Update' : 'Add'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddTest(false);
+                        setEditingTest(null);
+                        setTestForm({ name: '', description: '', display_order: 0 });
+                      }}
+                      className="btn btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {loadingTests ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                <p className="mt-2 text-gray-500">Loading tests...</p>
+              </div>
+            ) : testOptions.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <div className="text-4xl mb-2">🧪</div>
+                <p>No test options configured</p>
+                <p className="text-sm mt-1">Add tests to show them in the visit form dropdown</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {testOptions.map((option) => (
+                  <div
+                    key={option.id}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      option.is_active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-400 w-8">#{option.display_order}</span>
+                      <div>
+                        <span className={`font-medium ${option.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
+                          {option.name}
+                        </span>
+                        {option.description && (
+                          <p className="text-sm text-gray-500">{option.description}</p>
+                        )}
+                      </div>
+                      {!option.is_active && (
+                        <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Inactive</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => startEditTest(option)}
+                        className="text-sm text-primary-600 hover:text-primary-700"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleToggleTest(option)}
+                        className={`text-sm ${option.is_active ? 'text-yellow-600 hover:text-yellow-700' : 'text-green-600 hover:text-green-700'}`}
+                      >
+                        {option.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTest(option)}
+                        className="text-sm text-red-600 hover:text-red-700"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card bg-blue-50 border border-blue-200">
+            <p className="text-sm text-blue-800">
+              <strong>Tip:</strong> Use the display order to arrange tests. Lower numbers appear first in the dropdown.
+              Deactivated tests won't appear in the visit form but are kept for historical records.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Medicine Options */}
+      {activeTab === 'medicines' && isDoctor && (
+        <div className="space-y-6">
+          <div className="card">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Medicine Options
+              </h2>
+              <button
+                onClick={() => {
+                  setShowAddMedicine(true);
+                  setEditingMedicine(null);
+                  setMedicineForm({ name: '', description: '', display_order: medicineOptions.length + 1 });
+                }}
+                className="btn btn-primary"
+              >
+                + Add Medicine
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Configure common medicines that appear in the prescription form dropdown.
+              Doctors can still enter custom medicines if needed.
+            </p>
+
+            {(showAddMedicine || editingMedicine) && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h3 className="font-medium text-gray-900 mb-3">
+                  {editingMedicine ? 'Edit Medicine' : 'Add New Medicine'}
+                </h3>
+                <form onSubmit={editingMedicine ? handleUpdateMedicine : handleAddMedicine} className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Medicine Name *</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="e.g., Tab Amoxicillin 500mg"
+                        value={medicineForm.name}
+                        onChange={(e) => setMedicineForm({ ...medicineForm, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Display Order</label>
+                      <input
+                        type="number"
+                        className="input"
+                        placeholder="1"
+                        value={medicineForm.display_order}
+                        onChange={(e) => setMedicineForm({ ...medicineForm, display_order: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="label">Description (Optional)</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="Brief description of the medicine"
+                        value={medicineForm.description}
+                        onChange={(e) => setMedicineForm({ ...medicineForm, description: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="submit" className="btn btn-primary">
+                      {editingMedicine ? 'Update' : 'Add'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddMedicine(false);
+                        setEditingMedicine(null);
+                        setMedicineForm({ name: '', description: '', display_order: 0 });
+                      }}
+                      className="btn btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {loadingMedicines ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                <p className="mt-2 text-gray-500">Loading medicines...</p>
+              </div>
+            ) : medicineOptions.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <div className="text-4xl mb-2">💊</div>
+                <p>No medicine options configured</p>
+                <p className="text-sm mt-1">Add medicines to show them in the prescription form dropdown</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {medicineOptions.map((option) => (
+                  <div
+                    key={option.id}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      option.is_active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-400 w-8">#{option.display_order}</span>
+                      <div>
+                        <span className={`font-medium ${option.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
+                          {option.name}
+                        </span>
+                        {option.description && (
+                          <p className="text-sm text-gray-500">{option.description}</p>
+                        )}
+                      </div>
+                      {!option.is_active && (
+                        <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Inactive</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => startEditMedicine(option)}
+                        className="text-sm text-primary-600 hover:text-primary-700"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleToggleMedicine(option)}
+                        className={`text-sm ${option.is_active ? 'text-yellow-600 hover:text-yellow-700' : 'text-green-600 hover:text-green-700'}`}
+                      >
+                        {option.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteMedicine(option)}
+                        className="text-sm text-red-600 hover:text-red-700"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card bg-blue-50 border border-blue-200">
+            <p className="text-sm text-blue-800">
+              <strong>Tip:</strong> Use the display order to arrange medicines. Lower numbers appear first in the dropdown.
+              Deactivated medicines won't appear in the prescription form but are kept for historical records.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Dosage Options */}
+      {activeTab === 'dosages' && isDoctor && (
+        <div className="space-y-6">
+          <div className="card">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Dosage Options
+              </h2>
+              <button
+                onClick={() => {
+                  setShowAddDosage(true);
+                  setEditingDosage(null);
+                  setDosageForm({ name: '', description: '', display_order: dosageOptions.length + 1 });
+                }}
+                className="btn btn-primary"
+              >
+                + Add Dosage
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Configure common dosage options that appear in the prescription form dropdown.
+              Examples: "1 tablet", "2 tablets", "1-0-1", "5ml"
+            </p>
+
+            {(showAddDosage || editingDosage) && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h3 className="font-medium text-gray-900 mb-3">
+                  {editingDosage ? 'Edit Dosage' : 'Add New Dosage'}
+                </h3>
+                <form onSubmit={editingDosage ? handleUpdateDosage : handleAddDosage} className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Dosage Name *</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="e.g., 1 tablet, 1-0-1, 5ml"
+                        value={dosageForm.name}
+                        onChange={(e) => setDosageForm({ ...dosageForm, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Display Order</label>
+                      <input
+                        type="number"
+                        className="input"
+                        placeholder="1"
+                        value={dosageForm.display_order}
+                        onChange={(e) => setDosageForm({ ...dosageForm, display_order: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="label">Description (Optional)</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="Brief description of the dosage"
+                        value={dosageForm.description}
+                        onChange={(e) => setDosageForm({ ...dosageForm, description: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="submit" className="btn btn-primary">
+                      {editingDosage ? 'Update' : 'Add'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddDosage(false);
+                        setEditingDosage(null);
+                        setDosageForm({ name: '', description: '', display_order: 0 });
+                      }}
+                      className="btn btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {loadingDosages ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                <p className="mt-2 text-gray-500">Loading dosages...</p>
+              </div>
+            ) : dosageOptions.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <div className="text-4xl mb-2">📏</div>
+                <p>No dosage options configured</p>
+                <p className="text-sm mt-1">Add dosages to show them in the prescription form dropdown</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {dosageOptions.map((option) => (
+                  <div
+                    key={option.id}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      option.is_active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-400 w-8">#{option.display_order}</span>
+                      <div>
+                        <span className={`font-medium ${option.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
+                          {option.name}
+                        </span>
+                        {option.description && (
+                          <p className="text-sm text-gray-500">{option.description}</p>
+                        )}
+                      </div>
+                      {!option.is_active && (
+                        <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Inactive</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => startEditDosage(option)}
+                        className="text-sm text-primary-600 hover:text-primary-700"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleToggleDosage(option)}
+                        className={`text-sm ${option.is_active ? 'text-yellow-600 hover:text-yellow-700' : 'text-green-600 hover:text-green-700'}`}
+                      >
+                        {option.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDosage(option)}
+                        className="text-sm text-red-600 hover:text-red-700"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card bg-blue-50 border border-blue-200">
+            <p className="text-sm text-blue-800">
+              <strong>Tip:</strong> Use the display order to arrange dosages. Lower numbers appear first in the dropdown.
+              Deactivated dosages won't appear in the prescription form but are kept for historical records.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Duration Options */}
+      {activeTab === 'durations' && isDoctor && (
+        <div className="space-y-6">
+          <div className="card">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Duration Options
+              </h2>
+              <button
+                onClick={() => {
+                  setShowAddDuration(true);
+                  setEditingDuration(null);
+                  setDurationForm({ name: '', description: '', display_order: durationOptions.length + 1 });
+                }}
+                className="btn btn-primary"
+              >
+                + Add Duration
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Configure common duration options that appear in the prescription form dropdown.
+              Examples: "3 days", "5 days", "1 week", "As directed"
+            </p>
+
+            {(showAddDuration || editingDuration) && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h3 className="font-medium text-gray-900 mb-3">
+                  {editingDuration ? 'Edit Duration' : 'Add New Duration'}
+                </h3>
+                <form onSubmit={editingDuration ? handleUpdateDuration : handleAddDuration} className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Duration Name *</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="e.g., 5 days, 1 week, As directed"
+                        value={durationForm.name}
+                        onChange={(e) => setDurationForm({ ...durationForm, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Display Order</label>
+                      <input
+                        type="number"
+                        className="input"
+                        placeholder="1"
+                        value={durationForm.display_order}
+                        onChange={(e) => setDurationForm({ ...durationForm, display_order: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="label">Description (Optional)</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="Brief description of the duration"
+                        value={durationForm.description}
+                        onChange={(e) => setDurationForm({ ...durationForm, description: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="submit" className="btn btn-primary">
+                      {editingDuration ? 'Update' : 'Add'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddDuration(false);
+                        setEditingDuration(null);
+                        setDurationForm({ name: '', description: '', display_order: 0 });
+                      }}
+                      className="btn btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {loadingDurations ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                <p className="mt-2 text-gray-500">Loading durations...</p>
+              </div>
+            ) : durationOptions.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <div className="text-4xl mb-2">⏱️</div>
+                <p>No duration options configured</p>
+                <p className="text-sm mt-1">Add durations to show them in the prescription form dropdown</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {durationOptions.map((option) => (
+                  <div
+                    key={option.id}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      option.is_active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-400 w-8">#{option.display_order}</span>
+                      <div>
+                        <span className={`font-medium ${option.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
+                          {option.name}
+                        </span>
+                        {option.description && (
+                          <p className="text-sm text-gray-500">{option.description}</p>
+                        )}
+                      </div>
+                      {!option.is_active && (
+                        <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Inactive</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => startEditDuration(option)}
+                        className="text-sm text-primary-600 hover:text-primary-700"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleToggleDuration(option)}
+                        className={`text-sm ${option.is_active ? 'text-yellow-600 hover:text-yellow-700' : 'text-green-600 hover:text-green-700'}`}
+                      >
+                        {option.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDuration(option)}
+                        className="text-sm text-red-600 hover:text-red-700"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card bg-blue-50 border border-blue-200">
+            <p className="text-sm text-blue-800">
+              <strong>Tip:</strong> Use the display order to arrange durations. Lower numbers appear first in the dropdown.
+              Deactivated durations won't appear in the prescription form but are kept for historical records.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Symptom Options */}
+      {activeTab === 'symptoms' && isDoctor && (
+        <div className="space-y-6">
+          <div className="card">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Symptom Options
+              </h2>
+              <button
+                onClick={() => {
+                  setShowAddSymptom(true);
+                  setEditingSymptom(null);
+                  setSymptomForm({ name: '', description: '', display_order: symptomOptions.length + 1 });
+                }}
+                className="btn btn-primary"
+              >
+                + Add Symptom
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Configure common symptoms that appear in the visit form dropdown.
+              Examples: "Fever", "Headache", "Cough", "Body Pain"
+            </p>
+
+            {(showAddSymptom || editingSymptom) && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h3 className="font-medium text-gray-900 mb-3">
+                  {editingSymptom ? 'Edit Symptom' : 'Add New Symptom'}
+                </h3>
+                <form onSubmit={editingSymptom ? handleUpdateSymptom : handleAddSymptom} className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Symptom Name *</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="e.g., Fever, Headache, Cough"
+                        value={symptomForm.name}
+                        onChange={(e) => setSymptomForm({ ...symptomForm, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Display Order</label>
+                      <input
+                        type="number"
+                        className="input"
+                        placeholder="1"
+                        value={symptomForm.display_order}
+                        onChange={(e) => setSymptomForm({ ...symptomForm, display_order: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="label">Description (Optional)</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="Brief description of the symptom"
+                        value={symptomForm.description}
+                        onChange={(e) => setSymptomForm({ ...symptomForm, description: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="submit" className="btn btn-primary">
+                      {editingSymptom ? 'Update' : 'Add'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddSymptom(false);
+                        setEditingSymptom(null);
+                        setSymptomForm({ name: '', description: '', display_order: 0 });
+                      }}
+                      className="btn btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {loadingSymptoms ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                <p className="mt-2 text-gray-500">Loading symptoms...</p>
+              </div>
+            ) : symptomOptions.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <div className="text-4xl mb-2">🤒</div>
+                <p>No symptom options configured</p>
+                <p className="text-sm mt-1">Add symptoms to show them in the visit form dropdown</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {symptomOptions.map((option) => (
+                  <div
+                    key={option.id}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      option.is_active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-400 w-8">#{option.display_order}</span>
+                      <div>
+                        <span className={`font-medium ${option.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
+                          {option.name}
+                        </span>
+                        {option.description && (
+                          <p className="text-sm text-gray-500">{option.description}</p>
+                        )}
+                      </div>
+                      {!option.is_active && (
+                        <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Inactive</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => startEditSymptom(option)}
+                        className="text-sm text-primary-600 hover:text-primary-700"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleToggleSymptom(option)}
+                        className={`text-sm ${option.is_active ? 'text-yellow-600 hover:text-yellow-700' : 'text-green-600 hover:text-green-700'}`}
+                      >
+                        {option.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSymptom(option)}
+                        className="text-sm text-red-600 hover:text-red-700"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card bg-blue-50 border border-blue-200">
+            <p className="text-sm text-blue-800">
+              <strong>Tip:</strong> Use the display order to arrange symptoms. Lower numbers appear first in the dropdown.
+              Deactivated symptoms won't appear in the visit form but are kept for historical records.
             </p>
           </div>
         </div>

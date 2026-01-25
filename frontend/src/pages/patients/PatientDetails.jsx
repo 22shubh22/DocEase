@@ -2,13 +2,26 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { patientsAPI } from '../../services/api';
 
+const formatDateTime = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  }) + ', ' + date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
 export default function PatientDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [patient, setPatient] = useState(null);
   const [visits, setVisits] = useState([]);
-  const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -19,14 +32,12 @@ export default function PatientDetails() {
   const fetchPatientData = async () => {
     try {
       setLoading(true);
-      const [patientRes, visitsRes, prescriptionsRes] = await Promise.all([
+      const [patientRes, visitsRes] = await Promise.all([
         patientsAPI.getById(id),
-        patientsAPI.getVisits(id),
-        patientsAPI.getPrescriptions(id)
+        patientsAPI.getVisits(id)
       ]);
       setPatient(patientRes.data.patient);
       setVisits(visitsRes.data.visits || []);
-      setPrescriptions(prescriptionsRes.data.prescriptions || []);
     } catch (err) {
       console.error('Failed to fetch patient data:', err);
       setError('Failed to load patient data');
@@ -58,7 +69,6 @@ export default function PatientDetails() {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '👤' },
     { id: 'visits', label: 'Visit History', icon: '📋' },
-    { id: 'prescriptions', label: 'Prescriptions', icon: '💊' },
   ];
 
   return (
@@ -77,12 +87,6 @@ export default function PatientDetails() {
           <p className="text-gray-600 mt-1">Patient ID: {patient.patient_code}</p>
         </div>
         <div className="flex gap-3">
-          <Link
-            to={`/visits/new?patientId=${patient.id}`}
-            className="btn btn-primary"
-          >
-            📝 New Visit
-          </Link>
           <Link
             to={`/patients/${patient.id}/edit`}
             className="btn btn-secondary"
@@ -195,15 +199,7 @@ export default function PatientDetails() {
 
       {activeTab === 'visits' && (
         <div className="card">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Visit History</h2>
-            <Link
-              to={`/visits/new?patientId=${patient.id}`}
-              className="btn btn-primary"
-            >
-              Add Visit
-            </Link>
-          </div>
+          <h2 className="text-xl font-semibold mb-4">Visit History</h2>
           <div className="space-y-4">
             {visits.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
@@ -213,13 +209,59 @@ export default function PatientDetails() {
             ) : (
               visits.map((visit) => (
                 <div key={visit.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                  <div className="flex justify-between items-start mb-2">
+                  {/* Header - diagnosis, symptoms, date */}
+                  <div className="flex justify-between items-start mb-3">
                     <div>
                       <h3 className="font-semibold text-gray-900">{visit.diagnosis || 'No diagnosis'}</h3>
                       <p className="text-sm text-gray-600">{visit.symptoms || 'No symptoms recorded'}</p>
                     </div>
-                    <span className="text-sm text-gray-500">{visit.visit_date}</span>
+                    <span className="text-sm text-gray-500">{formatDateTime(visit.visit_date)}</span>
                   </div>
+
+                  {/* Vitals section */}
+                  {visit.vitals && Object.keys(visit.vitals).length > 0 && (
+                    <div className="py-2 border-t text-sm">
+                      <span className="font-medium text-gray-700">Vitals: </span>
+                      <span className="text-gray-600">
+                        {[
+                          visit.vitals.blood_pressure && `BP: ${visit.vitals.blood_pressure}`,
+                          visit.vitals.temperature && `Temp: ${visit.vitals.temperature}°F`,
+                          visit.vitals.pulse && `Pulse: ${visit.vitals.pulse}`,
+                          visit.vitals.spo2 && `SpO2: ${visit.vitals.spo2}%`,
+                          visit.vitals.weight && `Wt: ${visit.vitals.weight}kg`,
+                        ].filter(Boolean).join(' | ')}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Tests section */}
+                  {visit.recommended_tests && visit.recommended_tests.length > 0 && (
+                    <div className="py-2 border-t text-sm">
+                      <span className="font-medium text-gray-700">Tests: </span>
+                      <span className="text-gray-600">{visit.recommended_tests.join(', ')}</span>
+                    </div>
+                  )}
+
+                  {/* Prescription section */}
+                  {visit.medicines && visit.medicines.length > 0 && (
+                    <div className="py-2 border-t text-sm">
+                      <span className="font-medium text-gray-700">Rx: </span>
+                      <div className="text-gray-600 mt-1 space-y-1">
+                        {visit.medicines.map((med, idx) => (
+                          <div key={med.id || idx}>
+                            {med.medicine_name}
+                            {(med.dosage || med.duration) && (
+                              <span className="text-gray-500">
+                                {' '}({[med.dosage, med.duration].filter(Boolean).join(', ')})
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Footer - visit number and link */}
                   <div className="flex justify-between items-center mt-2 pt-2 border-t">
                     <span className="text-sm text-gray-600">Visit #{visit.visit_number}</span>
                     <Link to={`/visits/${visit.id}`} className="text-primary-600 hover:text-primary-700 text-sm">
@@ -230,41 +272,6 @@ export default function PatientDetails() {
               ))
             )}
           </div>
-        </div>
-      )}
-
-      {activeTab === 'prescriptions' && (
-        <div className="card">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Prescriptions</h2>
-            <Link
-              to={`/prescriptions/new?patientId=${patient.id}`}
-              className="btn btn-primary"
-            >
-              New Prescription
-            </Link>
-          </div>
-          {prescriptions.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <div className="text-4xl mb-2">💊</div>
-              <p>No prescriptions yet</p>
-              <p className="text-sm mt-1">Create a visit first to add prescriptions</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {prescriptions.map((prescription) => (
-                <div key={prescription.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-semibold text-gray-900">Prescription #{prescription.id.slice(0, 8)}</p>
-                      <p className="text-sm text-gray-600">{prescription.notes || 'No notes'}</p>
-                    </div>
-                    <span className="text-sm text-gray-500">{prescription.prescription_date}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
 

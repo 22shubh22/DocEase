@@ -157,7 +157,7 @@ class PatientResponse(PatientBase):
 # Appointment Schemas
 class AppointmentBase(BaseModel):
     patient_id: str
-    chief_complaint: Optional[str] = None
+    chief_complaints: Optional[List[str]] = []
 
 
 class AppointmentCreate(AppointmentBase):
@@ -176,7 +176,7 @@ class AppointmentResponse(AppointmentBase):
     id: str
     appointment_date: date
     queue_number: Optional[int] = None
-    chief_complaint: Optional[str] = None
+    chief_complaints: Optional[List[str]] = []
     status: AppointmentStatusEnum
     created_at: datetime
 
@@ -184,81 +184,60 @@ class AppointmentResponse(AppointmentBase):
         from_attributes = True
 
 
+# Visit Medicine Schema (forward declaration for VisitCreate)
+class VisitMedicineCreate(BaseModel):
+    medicine_name: str
+    dosage: Optional[str] = None
+    duration: Optional[str] = None
+
+
 # Visit Schemas
 class VisitBase(BaseModel):
     patient_id: str
     appointment_id: Optional[str] = None
-    symptoms: Optional[str] = None
-    diagnosis: Optional[str] = None
-    observations: Optional[str] = None
+    symptoms: Optional[List[str]] = []
+    diagnosis: Optional[List[str]] = []
+    observations: Optional[List[str]] = []
     recommended_tests: Optional[List[str]] = []
     follow_up_date: Optional[date] = None
     vitals: Optional[dict] = None
+    prescription_notes: Optional[str] = None
 
 
 class VisitCreate(VisitBase):
     doctor_id: Optional[str] = None
+    medicines: Optional[List[VisitMedicineCreate]] = []
 
 
 class VisitUpdate(BaseModel):
-    symptoms: Optional[str] = None
-    diagnosis: Optional[str] = None
-    observations: Optional[str] = None
+    symptoms: Optional[List[str]] = None
+    diagnosis: Optional[List[str]] = None
+    observations: Optional[List[str]] = None
     recommended_tests: Optional[List[str]] = None
     follow_up_date: Optional[date] = None
     vitals: Optional[dict] = None
+    prescription_notes: Optional[str] = None
+    medicines: Optional[List[VisitMedicineCreate]] = None
+
+
+class VisitMedicineResponse(BaseModel):
+    id: str
+    medicine_name: str
+    dosage: Optional[str] = None
+    duration: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 
 class VisitResponse(VisitBase):
     id: str
     doctor_id: str
-    visit_date: date
+    visit_date: datetime
     visit_number: int
     clinic_id: str
     created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-# Prescription Schemas
-class PrescriptionMedicineBase(BaseModel):
-    medicine_name: str
-    dosage: str
-    frequency: str
-    duration: str
-    instructions: Optional[str] = None
-    quantity: Optional[int] = None
-
-
-class PrescriptionMedicineCreate(PrescriptionMedicineBase):
-    pass
-
-
-class PrescriptionMedicineResponse(PrescriptionMedicineBase):
-    id: str
-
-    class Config:
-        from_attributes = True
-
-
-class PrescriptionBase(BaseModel):
-    visit_id: str
-    patient_id: str
-    doctor_id: str
-    notes: Optional[str] = None
-
-
-class PrescriptionCreate(PrescriptionBase):
-    medicines: List[PrescriptionMedicineCreate]
-
-
-class PrescriptionResponse(PrescriptionBase):
-    id: str
-    prescription_date: date
-    pdf_url: Optional[str] = None
-    medicines: List[PrescriptionMedicineResponse]
-    created_at: datetime
+    medicines: List[VisitMedicineResponse] = []
 
     class Config:
         from_attributes = True
@@ -429,6 +408,146 @@ class ObservationOptionUpdate(BaseModel):
 
 
 class ObservationOptionResponse(ObservationOptionBase):
+    id: str
+    clinic_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Test Option Schemas
+class TestOptionBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    is_active: bool = True
+    display_order: int = 0
+
+
+class TestOptionCreate(TestOptionBase):
+    pass
+
+
+class TestOptionUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    display_order: Optional[int] = None
+
+
+class TestOptionResponse(TestOptionBase):
+    id: str
+    clinic_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Medicine Option Schemas
+class MedicineOptionBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    is_active: bool = True
+    display_order: int = 0
+
+
+class MedicineOptionCreate(MedicineOptionBase):
+    pass
+
+
+class MedicineOptionUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    display_order: Optional[int] = None
+
+
+class MedicineOptionResponse(MedicineOptionBase):
+    id: str
+    clinic_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Dosage Option Schemas
+class DosageOptionBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    is_active: bool = True
+    display_order: int = 0
+
+
+class DosageOptionCreate(DosageOptionBase):
+    pass
+
+
+class DosageOptionUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    display_order: Optional[int] = None
+
+
+class DosageOptionResponse(DosageOptionBase):
+    id: str
+    clinic_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Duration Option Schemas
+class DurationOptionBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    is_active: bool = True
+    display_order: int = 0
+
+
+class DurationOptionCreate(DurationOptionBase):
+    pass
+
+
+class DurationOptionUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    display_order: Optional[int] = None
+
+
+class DurationOptionResponse(DurationOptionBase):
+    id: str
+    clinic_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Symptom Option Schemas
+class SymptomOptionBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    is_active: bool = True
+    display_order: int = 0
+
+
+class SymptomOptionCreate(SymptomOptionBase):
+    pass
+
+
+class SymptomOptionUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    display_order: Optional[int] = None
+
+
+class SymptomOptionResponse(SymptomOptionBase):
     id: str
     clinic_id: str
     created_at: datetime

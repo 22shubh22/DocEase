@@ -10,6 +10,7 @@ from app.schemas.schemas import (
     UserResponseWithPassword, UserUpdateByAdmin, SetClinicOwner
 )
 from app.core.security import get_password_hash
+from app.services.clinic_fixtures import seed_dental_fixtures_for_clinic
 
 
 def generate_clinic_code(db: Session) -> str:
@@ -92,6 +93,9 @@ async def create_clinic(
         clinic = Clinic(**clinic_data.dict(), clinic_code=clinic_code)
         db.add(clinic)
         db.flush()
+
+        # Seed dental fixtures for the new clinic
+        seed_dental_fixtures_for_clinic(db, clinic.id)
 
         clinic_admin = ClinicAdmin(admin_id=current_user.id, clinic_id=clinic.id)
         db.add(clinic_admin)

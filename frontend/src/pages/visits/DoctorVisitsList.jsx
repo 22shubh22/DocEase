@@ -239,12 +239,16 @@ export default function DoctorVisitsList() {
                     </td>
                     <td className="hidden md:table-cell px-6 py-4">
                       <div className="text-sm text-gray-900 line-clamp-2 max-w-xs">
-                        {visit.diagnosis || '-'}
+                        {visit.diagnosis && visit.diagnosis.length > 0
+                          ? visit.diagnosis.join(', ')
+                          : '-'}
                       </div>
                     </td>
                     <td className="hidden lg:table-cell px-6 py-4">
                       <div className="text-sm text-gray-600 line-clamp-2 max-w-xs">
-                        {visit.symptoms || '-'}
+                        {visit.symptoms && visit.symptoms.length > 0
+                          ? visit.symptoms.join(', ')
+                          : '-'}
                       </div>
                     </td>
                     <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">

@@ -1,13 +1,17 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { visitsAPI } from '../../services/api';
+import useAuthStore from '../../store/authStore';
+import VisitPreviewModal from '../../components/visits/VisitPreviewModal';
 
 export default function VisitDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [visit, setVisit] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   useEffect(() => {
     fetchVisitData();
@@ -33,6 +37,24 @@ export default function VisitDetails() {
         year: 'numeric',
         month: 'short',
         day: 'numeric'
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const formatDateTime = (dateString) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      }) + ', ' + date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
       });
     } catch {
       return dateString;
@@ -82,15 +104,27 @@ export default function VisitDetails() {
             {patient?.full_name || 'Unknown Patient'}
           </h1>
           <p className="text-gray-600 mt-1">
-            Visit #{visit.visit_number} - {formatDate(visit.visit_date)}
+            Visit #{visit.visit_number} - {formatDateTime(visit.visit_date)}
           </p>
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={() => setShowPreviewModal(true)}
+            className="btn btn-secondary"
+          >
+            Print
+          </button>
           <Link
-            to={`/prescriptions/new?visitId=${visit.id}&patientId=${patient?.id}`}
+            to={`/visits/${visit.id}/edit`}
             className="btn btn-primary"
           >
-            + Add Prescription
+            Edit Visit
+          </Link>
+          <Link
+            to="/opd"
+            className="btn bg-green-600 hover:bg-green-700 text-white"
+          >
+            Next Patient →
           </Link>
         </div>
       </div>
@@ -189,16 +223,46 @@ export default function VisitDetails() {
         <h2 className="text-lg font-semibold mb-4 pb-2 border-b">Consultation Details</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <span className="text-gray-600 block mb-1">Symptoms</span>
-            <p className="text-gray-900">{visit.symptoms || 'Not recorded'}</p>
+            <span className="text-gray-600 block mb-2">Symptoms</span>
+            {visit.symptoms && visit.symptoms.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {visit.symptoms.map((symptom, index) => (
+                  <span key={index} className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm">
+                    {symptom}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500">Not recorded</p>
+            )}
           </div>
           <div>
-            <span className="text-gray-600 block mb-1">Diagnosis</span>
-            <p className="text-gray-900 font-medium">{visit.diagnosis || 'Not recorded'}</p>
+            <span className="text-gray-600 block mb-2">Diagnosis</span>
+            {visit.diagnosis && visit.diagnosis.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {visit.diagnosis.map((diagnosis, index) => (
+                  <span key={index} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                    {diagnosis}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500">Not recorded</p>
+            )}
           </div>
           <div className="md:col-span-2">
-            <span className="text-gray-600 block mb-1">Observations</span>
-            <p className="text-gray-900">{visit.observations || 'No observations recorded'}</p>
+            <span className="text-gray-600 block mb-2">Observations</span>
+            {visit.observations && visit.observations.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {visit.observations.map((observation, index) => (
+                  <span key={index} className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                    {observation}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500">No observations recorded</p>
+            )}
           </div>
         </div>
       </div>
@@ -247,64 +311,42 @@ export default function VisitDetails() {
         </div>
       </div>
 
-      {/* Prescriptions */}
+      {/* Prescription / Medicines */}
       <div className="card">
         <div className="flex justify-between items-center mb-4 pb-2 border-b">
-          <h2 className="text-lg font-semibold">Prescriptions</h2>
+          <h2 className="text-lg font-semibold">Prescription</h2>
           <Link
-            to={`/prescriptions/new?visitId=${visit.id}&patientId=${patient?.id}`}
+            to={`/visits/${visit.id}/edit`}
             className="btn btn-secondary text-sm"
           >
-            + Add
+            {visit.medicines?.length > 0 ? 'Edit Prescription' : '+ Add Prescription'}
           </Link>
         </div>
-        {visit.prescriptions && visit.prescriptions.length > 0 ? (
+        {visit.medicines && visit.medicines.length > 0 ? (
           <div className="space-y-4">
-            {visit.prescriptions.map((prescription) => (
-              <div key={prescription.id} className="border rounded-lg p-4 bg-gray-50">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <span className="text-sm text-gray-600">
-                      Prescription - {formatDate(prescription.prescription_date)}
-                    </span>
-                    {prescription.notes && (
-                      <p className="text-sm text-gray-700 mt-1">{prescription.notes}</p>
-                    )}
-                  </div>
-                  {prescription.pdf_url && (
-                    <a
-                      href={prescription.pdf_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary-600 hover:text-primary-700 text-sm"
-                    >
-                      Download PDF
-                    </a>
-                  )}
+            <div className="border rounded-lg p-4 bg-gray-50">
+              {visit.prescription_notes && (
+                <div className="mb-3">
+                  <span className="text-sm text-gray-600">Notes</span>
+                  <p className="text-sm text-gray-700 mt-1">{visit.prescription_notes}</p>
                 </div>
-                {prescription.medicines && prescription.medicines.length > 0 && (
-                  <div className="space-y-2">
-                    {prescription.medicines.map((medicine, idx) => (
-                      <div key={medicine.id || idx} className="flex flex-wrap gap-x-4 gap-y-1 text-sm bg-white p-2 rounded">
-                        <span className="font-medium">{medicine.medicine_name}</span>
-                        <span className="text-gray-600">{medicine.dosage}</span>
-                        <span className="text-gray-600">{medicine.frequency}</span>
-                        <span className="text-gray-600">{medicine.duration}</span>
-                        {medicine.instructions && (
-                          <span className="text-gray-500 italic w-full">{medicine.instructions}</span>
-                        )}
-                      </div>
-                    ))}
+              )}
+              <div className="space-y-2">
+                {visit.medicines.map((medicine, idx) => (
+                  <div key={medicine.id || idx} className="flex flex-wrap gap-x-4 gap-y-1 text-sm bg-white p-2 rounded">
+                    <span className="font-medium">{medicine.medicine_name}</span>
+                    {medicine.dosage && <span className="text-gray-600">{medicine.dosage}</span>}
+                    {medicine.duration && <span className="text-gray-600">{medicine.duration}</span>}
                   </div>
-                )}
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         ) : (
           <div className="text-center py-8 text-gray-500">
-            <p>No prescriptions for this visit</p>
+            <p>No prescription for this visit</p>
             <Link
-              to={`/prescriptions/new?visitId=${visit.id}&patientId=${patient?.id}`}
+              to={`/visits/${visit.id}/edit`}
               className="text-primary-600 hover:text-primary-700 text-sm mt-2 inline-block"
             >
               Add a prescription
@@ -312,6 +354,24 @@ export default function VisitDetails() {
           </div>
         )}
       </div>
+
+      {/* Print Preview Modal */}
+      <VisitPreviewModal
+        isOpen={showPreviewModal}
+        onClose={() => setShowPreviewModal(false)}
+        data={{
+          patient: visit.patient,
+          vitals: visit.vitals,
+          symptoms: visit.symptoms,
+          diagnoses: visit.diagnosis,
+          observations: visit.observations,
+          tests: visit.recommended_tests,
+          followUpDate: visit.follow_up_date,
+          medicines: visit.medicines,
+          prescriptionNotes: visit.prescription_notes
+        }}
+        printSettings={user?.printSettings || { top: 280, left: 40 }}
+      />
     </div>
   );
 }

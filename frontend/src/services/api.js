@@ -98,19 +98,52 @@ export const observationOptionsAPI = {
   delete: (id) => api.delete(`/observation-options/${id}`),
 };
 
+// Test Options API
+export const testOptionsAPI = {
+  getAll: (activeOnly = true) => api.get('/test-options/', { params: { active_only: activeOnly } }),
+  create: (data) => api.post('/test-options/', data),
+  update: (id, data) => api.put(`/test-options/${id}`, data),
+  delete: (id) => api.delete(`/test-options/${id}`),
+};
+
+// Medicine Options API
+export const medicineOptionsAPI = {
+  getAll: (activeOnly = true) => api.get('/medicine-options/', { params: { active_only: activeOnly } }),
+  create: (data) => api.post('/medicine-options/', data),
+  update: (id, data) => api.put(`/medicine-options/${id}`, data),
+  delete: (id) => api.delete(`/medicine-options/${id}`),
+};
+
+// Dosage Options API
+export const dosageOptionsAPI = {
+  getAll: (activeOnly = true) => api.get('/dosage-options/', { params: { active_only: activeOnly } }),
+  create: (data) => api.post('/dosage-options/', data),
+  update: (id, data) => api.put(`/dosage-options/${id}`, data),
+  delete: (id) => api.delete(`/dosage-options/${id}`),
+};
+
+// Duration Options API
+export const durationOptionsAPI = {
+  getAll: (activeOnly = true) => api.get('/duration-options/', { params: { active_only: activeOnly } }),
+  create: (data) => api.post('/duration-options/', data),
+  update: (id, data) => api.put(`/duration-options/${id}`, data),
+  delete: (id) => api.delete(`/duration-options/${id}`),
+};
+
+// Symptom Options API
+export const symptomOptionsAPI = {
+  getAll: (activeOnly = true) => api.get('/symptom-options/', { params: { active_only: activeOnly } }),
+  create: (data) => api.post('/symptom-options/', data),
+  update: (id, data) => api.put(`/symptom-options/${id}`, data),
+  delete: (id) => api.delete(`/symptom-options/${id}`),
+};
+
 // Visits API
 export const visitsAPI = {
   getAll: (params) => api.get('/visits/', { params }),
   create: (data) => api.post('/visits/', data),
   getById: (id) => api.get(`/visits/${id}`),
   update: (id, data) => api.put(`/visits/${id}`, data),
-};
-
-// Prescriptions API
-export const prescriptionsAPI = {
-  create: (data) => api.post('/prescriptions/', data),
-  getById: (id) => api.get(`/prescriptions/${id}`),
-  downloadPDF: (id) => api.get(`/prescriptions/${id}/pdf`, { responseType: 'blob' }),
 };
 
 // Invoices API

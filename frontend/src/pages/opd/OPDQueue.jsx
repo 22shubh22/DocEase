@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { parseISO, format } from 'date-fns';
 import { opdAPI, patientsAPI, chiefComplaintsAPI } from '../../services/api';
 
 export default function OPDQueue() {
+  const navigate = useNavigate();
   const [queue, setQueue] = useState([]);
   const [patients, setPatients] = useState([]);
   const [chiefComplaints, setChiefComplaints] = useState([]);
@@ -12,14 +13,15 @@ export default function OPDQueue() {
   const [stats, setStats] = useState({ total: 0, waiting: 0, inProgress: 0, completed: 0 });
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState('');
-  const [selectedComplaint, setSelectedComplaint] = useState('');
+  const [selectedComplaints, setSelectedComplaints] = useState([]);
   const [customComplaint, setCustomComplaint] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 30000);
+    const interval = setInterval(fetchData, 10000); // Refresh every 10 seconds for better real-time updates
     return () => clearInterval(interval);
   }, [selectedDate]);
 
@@ -46,23 +48,29 @@ export default function OPDQueue() {
 
   const handleAddToQueue = async (e) => {
     e.preventDefault();
-    const complaint = selectedComplaint === 'OTHER' ? customComplaint : selectedComplaint;
-    
-    if (!selectedPatient || !complaint) {
-      toast.error('Please fill in all required fields');
+
+    // Combine selected complaints with custom complaints
+    const allComplaints = [...selectedComplaints];
+    if (customComplaint.trim()) {
+      const customs = customComplaint.split(',').map(c => c.trim()).filter(c => c);
+      allComplaints.push(...customs);
+    }
+
+    if (!selectedPatient || allComplaints.length === 0) {
+      toast.error('Please select a patient and at least one complaint');
       return;
     }
 
     try {
       await opdAPI.addToQueue({
         patient_id: selectedPatient,
-        chief_complaint: complaint,
+        chief_complaints: allComplaints,
       });
       toast.success('Patient added to queue');
       fetchData();
       setShowAddForm(false);
       setSelectedPatient('');
-      setSelectedComplaint('');
+      setSelectedComplaints([]);
       setCustomComplaint('');
     } catch (error) {
       console.error('Failed to add to queue:', error);
@@ -78,6 +86,32 @@ export default function OPDQueue() {
     } catch (error) {
       console.error('Failed to update status:', error);
       toast.error('Failed to update status');
+    }
+  };
+
+  // Combined action: Start consultation and navigate to visit form
+  const handleStartConsultation = async (item) => {
+    try {
+      await opdAPI.updateStatus(item.id, 'IN_PROGRESS');
+      const complaintsParam = encodeURIComponent(JSON.stringify(item.chief_complaints || []));
+      navigate(`/visits/new?patientId=${item.patient_id}&complaints=${complaintsParam}&appointmentId=${item.id}`);
+    } catch (error) {
+      console.error('Failed to start consultation:', error);
+      toast.error('Failed to start consultation');
+    }
+  };
+
+  const handleViewVisit = async (appointmentId) => {
+    try {
+      const response = await opdAPI.getVisitByAppointment(appointmentId);
+      if (response.data.visit?.id) {
+        navigate(`/visits/${response.data.visit.id}`);
+      } else {
+        toast.error('No visit record found for this appointment');
+      }
+    } catch (error) {
+      console.error('Failed to fetch visit:', error);
+      toast.error('Failed to load visit details');
     }
   };
 
@@ -118,9 +152,13 @@ export default function OPDQueue() {
     }
   };
 
-  const filteredQueue = filterStatus === 'ALL'
-    ? queue
-    : queue.filter(item => item.status === filterStatus);
+  const filteredQueue = queue.filter(item => {
+    const matchesStatus = filterStatus === 'ALL' || item.status === filterStatus;
+    const matchesSearch = !searchQuery ||
+      (item.patient_name || item.patient?.full_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.patient_code || item.patient?.patient_code || '').toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
 
   const isToday = selectedDate === new Date().toISOString().split('T')[0];
 
@@ -174,47 +212,68 @@ export default function OPDQueue() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="label">Chief Complaint *</label>
-                {chiefComplaints.length > 0 ? (
-                  <select
-                    className="input"
-                    value={selectedComplaint}
-                    onChange={(e) => setSelectedComplaint(e.target.value)}
-                    required
-                  >
-                    <option value="">Select a complaint...</option>
-                    {chiefComplaints.map(complaint => (
-                      <option key={complaint.id} value={complaint.name}>
-                        {complaint.name}
-                      </option>
-                    ))}
-                    <option value="OTHER">Other (specify)</option>
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="e.g., Fever, headache, routine checkup"
-                    value={customComplaint}
-                    onChange={(e) => setCustomComplaint(e.target.value)}
-                    required
-                  />
-                )}
-              </div>
-              {selectedComplaint === 'OTHER' && (
-                <div className="md:col-span-2">
-                  <label className="label">Specify Complaint *</label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="Enter the complaint..."
-                    value={customComplaint}
-                    onChange={(e) => setCustomComplaint(e.target.value)}
-                    required
-                  />
+              <div className="md:col-span-2">
+                <label className="label">Chief Complaints *</label>
+                <div className="space-y-3">
+                  {/* Selected complaints as chips */}
+                  {selectedComplaints.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedComplaints.map((complaint, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm"
+                        >
+                          {complaint}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedComplaints(selectedComplaints.filter((_, i) => i !== index))}
+                            className="hover:text-red-900 font-bold"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Dropdown to add complaints */}
+                  {chiefComplaints.length > 0 && (
+                    <select
+                      className="input"
+                      value=""
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value && !selectedComplaints.includes(value)) {
+                          setSelectedComplaints([...selectedComplaints, value]);
+                        }
+                      }}
+                    >
+                      <option value="">Add a complaint...</option>
+                      {chiefComplaints
+                        .filter(c => !selectedComplaints.includes(c.name))
+                        .map(complaint => (
+                          <option key={complaint.id} value={complaint.name}>
+                            {complaint.name}
+                          </option>
+                        ))}
+                    </select>
+                  )}
+
+                  {/* Custom complaint input */}
+                  <div>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="Add custom complaints (comma separated)"
+                      value={customComplaint}
+                      onChange={(e) => setCustomComplaint(e.target.value)}
+                    />
+                    <p className="text-sm text-gray-500 mt-1">
+                      Enter additional complaints not in the list, separated by commas
+                    </p>
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
             <div className="flex gap-3">
               <button type="submit" className="btn btn-primary">
@@ -252,8 +311,19 @@ export default function OPDQueue() {
         </div>
       </div>
 
-      {/* Filter Tabs */}
+      {/* Search and Filter */}
       <div className="card !p-4">
+        <div className="flex flex-col sm:flex-row gap-4 mb-4">
+          <div className="flex-grow">
+            <input
+              type="text"
+              className="input"
+              placeholder="Search by patient name or code..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => setFilterStatus('ALL')}
@@ -371,8 +441,14 @@ export default function OPDQueue() {
                     </div>
                     <div className="sm:col-span-2 lg:col-span-2">
                       <span className="text-gray-600">Complaint:</span>
-                      <span className="ml-1 font-medium">{item.chief_complaint || '-'}</span>
+                      <span className="ml-1 font-medium">{item.chief_complaints?.join(', ') || '-'}</span>
                     </div>
+                    {item.patient?.address && (
+                      <div className="sm:col-span-2 lg:col-span-3">
+                        <span className="text-gray-600">Address:</span>
+                        <span className="ml-1 font-medium">{item.patient.address}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -381,7 +457,7 @@ export default function OPDQueue() {
                   {item.status === 'WAITING' && (
                     <>
                       <button
-                        onClick={() => handleStatusChange(item.id, 'IN_PROGRESS')}
+                        onClick={() => handleStartConsultation(item)}
                         className="btn btn-primary text-sm"
                       >
                         Start Consultation
@@ -397,10 +473,10 @@ export default function OPDQueue() {
                   {item.status === 'IN_PROGRESS' && (
                     <>
                       <Link
-                        to={`/visits/new?patientId=${item.patient_id}&complaint=${encodeURIComponent(item.chief_complaint || '')}&appointmentId=${item.id}`}
+                        to={`/visits/new?patientId=${item.patient_id}&complaints=${encodeURIComponent(JSON.stringify(item.chief_complaints || []))}&appointmentId=${item.id}`}
                         className="btn btn-primary text-sm"
                       >
-                        Record Visit
+                        Continue Visit
                       </Link>
                     </>
                   )}
@@ -412,14 +488,12 @@ export default function OPDQueue() {
                       >
                         View Patient
                       </Link>
-                      {isToday && (
-                        <button
-                          onClick={() => handleStatusChange(item.id, 'WAITING')}
-                          className="btn btn-secondary text-sm"
-                        >
-                          Reopen
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleViewVisit(item.id)}
+                        className="btn btn-secondary text-sm"
+                      >
+                        View Visit
+                      </button>
                     </>
                   )}
                 </div>
