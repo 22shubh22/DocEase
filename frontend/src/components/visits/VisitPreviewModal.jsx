@@ -25,33 +25,92 @@ export default function VisitPreviewModal({
           size: A4;
           margin: 0;
         }
-        body {
-          margin: 0;
-          padding: 0;
+        * {
+          box-sizing: border-box;
+        }
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
           font-family: Arial, sans-serif;
         }
+        /* Padding is set via inline styles on the element - do NOT override here */
         .print-content {
-          padding-top: ${printSettings?.top || 280}px;
-          padding-left: ${printSettings?.left || 40}px;
-          padding-right: 40px;
+          background-color: white;
         }
+
+        /* Border utilities */
+        .border-b-2 { border-bottom: 2px solid #1f2937; }
+        .border-b { border-bottom: 1px solid #d1d5db; }
+        .border-t { border-top: 1px solid #d1d5db; }
+        .border { border: 1px solid #d1d5db; }
+        .border-gray-800 { border-color: #1f2937; }
+        .border-gray-400 { border-color: #9ca3af; }
+        .border-gray-300 { border-color: #d1d5db; }
+        .border-red-300 { border-color: #fca5a5; }
+
+        /* Padding utilities */
+        .pb-3 { padding-bottom: 0.75rem; }
+        .pb-1 { padding-bottom: 0.25rem; }
+        .pt-4 { padding-top: 1rem; }
+        .p-2 { padding: 0.5rem; }
+        .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+        .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+
+        /* Margin utilities */
+        .mb-4 { margin-bottom: 1rem; }
+        .mb-2 { margin-bottom: 0.5rem; }
+        .mb-1 { margin-bottom: 0.25rem; }
+        .mt-8 { margin-top: 2rem; }
+        .mt-1 { margin-top: 0.25rem; }
+
+        /* Typography */
+        .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+        .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+        .font-bold { font-weight: 700; }
+        .text-gray-900 { color: #111827; }
+        .text-gray-800 { color: #1f2937; }
+        .text-gray-700 { color: #374151; }
+        .text-gray-600 { color: #4b5563; }
+        .text-red-700 { color: #b91c1c; }
+        .text-red-600 { color: #dc2626; }
+        .text-left { text-align: left; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .whitespace-pre-wrap { white-space: pre-wrap; }
+
+        /* Background */
+        .bg-white { background-color: white; }
+        .bg-gray-100 { background-color: #f3f4f6; }
+        .bg-red-50 { background-color: #fef2f2; }
+
+        /* Layout */
+        .flex { display: flex; }
+        .flex-wrap { flex-wrap: wrap; }
+        .gap-x-4 { column-gap: 1rem; }
+        .gap-2 { gap: 0.5rem; }
+        .inline-block { display: inline-block; }
+
+        /* Grid */
+        .grid { display: grid; }
+        .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+        /* Table & sizing */
+        .w-full { width: 100%; }
+        .w-48 { width: 12rem; }
+        .w-8 { width: 2rem; }
+        .w-24 { width: 6rem; }
+        .border-collapse { border-collapse: collapse; }
+
+        /* Border radius */
+        .rounded { border-radius: 0.25rem; }
+
+        /* Legacy element styles (keep for backward compatibility) */
         h2 { font-size: 18px; font-weight: bold; margin: 0 0 8px 0; }
         h3 { font-size: 14px; font-weight: bold; margin: 16px 0 8px 0; padding-bottom: 4px; border-bottom: 1px solid #ccc; }
         p { margin: 0 0 8px 0; font-size: 13px; }
         table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
         th, td { border: 1px solid #666; padding: 4px 8px; text-align: left; }
         th { background-color: #f0f0f0; font-weight: bold; }
-        .header-info { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: #444; margin-top: 4px; }
-        .header-info span { margin-right: 16px; }
-        .allergy-box { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 4px; padding: 8px; margin-bottom: 16px; }
-        .allergy-box .label { font-weight: bold; color: #b91c1c; }
-        .allergy-box .value { color: #dc2626; }
-        .vitals-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 13px; }
-        .signature-section { margin-top: 32px; padding-top: 16px; border-top: 1px solid #ccc; text-align: right; }
-        .signature-line { display: inline-block; text-align: center; }
-        .signature-line div:first-child { width: 180px; border-bottom: 1px solid #666; margin-bottom: 4px; }
-        .signature-line div:last-child { font-size: 12px; color: #666; }
-        .section-border { border-bottom: 2px solid #333; padding-bottom: 12px; margin-bottom: 16px; }
       </style>
     `;
 
@@ -63,7 +122,7 @@ export default function VisitPreviewModal({
           ${styles}
         </head>
         <body>
-          ${printContent.innerHTML}
+          ${printContent.outerHTML}
         </body>
       </html>
     `);
