@@ -43,8 +43,7 @@ export default function DashboardLayout() {
     { name: 'Admin Dashboard', path: '/admin', icon: '🏢' },
   ] : [
     ...baseNavigation,
-    ...(isDoctor && isOwner ? [{ name: 'Settings', path: '/settings', icon: '⚙️' }] : []),
-    ...(!isDoctor ? [{ name: 'Settings', path: '/settings', icon: '⚙️' }] : []),
+    { name: 'Settings', path: '/settings', icon: '⚙️' },
   ];
 
   const isActive = (path) => {

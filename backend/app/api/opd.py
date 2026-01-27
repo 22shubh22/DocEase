@@ -4,7 +4,7 @@ from sqlalchemy import func
 from datetime import date, datetime
 from typing import Optional
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_permission
 from app.models.models import User, Appointment, Invoice, Patient, AppointmentStatusEnum, Visit, Doctor
 from app.schemas.schemas import AppointmentCreate, AppointmentUpdate, AppointmentPositionUpdate
 
@@ -14,7 +14,7 @@ router = APIRouter()
 @router.get("/queue", response_model=dict)
 async def get_queue(
     queue_date: Optional[date] = Query(None, description="Date to filter queue (defaults to today)"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_opd")),
     db: Session = Depends(get_db)
 ):
     """Get OPD queue for a specific date (defaults to today)"""
@@ -79,7 +79,7 @@ async def get_queue(
 @router.get("/stats", response_model=dict)
 async def get_daily_stats(
     stats_date: Optional[date] = Query(None, description="Date to get stats for (defaults to today)"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_opd")),
     db: Session = Depends(get_db)
 ):
     """Get daily statistics for a specific date"""
@@ -111,9 +111,9 @@ async def get_daily_stats(
     return {
         "stats": {
             "total": total,
+            "completed": completed,
             "waiting": waiting,
-            "inProgress": in_progress,
-            "completed": completed
+            "inProgress": in_progress
         },
         "date": target_date.isoformat()
     }
@@ -122,7 +122,7 @@ async def get_daily_stats(
 @router.post("/appointments/", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def add_to_queue(
     appointment_data: AppointmentCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_manage_opd")),
     db: Session = Depends(get_db)
 ):
     """Add patient to OPD queue"""
@@ -157,7 +157,7 @@ async def add_to_queue(
 async def update_queue_status(
     appointment_id: str,
     status_data: AppointmentUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_manage_opd")),
     db: Session = Depends(get_db)
 ):
     """Update appointment status"""
@@ -182,7 +182,7 @@ async def update_queue_status(
 async def update_queue_position(
     appointment_id: str,
     position_data: AppointmentPositionUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_manage_opd")),
     db: Session = Depends(get_db)
 ):
     """Update appointment position in queue (reorder)"""
@@ -229,7 +229,7 @@ async def update_queue_position(
 @router.get("/follow-ups-due", response_model=dict)
 async def get_follow_ups_due(
     target_date: Optional[date] = Query(None, description="Date to check follow-ups (defaults to today)"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_opd")),
     db: Session = Depends(get_db)
 ):
     """Get patients with follow-ups due on a specific date (defaults to today)"""
@@ -262,7 +262,7 @@ async def get_follow_ups_due(
 @router.get("/appointments/{appointment_id}/visit", response_model=dict)
 async def get_visit_by_appointment(
     appointment_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_visits")),
     db: Session = Depends(get_db)
 ):
     """Get visit details linked to an appointment (for OPD reopen case)"""

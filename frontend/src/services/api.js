@@ -55,6 +55,7 @@ export const authAPI = {
 // Patients API
 export const patientsAPI = {
   getAll: (params) => api.get('/patients/', { params }),
+  getStats: () => api.get('/patients/stats'),
   search: (query) => api.get('/patients/search', { params: { q: query } }),
   getById: (id) => api.get(`/patients/${id}`),
   create: (data) => api.post('/patients/', data),
@@ -172,6 +173,8 @@ export const usersAPI = {
   create: (data) => api.post('/users/', data),
   update: (id, data) => api.put(`/users/${id}`, data),
   delete: (id) => api.delete(`/users/${id}`),
+  getStats: () => api.get('/users/stats'),
+  createSubUser: (data) => api.post('/users/sub-user', data),
 };
 
 // Admin API
@@ -188,6 +191,14 @@ export const adminAPI = {
   removeDoctor: (clinicId, doctorId) => api.delete(`/admin/clinics/${clinicId}/doctors/${doctorId}`),
   setClinicOwner: (clinicId, doctorId) => api.put(`/admin/clinics/${clinicId}/owner`, { doctor_id: doctorId }),
   getAllDoctors: (params) => api.get('/admin/doctors', { params }),
+};
+
+// Permissions API
+export const permissionsAPI = {
+  getClinicUsers: () => api.get('/permissions/clinic-users'),
+  getUserPermissions: (userId) => api.get(`/permissions/${userId}`),
+  updateUserPermissions: (userId, data) => api.put(`/permissions/${userId}`, data),
+  resetToDefaults: (userId) => api.post(`/permissions/${userId}/reset`),
 };
 
 export default api;

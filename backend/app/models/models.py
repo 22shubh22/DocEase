@@ -75,6 +75,7 @@ class Clinic(Base):
     dosage_options = relationship("DosageOption", back_populates="clinic", cascade="all, delete-orphan")
     duration_options = relationship("DurationOption", back_populates="clinic", cascade="all, delete-orphan")
     symptom_options = relationship("SymptomOption", back_populates="clinic", cascade="all, delete-orphan")
+    user_permissions = relationship("UserPermission", back_populates="clinic", cascade="all, delete-orphan")
 
 
 class User(Base):
@@ -99,6 +100,7 @@ class User(Base):
     created_patients = relationship("Patient", back_populates="creator")
     created_appointments = relationship("Appointment", back_populates="creator")
     created_invoices = relationship("Invoice", back_populates="creator")
+    permissions = relationship("UserPermission", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
 
 class Doctor(Base):
@@ -374,3 +376,42 @@ class SymptomOption(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     clinic = relationship("Clinic", back_populates="symptom_options")
+
+
+class UserPermission(Base):
+    __tablename__ = "user_permissions"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+
+    # Patient Management
+    can_view_patients = Column(Boolean, default=True)
+    can_create_patients = Column(Boolean, default=True)
+    can_edit_patients = Column(Boolean, default=True)
+    can_delete_patients = Column(Boolean, default=False)
+
+    # OPD Management
+    can_view_opd = Column(Boolean, default=True)
+    can_manage_opd = Column(Boolean, default=True)
+
+    # Visit/Prescription Management
+    can_view_visits = Column(Boolean, default=True)
+    can_create_visits = Column(Boolean, default=False)
+    can_edit_visits = Column(Boolean, default=False)
+
+    # Billing Management
+    can_view_invoices = Column(Boolean, default=True)
+    can_create_invoices = Column(Boolean, default=True)
+    can_edit_invoices = Column(Boolean, default=True)
+    can_view_collections = Column(Boolean, default=True)
+
+    # Settings Management
+    can_manage_clinic_options = Column(Boolean, default=False)
+    can_edit_print_settings = Column(Boolean, default=False)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    user = relationship("User", back_populates="permissions")
+    clinic = relationship("Clinic", back_populates="user_permissions")

@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.api import auth, patients, opd, visits, invoices, clinic, users, admin, chief_complaints, diagnosis_options, observation_options, test_options, medicine_options, dosage_options, duration_options, symptom_options
+from app.api import auth, patients, opd, visits, invoices, clinic, users, admin, chief_complaints, diagnosis_options, observation_options, test_options, medicine_options, dosage_options, duration_options, symptom_options, permissions
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -60,6 +60,7 @@ app.include_router(medicine_options.router, prefix="/api/medicine-options", tags
 app.include_router(dosage_options.router, prefix="/api/dosage-options", tags=["Dosage Options"])
 app.include_router(duration_options.router, prefix="/api/duration-options", tags=["Duration Options"])
 app.include_router(symptom_options.router, prefix="/api/symptom-options", tags=["Symptom Options"])
+app.include_router(permissions.router, prefix="/api/permissions", tags=["Permissions"])
 
 @app.get("/health")
 async def health_check():

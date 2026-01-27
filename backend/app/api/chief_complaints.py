@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from app.core.database import get_db
-from app.core.deps import get_current_user
-from app.models.models import User, ChiefComplaint, RoleEnum
+from app.core.deps import get_current_user, require_permission
+from app.models.models import User, ChiefComplaint
 from app.schemas.schemas import ChiefComplaintCreate, ChiefComplaintUpdate, ChiefComplaintResponse
 
 router = APIRouter()
@@ -30,13 +30,10 @@ async def get_chief_complaints(
 @router.post("/", response_model=ChiefComplaintResponse, status_code=status.HTTP_201_CREATED)
 async def create_chief_complaint(
     complaint_data: ChiefComplaintCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_manage_clinic_options")),
     db: Session = Depends(get_db)
 ):
-    """Create a new chief complaint (Doctor only)"""
-    if current_user.role != RoleEnum.DOCTOR:
-        raise HTTPException(status_code=403, detail="Only doctors can manage chief complaints")
-    
+    """Create a new chief complaint (requires can_manage_clinic_options permission)"""
     complaint = ChiefComplaint(
         name=complaint_data.name,
         description=complaint_data.description,
@@ -55,13 +52,10 @@ async def create_chief_complaint(
 async def update_chief_complaint(
     complaint_id: str,
     complaint_data: ChiefComplaintUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_manage_clinic_options")),
     db: Session = Depends(get_db)
 ):
-    """Update a chief complaint (Doctor only)"""
-    if current_user.role != RoleEnum.DOCTOR:
-        raise HTTPException(status_code=403, detail="Only doctors can manage chief complaints")
-    
+    """Update a chief complaint (requires can_manage_clinic_options permission)"""
     complaint = db.query(ChiefComplaint).filter(
         ChiefComplaint.id == complaint_id,
         ChiefComplaint.clinic_id == current_user.clinic_id
@@ -87,13 +81,10 @@ async def update_chief_complaint(
 @router.delete("/{complaint_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_chief_complaint(
     complaint_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_manage_clinic_options")),
     db: Session = Depends(get_db)
 ):
-    """Delete a chief complaint (Doctor only)"""
-    if current_user.role != RoleEnum.DOCTOR:
-        raise HTTPException(status_code=403, detail="Only doctors can manage chief complaints")
-    
+    """Delete a chief complaint (requires can_manage_clinic_options permission)"""
     complaint = db.query(ChiefComplaint).filter(
         ChiefComplaint.id == complaint_id,
         ChiefComplaint.clinic_id == current_user.clinic_id

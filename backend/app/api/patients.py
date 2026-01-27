@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
 from typing import Optional
 from app.core.database import get_db
-from app.core.deps import get_current_user, get_current_doctor
+from app.core.deps import get_current_user, require_permission
 from app.models.models import User, Patient, Visit, VisitMedicine
 from app.schemas.schemas import PatientCreate, PatientUpdate, PatientResponse
 
@@ -36,7 +36,7 @@ def patient_to_dict(patient):
 async def get_all_patients(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_patients")),
     db: Session = Depends(get_db)
 ):
     """Get all patients with pagination"""
@@ -59,10 +59,25 @@ async def get_all_patients(
     }
 
 
+@router.get("/stats", response_model=dict)
+async def get_patient_stats(
+    current_user: User = Depends(require_permission("can_view_patients")),
+    db: Session = Depends(get_db)
+):
+    """Get patient statistics"""
+    total_patients = db.query(Patient).filter(
+        Patient.clinic_id == current_user.clinic_id
+    ).count()
+
+    return {
+        "total_patients": total_patients
+    }
+
+
 @router.get("/search", response_model=dict)
 async def search_patients(
     q: str = Query(..., min_length=1),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_patients")),
     db: Session = Depends(get_db)
 ):
     """Search patients by name, phone, patient code, or address.
@@ -95,7 +110,7 @@ async def search_patients(
 @router.get("/{patient_id}", response_model=dict)
 async def get_patient_by_id(
     patient_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_patients")),
     db: Session = Depends(get_db)
 ):
     """Get patient by ID"""
@@ -132,7 +147,7 @@ async def get_patient_by_id(
 @router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def create_patient(
     patient_data: PatientCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_create_patients")),
     db: Session = Depends(get_db)
 ):
     """Create a new patient"""
@@ -177,7 +192,7 @@ async def create_patient(
 async def update_patient(
     patient_id: str,
     patient_data: PatientUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_edit_patients")),
     db: Session = Depends(get_db)
 ):
     """Update patient information"""
@@ -207,10 +222,10 @@ async def update_patient(
 @router.delete("/{patient_id}")
 async def delete_patient(
     patient_id: str,
-    current_user: User = Depends(get_current_doctor),
+    current_user: User = Depends(require_permission("can_delete_patients")),
     db: Session = Depends(get_db)
 ):
-    """Delete a patient (doctor only)"""
+    """Delete a patient (requires can_delete_patients permission)"""
     patient = db.query(Patient).filter(
         Patient.id == patient_id,
         Patient.clinic_id == current_user.clinic_id
@@ -228,7 +243,7 @@ async def delete_patient(
 @router.get("/{patient_id}/visits", response_model=dict)
 async def get_patient_visits(
     patient_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_visits")),
     db: Session = Depends(get_db)
 ):
     """Get all visits for a patient with medicines"""
@@ -274,7 +289,7 @@ async def get_patient_visits(
 @router.get("/{patient_id}/prescriptions", response_model=dict)
 async def get_patient_prescriptions(
     patient_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_visits")),
     db: Session = Depends(get_db)
 ):
     """Get all prescriptions (visits with medicines) for a patient"""

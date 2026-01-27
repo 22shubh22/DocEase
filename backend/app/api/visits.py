@@ -5,7 +5,7 @@ from datetime import date, datetime
 from typing import Optional, Literal
 from collections import defaultdict
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_permission
 from app.models.models import User, Visit, Appointment, AppointmentStatusEnum, Doctor, Patient, VisitMedicine, User as UserModel
 from app.schemas.schemas import VisitCreate, VisitUpdate, CollectionSummaryResponse
 
@@ -18,7 +18,7 @@ async def get_collection_summary(
     end_date: Optional[date] = Query(None, description="End date for collection period (defaults to today)"),
     group_by: Literal["day", "month"] = Query("day", description="Group collections by day or month"),
     doctor_id: Optional[str] = Query(None, description="Filter by specific doctor ID"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_collections")),
     db: Session = Depends(get_db)
 ):
     """
@@ -108,7 +108,7 @@ async def get_doctor_visits(
     start_date: Optional[date] = Query(None, description="Filter visits from this date"),
     end_date: Optional[date] = Query(None, description="Filter visits until this date"),
     patient_search: Optional[str] = Query(None, description="Search by patient name or code"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_visits")),
     db: Session = Depends(get_db)
 ):
     """
@@ -179,7 +179,7 @@ async def get_doctor_visits(
 @router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def create_visit(
     visit_data: VisitCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_create_visits")),
     db: Session = Depends(get_db)
 ):
     """Create a new visit or update existing one if appointment already has a visit"""
@@ -278,7 +278,7 @@ async def create_visit(
 @router.get("/{visit_id}", response_model=dict)
 async def get_visit_by_id(
     visit_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_visits")),
     db: Session = Depends(get_db)
 ):
     """Get visit by ID with patient and medicines details"""
@@ -349,7 +349,7 @@ async def get_visit_by_id(
 async def update_visit(
     visit_id: str,
     visit_data: VisitUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_edit_visits")),
     db: Session = Depends(get_db)
 ):
     """Update visit information"""

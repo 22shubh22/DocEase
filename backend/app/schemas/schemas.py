@@ -585,3 +585,87 @@ class CollectionSummaryResponse(BaseModel):
     visit_count: int
     period: CollectionPeriod
     breakdown: List[CollectionBreakdown]
+
+
+# User Permission Schemas
+class UserPermissionBase(BaseModel):
+    # Patient Management
+    can_view_patients: bool = True
+    can_create_patients: bool = True
+    can_edit_patients: bool = True
+    can_delete_patients: bool = False
+    # OPD Management
+    can_view_opd: bool = True
+    can_manage_opd: bool = True
+    # Visit/Prescription Management
+    can_view_visits: bool = True
+    can_create_visits: bool = False
+    can_edit_visits: bool = False
+    # Billing Management
+    can_view_invoices: bool = True
+    can_create_invoices: bool = True
+    can_edit_invoices: bool = True
+    can_view_collections: bool = True
+    # Settings Management
+    can_manage_clinic_options: bool = False
+    can_edit_print_settings: bool = False
+
+
+class UserPermissionUpdate(UserPermissionBase):
+    pass
+
+
+class UserPermissionResponse(UserPermissionBase):
+    id: str
+    user_id: str
+    clinic_id: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class UserWithPermissions(BaseModel):
+    id: str
+    email: str
+    full_name: str
+    role: RoleEnum
+    is_active: bool
+    is_owner: bool = False
+    permissions: Optional[UserPermissionResponse] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Sub-User Schemas
+class SubUserCreate(BaseModel):
+    email: EmailStr
+    full_name: str
+    phone: Optional[str] = None
+    role: RoleEnum
+    # Doctor-specific fields (used when role is DOCTOR)
+    specialization: Optional[str] = None
+    qualification: Optional[str] = None
+    registration_number: Optional[str] = None
+
+
+class SubUserResponse(BaseModel):
+    id: str
+    email: str
+    full_name: str
+    role: RoleEnum
+    phone: Optional[str] = None
+    is_active: bool
+    initial_password: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SubUserStats(BaseModel):
+    current_count: int
+    max_allowed: int
+    can_create: bool

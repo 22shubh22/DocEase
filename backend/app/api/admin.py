@@ -11,6 +11,7 @@ from app.schemas.schemas import (
 )
 from app.core.security import get_password_hash
 from app.services.clinic_fixtures import seed_dental_fixtures_for_clinic
+from app.utils.code_generators import generate_doctor_code
 
 
 def generate_clinic_code(db: Session) -> str:
@@ -27,20 +28,6 @@ def generate_clinic_code(db: Session) -> str:
                 continue
     return f"CL-{str(max_num + 1).zfill(4)}"
 
-
-def generate_doctor_code(db: Session) -> str:
-    """Generate next doctor code like DR-0001, DR-0002, etc."""
-    max_num = 0
-    all_doctors = db.query(Doctor).all()
-    for d in all_doctors:
-        if d.doctor_code and '-' in d.doctor_code:
-            try:
-                num = int(d.doctor_code.split('-')[1])
-                if num > max_num:
-                    max_num = num
-            except (ValueError, IndexError):
-                continue
-    return f"DR-{str(max_num + 1).zfill(4)}"
 
 router = APIRouter()
 
