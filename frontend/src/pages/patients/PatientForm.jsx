@@ -53,10 +53,14 @@ export default function PatientForm() {
         gender: data.gender || null,
         blood_group: data.bloodGroup || null,
         phone: data.phone,
-        emergency_contact: data.emergency_contact || null,
+        emergency_contact: data.emergencyContact || null,
         address: data.address || null,
-        allergies: data.allergies || null,
-        medical_history: data.medical_history || null,
+        allergies: data.allergies
+          ? data.allergies.split(',').map(a => a.trim()).filter(a => a)
+          : [],
+        medical_history: data.medicalHistory
+          ? { notes: data.medicalHistory }
+          : null,
         patient_since: data.patientSince || null,
       };
 

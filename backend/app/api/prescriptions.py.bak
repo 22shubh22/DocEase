@@ -45,7 +45,10 @@ async def create_prescription(
     db.commit()
     db.refresh(prescription)
 
-    return {"message": "Prescription created successfully", "prescription": prescription}
+    return {
+        "message": "Prescription created successfully",
+        "prescription_id": prescription.id
+    }
 
 
 @router.get("/{prescription_id}", response_model=dict)
@@ -162,11 +165,10 @@ async def generate_prescription_pdf(
 
     for idx, medicine in enumerate(prescription.medicines, 1):
         med_text = f"<b>{idx}. {medicine.medicine_name}</b><br/>"
-        med_text += f"   Dosage: {medicine.dosage}<br/>"
-        med_text += f"   Frequency: {medicine.frequency}<br/>"
-        med_text += f"   Duration: {medicine.duration}<br/>"
-        if medicine.instructions:
-            med_text += f"   Instructions: {medicine.instructions}<br/>"
+        if medicine.dosage:
+            med_text += f"   Dosage: {medicine.dosage}<br/>"
+        if medicine.duration:
+            med_text += f"   Duration: {medicine.duration}<br/>"
 
         med_para = Paragraph(med_text, styles['Normal'])
         elements.append(med_para)

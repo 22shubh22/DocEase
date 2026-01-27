@@ -1,0 +1,250 @@
+// DocEase Database Schema
+// Generated for dbdiagram.io
+// Copy everything below into https://dbdiagram.io/d
+
+// Enums:
+// RoleEnum: DOCTOR, ASSISTANT, ADMIN
+// GenderEnum: MALE, FEMALE, OTHER
+// AppointmentStatusEnum: WAITING, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW
+// PaymentStatusEnum: PAID, UNPAID, PARTIAL
+// PaymentModeEnum: CASH, UPI, CARD, OTHER
+
+Table clinics {
+  id varchar [pk]
+  clinic_code varchar [unique]
+  name varchar [not null]
+  address varchar
+  phone varchar
+  email varchar
+  logo_url varchar
+  opd_start_time varchar
+  opd_end_time varchar
+  owner_doctor_id varchar
+  created_at datetime
+  updated_at datetime
+}
+
+Table users {
+  id varchar [pk]
+  email varchar [not null, unique]
+  password_hash varchar [not null]
+  initial_password varchar
+  role varchar [not null]
+  full_name varchar [not null]
+  phone varchar
+  is_active boolean
+  clinic_id varchar
+  created_at datetime
+  updated_at datetime
+  last_login datetime
+}
+
+Table doctors {
+  id varchar [pk]
+  doctor_code varchar [unique]
+  user_id varchar [not null, unique]
+  specialization varchar
+  qualification varchar
+  registration_number varchar
+  signature_url varchar
+  clinic_id varchar [not null]
+  created_at datetime
+  updated_at datetime
+}
+
+Table patients {
+  id varchar [pk]
+  patient_code varchar [not null, unique]
+  full_name varchar [not null]
+  age int
+  gender varchar
+  phone varchar [not null]
+  emergency_contact varchar
+  address varchar
+  blood_group varchar
+  allergies varchar[]
+  medical_history json
+  clinic_id varchar [not null]
+  created_by varchar [not null]
+  created_at datetime
+  updated_at datetime
+}
+
+Table appointments {
+  id varchar [pk]
+  patient_id varchar [not null]
+  appointment_date date [not null]
+  queue_number int
+  chief_complaint varchar
+  status varchar
+  clinic_id varchar [not null]
+  created_by varchar [not null]
+  created_at datetime
+  updated_at datetime
+}
+
+Table visits {
+  id varchar [pk]
+  patient_id varchar [not null]
+  appointment_id varchar [unique]
+  visit_date datetime [not null]
+  visit_number int [not null]
+  doctor_id varchar [not null]
+  symptoms varchar
+  diagnosis varchar
+  observations varchar
+  recommended_tests varchar[]
+  follow_up_date date
+  vitals json
+  prescription_notes varchar
+  clinic_id varchar [not null]
+  created_at datetime
+  updated_at datetime
+}
+
+Table visit_medicines {
+  id varchar [pk]
+  visit_id varchar [not null]
+  medicine_name varchar [not null]
+  dosage varchar
+  duration varchar
+}
+
+Table invoices {
+  id varchar [pk]
+  invoice_number varchar [not null, unique]
+  patient_id varchar [not null]
+  visit_id varchar [unique]
+  total_amount decimal [not null]
+  paid_amount decimal
+  payment_status varchar
+  payment_mode varchar
+  payment_date date
+  notes varchar
+  clinic_id varchar [not null]
+  created_by varchar [not null]
+  created_at datetime
+  updated_at datetime
+}
+
+Table invoice_items {
+  id varchar [pk]
+  invoice_id varchar [not null]
+  description varchar [not null]
+  amount decimal [not null]
+  quantity int
+}
+
+Table clinic_admins {
+  id varchar [pk]
+  admin_id varchar [not null]
+  clinic_id varchar [not null]
+  created_at datetime
+}
+
+Table chief_complaints {
+  id varchar [pk]
+  name varchar [not null]
+  description varchar
+  is_active boolean
+  display_order int
+  clinic_id varchar [not null]
+  created_at datetime
+  updated_at datetime
+}
+
+Table diagnosis_options {
+  id varchar [pk]
+  name varchar [not null]
+  description varchar
+  is_active boolean
+  display_order int
+  clinic_id varchar [not null]
+  created_at datetime
+  updated_at datetime
+}
+
+Table observation_options {
+  id varchar [pk]
+  name varchar [not null]
+  description varchar
+  is_active boolean
+  display_order int
+  clinic_id varchar [not null]
+  created_at datetime
+  updated_at datetime
+}
+
+Table test_options {
+  id varchar [pk]
+  name varchar [not null]
+  description varchar
+  is_active boolean
+  display_order int
+  clinic_id varchar [not null]
+  created_at datetime
+  updated_at datetime
+}
+
+Table medicine_options {
+  id varchar [pk]
+  name varchar [not null]
+  description varchar
+  is_active boolean
+  display_order int
+  clinic_id varchar [not null]
+  created_at datetime
+  updated_at datetime
+}
+
+Table dosage_options {
+  id varchar [pk]
+  name varchar [not null]
+  description varchar
+  is_active boolean
+  display_order int
+  clinic_id varchar [not null]
+  created_at datetime
+  updated_at datetime
+}
+
+Table duration_options {
+  id varchar [pk]
+  name varchar [not null]
+  description varchar
+  is_active boolean
+  display_order int
+  clinic_id varchar [not null]
+  created_at datetime
+  updated_at datetime
+}
+
+// Relationships
+Ref: clinics.owner_doctor_id > doctors.id
+Ref: users.clinic_id > clinics.id
+Ref: doctors.user_id - users.id
+Ref: doctors.clinic_id > clinics.id
+Ref: patients.clinic_id > clinics.id
+Ref: patients.created_by > users.id
+Ref: appointments.patient_id > patients.id
+Ref: appointments.clinic_id > clinics.id
+Ref: appointments.created_by > users.id
+Ref: visits.patient_id > patients.id
+Ref: visits.appointment_id - appointments.id
+Ref: visits.doctor_id > doctors.id
+Ref: visits.clinic_id > clinics.id
+Ref: visit_medicines.visit_id > visits.id
+Ref: invoices.patient_id > patients.id
+Ref: invoices.visit_id - visits.id
+Ref: invoices.clinic_id > clinics.id
+Ref: invoices.created_by > users.id
+Ref: invoice_items.invoice_id > invoices.id
+Ref: clinic_admins.admin_id > users.id
+Ref: clinic_admins.clinic_id > clinics.id
+Ref: chief_complaints.clinic_id > clinics.id
+Ref: diagnosis_options.clinic_id > clinics.id
+Ref: observation_options.clinic_id > clinics.id
+Ref: test_options.clinic_id > clinics.id
+Ref: medicine_options.clinic_id > clinics.id
+Ref: dosage_options.clinic_id > clinics.id
+Ref: duration_options.clinic_id > clinics.id

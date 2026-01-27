@@ -55,6 +55,7 @@ export const authAPI = {
 // Patients API
 export const patientsAPI = {
   getAll: (params) => api.get('/patients/', { params }),
+  getStats: () => api.get('/patients/stats'),
   search: (query) => api.get('/patients/search', { params: { q: query } }),
   getById: (id) => api.get(`/patients/${id}`),
   create: (data) => api.post('/patients/', data),
@@ -72,6 +73,7 @@ export const opdAPI = {
   updateStatus: (id, status) => api.put(`/opd/appointments/${id}/status`, { status }),
   updatePosition: (id, newPosition) => api.put(`/opd/appointments/${id}/position`, { new_position: newPosition }),
   getVisitByAppointment: (appointmentId) => api.get(`/opd/appointments/${appointmentId}/visit`),
+  getFollowUpsDue: (params) => api.get('/opd/follow-ups-due', { params }),
 };
 
 // Chief Complaints API
@@ -98,19 +100,53 @@ export const observationOptionsAPI = {
   delete: (id) => api.delete(`/observation-options/${id}`),
 };
 
+// Test Options API
+export const testOptionsAPI = {
+  getAll: (activeOnly = true) => api.get('/test-options/', { params: { active_only: activeOnly } }),
+  create: (data) => api.post('/test-options/', data),
+  update: (id, data) => api.put(`/test-options/${id}`, data),
+  delete: (id) => api.delete(`/test-options/${id}`),
+};
+
+// Medicine Options API
+export const medicineOptionsAPI = {
+  getAll: (activeOnly = true) => api.get('/medicine-options/', { params: { active_only: activeOnly } }),
+  create: (data) => api.post('/medicine-options/', data),
+  update: (id, data) => api.put(`/medicine-options/${id}`, data),
+  delete: (id) => api.delete(`/medicine-options/${id}`),
+};
+
+// Dosage Options API
+export const dosageOptionsAPI = {
+  getAll: (activeOnly = true) => api.get('/dosage-options/', { params: { active_only: activeOnly } }),
+  create: (data) => api.post('/dosage-options/', data),
+  update: (id, data) => api.put(`/dosage-options/${id}`, data),
+  delete: (id) => api.delete(`/dosage-options/${id}`),
+};
+
+// Duration Options API
+export const durationOptionsAPI = {
+  getAll: (activeOnly = true) => api.get('/duration-options/', { params: { active_only: activeOnly } }),
+  create: (data) => api.post('/duration-options/', data),
+  update: (id, data) => api.put(`/duration-options/${id}`, data),
+  delete: (id) => api.delete(`/duration-options/${id}`),
+};
+
+// Symptom Options API
+export const symptomOptionsAPI = {
+  getAll: (activeOnly = true) => api.get('/symptom-options/', { params: { active_only: activeOnly } }),
+  create: (data) => api.post('/symptom-options/', data),
+  update: (id, data) => api.put(`/symptom-options/${id}`, data),
+  delete: (id) => api.delete(`/symptom-options/${id}`),
+};
+
 // Visits API
 export const visitsAPI = {
   getAll: (params) => api.get('/visits/', { params }),
   create: (data) => api.post('/visits/', data),
   getById: (id) => api.get(`/visits/${id}`),
   update: (id, data) => api.put(`/visits/${id}`, data),
-};
-
-// Prescriptions API
-export const prescriptionsAPI = {
-  create: (data) => api.post('/prescriptions/', data),
-  getById: (id) => api.get(`/prescriptions/${id}`),
-  downloadPDF: (id) => api.get(`/prescriptions/${id}/pdf`, { responseType: 'blob' }),
+  getCollections: (params) => api.get('/visits/collections/summary', { params }),
 };
 
 // Invoices API
@@ -126,6 +162,7 @@ export const invoicesAPI = {
 export const clinicAPI = {
   getInfo: () => api.get('/clinic/'),
   update: (data) => api.put('/clinic/', data),
+  getDoctors: () => api.get('/clinic/doctors'),
   getDoctorProfile: () => api.get('/clinic/doctor-profile'),
   updateDoctorProfile: (data) => api.put('/clinic/doctor-profile', data),
 };
@@ -136,6 +173,8 @@ export const usersAPI = {
   create: (data) => api.post('/users/', data),
   update: (id, data) => api.put(`/users/${id}`, data),
   delete: (id) => api.delete(`/users/${id}`),
+  getStats: () => api.get('/users/stats'),
+  createSubUser: (data) => api.post('/users/sub-user', data),
 };
 
 // Admin API
@@ -152,6 +191,14 @@ export const adminAPI = {
   removeDoctor: (clinicId, doctorId) => api.delete(`/admin/clinics/${clinicId}/doctors/${doctorId}`),
   setClinicOwner: (clinicId, doctorId) => api.put(`/admin/clinics/${clinicId}/owner`, { doctor_id: doctorId }),
   getAllDoctors: (params) => api.get('/admin/doctors', { params }),
+};
+
+// Permissions API
+export const permissionsAPI = {
+  getClinicUsers: () => api.get('/permissions/clinic-users'),
+  getUserPermissions: (userId) => api.get(`/permissions/${userId}`),
+  updateUserPermissions: (userId, data) => api.put(`/permissions/${userId}`, data),
+  resetToDefaults: (userId) => api.post(`/permissions/${userId}/reset`),
 };
 
 export default api;

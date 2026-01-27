@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
+from sqlalchemy import or_, and_, func
 from typing import Optional
-from app.db.database import get_db
-from app.core.deps import get_current_user, get_current_doctor
-from app.models.models import User, Patient, Visit, Prescription
+from app.core.database import get_db
+from app.core.deps import get_current_user, require_permission
+from app.models.models import User, Patient, Visit, VisitMedicine
 from app.schemas.schemas import PatientCreate, PatientUpdate, PatientResponse
 
 router = APIRouter()
@@ -36,7 +36,7 @@ def patient_to_dict(patient):
 async def get_all_patients(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_patients")),
     db: Session = Depends(get_db)
 ):
     """Get all patients with pagination"""
@@ -59,21 +59,49 @@ async def get_all_patients(
     }
 
 
+@router.get("/stats", response_model=dict)
+async def get_patient_stats(
+    current_user: User = Depends(require_permission("can_view_patients")),
+    db: Session = Depends(get_db)
+):
+    """Get patient statistics"""
+    total_patients = db.query(Patient).filter(
+        Patient.clinic_id == current_user.clinic_id
+    ).count()
+
+    return {
+        "total_patients": total_patients
+    }
+
+
 @router.get("/search", response_model=dict)
 async def search_patients(
     q: str = Query(..., min_length=1),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_patients")),
     db: Session = Depends(get_db)
 ):
-    """Search patients by name, phone, or patient code"""
+    """Search patients by name, phone, patient code, or address.
+    Supports multiple search terms separated by spaces.
+    All terms must match (in any field) for a patient to be included.
+    """
+    # Split query into terms
+    terms = q.strip().split()
+
+    # Build conditions: each term must appear in at least one field
+    conditions = []
+    for term in terms:
+        term_condition = or_(
+            Patient.full_name.ilike(f"%{term}%"),
+            Patient.phone.contains(term),
+            Patient.patient_code.ilike(f"%{term}%"),
+            Patient.address.ilike(f"%{term}%")
+        )
+        conditions.append(term_condition)
+
+    # All term conditions must be satisfied (AND logic)
     patients = db.query(Patient).filter(
         Patient.clinic_id == current_user.clinic_id,
-        or_(
-            Patient.full_name.ilike(f"%{q}%"),
-            Patient.phone.contains(q),
-            Patient.patient_code.ilike(f"%{q}%"),
-            Patient.address.ilike(f"%{q}%")
-        )
+        and_(*conditions)
     ).limit(20).all()
 
     return {"patients": [patient_to_dict(p) for p in patients]}
@@ -82,7 +110,7 @@ async def search_patients(
 @router.get("/{patient_id}", response_model=dict)
 async def get_patient_by_id(
     patient_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_patients")),
     db: Session = Depends(get_db)
 ):
     """Get patient by ID"""
@@ -119,7 +147,7 @@ async def get_patient_by_id(
 @router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def create_patient(
     patient_data: PatientCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_create_patients")),
     db: Session = Depends(get_db)
 ):
     """Create a new patient"""
@@ -164,7 +192,7 @@ async def create_patient(
 async def update_patient(
     patient_id: str,
     patient_data: PatientUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_edit_patients")),
     db: Session = Depends(get_db)
 ):
     """Update patient information"""
@@ -194,10 +222,10 @@ async def update_patient(
 @router.delete("/{patient_id}")
 async def delete_patient(
     patient_id: str,
-    current_user: User = Depends(get_current_doctor),
+    current_user: User = Depends(require_permission("can_delete_patients")),
     db: Session = Depends(get_db)
 ):
-    """Delete a patient (doctor only)"""
+    """Delete a patient (requires can_delete_patients permission)"""
     patient = db.query(Patient).filter(
         Patient.id == patient_id,
         Patient.clinic_id == current_user.clinic_id
@@ -215,10 +243,10 @@ async def delete_patient(
 @router.get("/{patient_id}/visits", response_model=dict)
 async def get_patient_visits(
     patient_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_visits")),
     db: Session = Depends(get_db)
 ):
-    """Get all visits for a patient"""
+    """Get all visits for a patient with medicines"""
     visits = db.query(Visit).filter(
         Visit.patient_id == patient_id,
         Visit.clinic_id == current_user.clinic_id
@@ -226,6 +254,18 @@ async def get_patient_visits(
 
     visit_list = []
     for visit in visits:
+        # Get medicines for this visit
+        medicines = db.query(VisitMedicine).filter(VisitMedicine.visit_id == visit.id).all()
+        medicines_data = [
+            {
+                "id": m.id,
+                "medicine_name": m.medicine_name,
+                "dosage": m.dosage,
+                "duration": m.duration,
+            }
+            for m in medicines
+        ]
+
         visit_list.append({
             "id": visit.id,
             "visit_date": visit.visit_date.isoformat() if visit.visit_date else None,
@@ -238,6 +278,8 @@ async def get_patient_visits(
             "recommended_tests": visit.recommended_tests,
             "follow_up_date": visit.follow_up_date.isoformat() if visit.follow_up_date else None,
             "vitals": visit.vitals,
+            "prescription_notes": visit.prescription_notes,
+            "medicines": medicines_data,
             "created_at": visit.created_at.isoformat() if visit.created_at else None,
         })
 
@@ -247,26 +289,49 @@ async def get_patient_visits(
 @router.get("/{patient_id}/prescriptions", response_model=dict)
 async def get_patient_prescriptions(
     patient_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_visits")),
     db: Session = Depends(get_db)
 ):
-    """Get all prescriptions for a patient"""
-    prescriptions = db.query(Prescription).filter(
-        Prescription.patient_id == patient_id,
-        Prescription.clinic_id == current_user.clinic_id
-    ).order_by(Prescription.prescription_date.desc()).all()
+    """Get all prescriptions (visits with medicines) for a patient"""
+    # Get visits that have medicines
+    visits = db.query(Visit).filter(
+        Visit.patient_id == patient_id,
+        Visit.clinic_id == current_user.clinic_id
+    ).order_by(Visit.visit_date.desc()).all()
 
     prescription_list = []
-    for p in prescriptions:
+    for visit in visits:
+        # Get medicines for this visit
+        medicines = db.query(VisitMedicine).filter(VisitMedicine.visit_id == visit.id).all()
+
+        # Only include visits that have medicines (prescriptions)
+        if not medicines:
+            continue
+
+        medicines_data = [
+            {
+                "id": m.id,
+                "medicine_name": m.medicine_name,
+                "dosage": m.dosage,
+                "duration": m.duration,
+            }
+            for m in medicines
+        ]
+
         prescription_list.append({
-            "id": p.id,
-            "visit_id": p.visit_id,
-            "patient_id": p.patient_id,
-            "doctor_id": p.doctor_id,
-            "prescription_date": p.prescription_date.isoformat() if p.prescription_date else None,
-            "medicines": p.medicines,
-            "notes": p.notes,
-            "created_at": p.created_at.isoformat() if p.created_at else None,
+            "id": visit.id,  # Using visit_id as prescription_id
+            "visit_id": visit.id,
+            "patient_id": visit.patient_id,
+            "doctor_id": visit.doctor_id,
+            "prescription_date": visit.visit_date.isoformat() if visit.visit_date else None,
+            "medicines": medicines_data,
+            "notes": visit.prescription_notes,
+            "visit": {
+                "id": visit.id,
+                "visit_date": visit.visit_date.isoformat() if visit.visit_date else None,
+                "diagnosis": visit.diagnosis,
+            },
+            "created_at": visit.created_at.isoformat() if visit.created_at else None,
         })
 
     return {"prescriptions": prescription_list}

@@ -11,12 +11,12 @@ import OPDQueue from './pages/opd/OPDQueue';
 import VisitForm from './pages/visits/VisitForm';
 import VisitDetails from './pages/visits/VisitDetails';
 import DoctorVisitsList from './pages/visits/DoctorVisitsList';
-import PrescriptionForm from './pages/prescriptions/PrescriptionForm';
 import Billing from './pages/billing/Billing';
 import Settings from './pages/Settings';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ClinicManagement from './pages/admin/ClinicManagement';
 import DoctorList from './pages/admin/DoctorList';
+import CollectionReport from './pages/reports/CollectionReport';
 
 function ProtectedRoute({ children }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -67,13 +67,14 @@ function App() {
         <Route path="visits" element={<DoctorVisitsList />} />
         <Route path="visits/new" element={<VisitForm />} />
         <Route path="visits/:id" element={<VisitDetails />} />
-
-        {/* Prescriptions */}
-        <Route path="prescriptions/new" element={<PrescriptionForm />} />
+        <Route path="visits/:id/edit" element={<VisitForm />} />
 
         {/* Billing */}
         <Route path="billing" element={<Billing />} />
         <Route path="billing/new" element={<Billing />} />
+
+        {/* Reports */}
+        <Route path="reports/collections" element={<CollectionReport />} />
         
         {/* Settings */}
         <Route 

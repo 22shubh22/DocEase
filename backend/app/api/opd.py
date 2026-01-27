@@ -3,9 +3,9 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from datetime import date, datetime
 from typing import Optional
-from app.db.database import get_db
-from app.core.deps import get_current_user
-from app.models.models import User, Appointment, Invoice, Patient, AppointmentStatusEnum, Visit
+from app.core.database import get_db
+from app.core.deps import get_current_user, require_permission
+from app.models.models import User, Appointment, Invoice, Patient, AppointmentStatusEnum, Visit, Doctor
 from app.schemas.schemas import AppointmentCreate, AppointmentUpdate, AppointmentPositionUpdate
 
 router = APIRouter()
@@ -14,14 +14,15 @@ router = APIRouter()
 @router.get("/queue", response_model=dict)
 async def get_queue(
     queue_date: Optional[date] = Query(None, description="Date to filter queue (defaults to today)"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_opd")),
     db: Session = Depends(get_db)
 ):
     """Get OPD queue for a specific date (defaults to today)"""
     target_date = queue_date or date.today()
 
     appointments = db.query(Appointment).options(
-        joinedload(Appointment.patient)
+        joinedload(Appointment.patient),
+        joinedload(Appointment.visit).joinedload(Visit.doctor).joinedload(Doctor.user)
     ).filter(
         Appointment.clinic_id == current_user.clinic_id,
         Appointment.appointment_date == target_date
@@ -29,6 +30,28 @@ async def get_queue(
 
     queue = []
     for apt in appointments:
+        # Get doctor info for completed appointments (already eager loaded)
+        doctor_info = None
+        if apt.status == AppointmentStatusEnum.COMPLETED and apt.visit:
+            visit = apt.visit
+            if visit.doctor:
+                doctor = visit.doctor
+                doctor_user = doctor.user
+                doctor_info = {
+                    "id": doctor.id,
+                    "name": doctor_user.full_name if doctor_user else None,
+                    "doctor_code": doctor.doctor_code,
+                }
+
+        # Include visit info for completed appointments
+        visit_info = None
+        if apt.status == AppointmentStatusEnum.COMPLETED and apt.visit:
+            visit_info = {
+                "id": apt.visit.id,
+                "amount": float(apt.visit.amount) if apt.visit.amount else None,
+                "follow_up_date": apt.visit.follow_up_date.isoformat() if apt.visit.follow_up_date else None,
+            }
+
         queue.append({
             "id": apt.id,
             "patient_id": apt.patient_id,
@@ -40,11 +63,14 @@ async def get_queue(
                 "patient_code": apt.patient.patient_code,
                 "age": apt.patient.age,
                 "phone": apt.patient.phone,
+                "address": apt.patient.address,
             } if apt.patient else None,
             "queue_number": apt.queue_number,
-            "chief_complaint": apt.chief_complaint,
+            "chief_complaints": apt.chief_complaints or [],
             "status": apt.status.value,
             "created_at": apt.created_at.isoformat() if apt.created_at else None,
+            "doctor": doctor_info,
+            "visit": visit_info,
         })
 
     return {"queue": queue, "date": target_date.isoformat()}
@@ -53,7 +79,7 @@ async def get_queue(
 @router.get("/stats", response_model=dict)
 async def get_daily_stats(
     stats_date: Optional[date] = Query(None, description="Date to get stats for (defaults to today)"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_opd")),
     db: Session = Depends(get_db)
 ):
     """Get daily statistics for a specific date"""
@@ -85,9 +111,9 @@ async def get_daily_stats(
     return {
         "stats": {
             "total": total,
+            "completed": completed,
             "waiting": waiting,
-            "inProgress": in_progress,
-            "completed": completed
+            "inProgress": in_progress
         },
         "date": target_date.isoformat()
     }
@@ -96,7 +122,7 @@ async def get_daily_stats(
 @router.post("/appointments/", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def add_to_queue(
     appointment_data: AppointmentCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_manage_opd")),
     db: Session = Depends(get_db)
 ):
     """Add patient to OPD queue"""
@@ -113,7 +139,7 @@ async def add_to_queue(
         patient_id=appointment_data.patient_id,
         appointment_date=today,
         queue_number=queue_number,
-        chief_complaint=appointment_data.chief_complaint,
+        chief_complaints=appointment_data.chief_complaints or [],
         status=AppointmentStatusEnum.WAITING,
         clinic_id=current_user.clinic_id,
         created_by=current_user.id,
@@ -131,7 +157,7 @@ async def add_to_queue(
 async def update_queue_status(
     appointment_id: str,
     status_data: AppointmentUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_manage_opd")),
     db: Session = Depends(get_db)
 ):
     """Update appointment status"""
@@ -156,7 +182,7 @@ async def update_queue_status(
 async def update_queue_position(
     appointment_id: str,
     position_data: AppointmentPositionUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_manage_opd")),
     db: Session = Depends(get_db)
 ):
     """Update appointment position in queue (reorder)"""
@@ -200,10 +226,43 @@ async def update_queue_position(
     return {"message": "Position updated", "appointment": {"id": appointment.id, "queue_number": appointment.queue_number}}
 
 
+@router.get("/follow-ups-due", response_model=dict)
+async def get_follow_ups_due(
+    target_date: Optional[date] = Query(None, description="Date to check follow-ups (defaults to today)"),
+    current_user: User = Depends(require_permission("can_view_opd")),
+    db: Session = Depends(get_db)
+):
+    """Get patients with follow-ups due on a specific date (defaults to today)"""
+    check_date = target_date or date.today()
+
+    visits = db.query(Visit).options(
+        joinedload(Visit.patient)
+    ).filter(
+        Visit.clinic_id == current_user.clinic_id,
+        Visit.follow_up_date == check_date
+    ).all()
+
+    return {
+        "follow_ups": [
+            {
+                "visit_id": str(v.id),
+                "patient_id": str(v.patient_id),
+                "patient_name": v.patient.full_name if v.patient else None,
+                "patient_code": v.patient.patient_code if v.patient else None,
+                "last_visit_date": v.visit_date.isoformat() if v.visit_date else None,
+                "diagnosis": v.diagnosis or [],
+            }
+            for v in visits
+        ],
+        "count": len(visits),
+        "date": check_date.isoformat()
+    }
+
+
 @router.get("/appointments/{appointment_id}/visit", response_model=dict)
 async def get_visit_by_appointment(
     appointment_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_visits")),
     db: Session = Depends(get_db)
 ):
     """Get visit details linked to an appointment (for OPD reopen case)"""
@@ -215,11 +274,16 @@ async def get_visit_by_appointment(
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
 
-    # Find visit linked to this appointment
-    visit = db.query(Visit).filter(Visit.appointment_id == appointment_id).first()
+    # Find visit linked to this appointment with eager loading
+    visit = db.query(Visit).options(
+        joinedload(Visit.doctor).joinedload(Doctor.user)
+    ).filter(Visit.appointment_id == appointment_id).first()
 
     if not visit:
         return {"visit": None}
+
+    doctor = visit.doctor
+    doctor_user = doctor.user if doctor else None
 
     return {
         "visit": {
@@ -232,5 +296,12 @@ async def get_visit_by_appointment(
             "vitals": visit.vitals or {},
             "visit_number": visit.visit_number,
             "visit_date": visit.visit_date.isoformat() if visit.visit_date else None,
+            "doctor": {
+                "id": doctor.id,
+                "name": doctor_user.full_name if doctor_user else None,
+                "doctor_code": doctor.doctor_code,
+                "specialization": doctor.specialization,
+                "registration_number": doctor.registration_number
+            } if doctor else None,
         }
     }

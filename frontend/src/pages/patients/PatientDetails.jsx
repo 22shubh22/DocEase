@@ -1,6 +1,21 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { patientsAPI } from '../../services/api';
+import { toast } from 'react-hot-toast';
+import { patientsAPI, opdAPI, chiefComplaintsAPI } from '../../services/api';
+
+const formatDateTime = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  }) + ', ' + date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+};
 
 export default function PatientDetails() {
   const { id } = useParams();
@@ -8,30 +23,112 @@ export default function PatientDetails() {
   const [activeTab, setActiveTab] = useState('overview');
   const [patient, setPatient] = useState(null);
   const [visits, setVisits] = useState([]);
-  const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // OPD Modal state
+  const [showOPDModal, setShowOPDModal] = useState(false);
+  const [chiefComplaints, setChiefComplaints] = useState([]);
+  const [selectedComplaints, setSelectedComplaints] = useState([]);
+  const [customComplaint, setCustomComplaint] = useState('');
+  const [addingToOPD, setAddingToOPD] = useState(false);
+  const [nextQueueNumber, setNextQueueNumber] = useState(null);
+  const [todayQueue, setTodayQueue] = useState([]);
 
   useEffect(() => {
     fetchPatientData();
   }, [id]);
 
+  // Fetch chief complaints for OPD modal
+  useEffect(() => {
+    const fetchComplaints = async () => {
+      try {
+        const response = await chiefComplaintsAPI.getAll(true);
+        setChiefComplaints(response.data || []);
+      } catch (error) {
+        console.error('Failed to fetch complaints:', error);
+      }
+    };
+    fetchComplaints();
+  }, []);
+
   const fetchPatientData = async () => {
     try {
       setLoading(true);
-      const [patientRes, visitsRes, prescriptionsRes] = await Promise.all([
+      const [patientRes, visitsRes] = await Promise.all([
         patientsAPI.getById(id),
-        patientsAPI.getVisits(id),
-        patientsAPI.getPrescriptions(id)
+        patientsAPI.getVisits(id)
       ]);
       setPatient(patientRes.data.patient);
       setVisits(visitsRes.data.visits || []);
-      setPrescriptions(prescriptionsRes.data.prescriptions || []);
     } catch (err) {
       console.error('Failed to fetch patient data:', err);
       setError('Failed to load patient data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Check if patient is already in today's queue
+  const isPatientInQueue = () => {
+    return todayQueue.some(item =>
+      item.patient_id === patient?.id &&
+      ['WAITING', 'IN_PROGRESS'].includes(item.status)
+    );
+  };
+
+  // OPD Modal handlers
+  const openOPDModal = async () => {
+    setSelectedComplaints([]);
+    setCustomComplaint('');
+    setNextQueueNumber(null);
+    setTodayQueue([]);
+    setShowOPDModal(true);
+
+    // Fetch current queue stats and queue data
+    try {
+      const [statsResponse, queueResponse] = await Promise.all([
+        opdAPI.getStats({}),
+        opdAPI.getQueue({})
+      ]);
+      setNextQueueNumber((statsResponse.data.stats?.total || 0) + 1);
+      setTodayQueue(queueResponse.data.queue || []);
+    } catch (error) {
+      console.error('Failed to fetch queue data:', error);
+    }
+  };
+
+  const closeOPDModal = () => {
+    setShowOPDModal(false);
+    setSelectedComplaints([]);
+    setCustomComplaint('');
+  };
+
+  const handleAddToOPD = async () => {
+    const allComplaints = [...selectedComplaints];
+    if (customComplaint.trim()) {
+      const customs = customComplaint.split(',').map(c => c.trim()).filter(c => c);
+      allComplaints.push(...customs);
+    }
+
+    if (allComplaints.length === 0) {
+      toast.error('Please select at least one complaint');
+      return;
+    }
+
+    setAddingToOPD(true);
+    try {
+      await opdAPI.addToQueue({
+        patient_id: patient.id,
+        chief_complaints: allComplaints,
+      });
+      toast.success(`${patient.full_name} added to OPD queue`);
+      closeOPDModal();
+    } catch (error) {
+      console.error('Failed to add to OPD:', error);
+      toast.error(error.errorMessage || 'Failed to add patient to OPD queue');
+    } finally {
+      setAddingToOPD(false);
     }
   };
 
@@ -58,7 +155,6 @@ export default function PatientDetails() {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '👤' },
     { id: 'visits', label: 'Visit History', icon: '📋' },
-    { id: 'prescriptions', label: 'Prescriptions', icon: '💊' },
   ];
 
   return (
@@ -77,12 +173,12 @@ export default function PatientDetails() {
           <p className="text-gray-600 mt-1">Patient ID: {patient.patient_code}</p>
         </div>
         <div className="flex gap-3">
-          <Link
-            to={`/visits/new?patientId=${patient.id}`}
+          <button
+            onClick={openOPDModal}
             className="btn btn-primary"
           >
-            📝 New Visit
-          </Link>
+            + Add to OPD
+          </button>
           <Link
             to={`/patients/${patient.id}/edit`}
             className="btn btn-secondary"
@@ -195,15 +291,7 @@ export default function PatientDetails() {
 
       {activeTab === 'visits' && (
         <div className="card">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Visit History</h2>
-            <Link
-              to={`/visits/new?patientId=${patient.id}`}
-              className="btn btn-primary"
-            >
-              Add Visit
-            </Link>
-          </div>
+          <h2 className="text-xl font-semibold mb-4">Visit History</h2>
           <div className="space-y-4">
             {visits.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
@@ -213,13 +301,59 @@ export default function PatientDetails() {
             ) : (
               visits.map((visit) => (
                 <div key={visit.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                  <div className="flex justify-between items-start mb-2">
+                  {/* Header - diagnosis, symptoms, date */}
+                  <div className="flex justify-between items-start mb-3">
                     <div>
                       <h3 className="font-semibold text-gray-900">{visit.diagnosis || 'No diagnosis'}</h3>
                       <p className="text-sm text-gray-600">{visit.symptoms || 'No symptoms recorded'}</p>
                     </div>
-                    <span className="text-sm text-gray-500">{visit.visit_date}</span>
+                    <span className="text-sm text-gray-500">{formatDateTime(visit.visit_date)}</span>
                   </div>
+
+                  {/* Vitals section */}
+                  {visit.vitals && Object.keys(visit.vitals).length > 0 && (
+                    <div className="py-2 border-t text-sm">
+                      <span className="font-medium text-gray-700">Vitals: </span>
+                      <span className="text-gray-600">
+                        {[
+                          visit.vitals.blood_pressure && `BP: ${visit.vitals.blood_pressure}`,
+                          visit.vitals.temperature && `Temp: ${visit.vitals.temperature}°F`,
+                          visit.vitals.pulse && `Pulse: ${visit.vitals.pulse}`,
+                          visit.vitals.spo2 && `SpO2: ${visit.vitals.spo2}%`,
+                          visit.vitals.weight && `Wt: ${visit.vitals.weight}kg`,
+                        ].filter(Boolean).join(' | ')}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Tests section */}
+                  {visit.recommended_tests && visit.recommended_tests.length > 0 && (
+                    <div className="py-2 border-t text-sm">
+                      <span className="font-medium text-gray-700">Tests: </span>
+                      <span className="text-gray-600">{visit.recommended_tests.join(', ')}</span>
+                    </div>
+                  )}
+
+                  {/* Prescription section */}
+                  {visit.medicines && visit.medicines.length > 0 && (
+                    <div className="py-2 border-t text-sm">
+                      <span className="font-medium text-gray-700">Rx: </span>
+                      <div className="text-gray-600 mt-1 space-y-1">
+                        {visit.medicines.map((med, idx) => (
+                          <div key={med.id || idx}>
+                            {med.medicine_name}
+                            {(med.dosage || med.duration) && (
+                              <span className="text-gray-500">
+                                {' '}({[med.dosage, med.duration].filter(Boolean).join(', ')})
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Footer - visit number and link */}
                   <div className="flex justify-between items-center mt-2 pt-2 border-t">
                     <span className="text-sm text-gray-600">Visit #{visit.visit_number}</span>
                     <Link to={`/visits/${visit.id}`} className="text-primary-600 hover:text-primary-700 text-sm">
@@ -233,41 +367,108 @@ export default function PatientDetails() {
         </div>
       )}
 
-      {activeTab === 'prescriptions' && (
-        <div className="card">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Prescriptions</h2>
-            <Link
-              to={`/prescriptions/new?patientId=${patient.id}`}
-              className="btn btn-primary"
-            >
-              New Prescription
-            </Link>
-          </div>
-          {prescriptions.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <div className="text-4xl mb-2">💊</div>
-              <p>No prescriptions yet</p>
-              <p className="text-sm mt-1">Create a visit first to add prescriptions</p>
-            </div>
-          ) : (
+      {/* Add to OPD Modal */}
+      {showOPDModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">
+              Add to OPD Queue
+            </h2>
+            <p className="text-sm text-gray-500 mb-2">
+              Adding to queue for: <strong>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</strong>
+              {nextQueueNumber && <span className="ml-2">• Queue #<strong>{nextQueueNumber}</strong></span>}
+            </p>
+            <p className="text-sm text-gray-600 mb-4">
+              Patient: <strong>{patient.full_name}</strong> ({patient.patient_code})
+            </p>
+
+            {isPatientInQueue() && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                <p className="text-yellow-800 text-sm font-medium">
+                  This patient already has an appointment today
+                </p>
+                <p className="text-yellow-700 text-xs mt-1">
+                  You can still add another appointment if needed.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-4">
-              {prescriptions.map((prescription) => (
-                <div key={prescription.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-semibold text-gray-900">Prescription #{prescription.id.slice(0, 8)}</p>
-                      <p className="text-sm text-gray-600">{prescription.notes || 'No notes'}</p>
-                    </div>
-                    <span className="text-sm text-gray-500">{prescription.prescription_date}</span>
+              <div>
+                <label className="label">Chief Complaints *</label>
+
+                {/* Selected complaints as chips */}
+                {selectedComplaints.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {selectedComplaints.map((complaint, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm"
+                      >
+                        {complaint}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedComplaints(selectedComplaints.filter((_, i) => i !== index))}
+                          className="hover:text-red-900 font-bold"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
                   </div>
-                </div>
-              ))}
+                )}
+
+                {/* Dropdown to add complaints */}
+                {chiefComplaints.length > 0 && (
+                  <select
+                    className="input mb-2"
+                    value=""
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value && !selectedComplaints.includes(value)) {
+                        setSelectedComplaints([...selectedComplaints, value]);
+                      }
+                    }}
+                  >
+                    <option value="">Select a complaint...</option>
+                    {chiefComplaints
+                      .filter(c => !selectedComplaints.includes(c.name))
+                      .map(c => (
+                        <option key={c.id} value={c.name}>{c.name}</option>
+                      ))}
+                  </select>
+                )}
+
+                {/* Custom complaint input */}
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Custom complaints (comma separated)"
+                  value={customComplaint}
+                  onChange={(e) => setCustomComplaint(e.target.value)}
+                />
+              </div>
             </div>
-          )}
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={closeOPDModal}
+                className="btn btn-secondary"
+                disabled={addingToOPD}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddToOPD}
+                className="btn btn-primary"
+                disabled={addingToOPD}
+              >
+                {addingToOPD ? 'Adding...' : 'Add to Queue'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
-
     </div>
   );
 }

@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime
 from decimal import Decimal
-from app.db.database import get_db
-from app.core.deps import get_current_user
+from app.core.database import get_db
+from app.core.deps import get_current_user, require_permission
 from app.models.models import User, Invoice, InvoiceItem
 from app.schemas.schemas import InvoiceCreate, InvoiceUpdate
 
@@ -16,7 +16,7 @@ async def get_all_invoices(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     status: str = Query(None),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_invoices")),
     db: Session = Depends(get_db)
 ):
     """Get all invoices with pagination"""
@@ -44,7 +44,7 @@ async def get_all_invoices(
 @router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def create_invoice(
     invoice_data: InvoiceCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_create_invoices")),
     db: Session = Depends(get_db)
 ):
     """Create a new invoice"""
@@ -101,7 +101,7 @@ async def create_invoice(
 @router.get("/{invoice_id}", response_model=dict)
 async def get_invoice_by_id(
     invoice_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_invoices")),
     db: Session = Depends(get_db)
 ):
     """Get invoice by ID"""
@@ -120,7 +120,7 @@ async def get_invoice_by_id(
 async def update_invoice(
     invoice_id: str,
     invoice_data: InvoiceUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_edit_invoices")),
     db: Session = Depends(get_db)
 ):
     """Update invoice payment information"""
@@ -146,32 +146,48 @@ async def update_invoice(
 async def get_billing_stats(
     start_date: str = Query(None),
     end_date: str = Query(None),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_collections")),
     db: Session = Depends(get_db)
 ):
     """Get billing statistics"""
-    query = db.query(Invoice).filter(Invoice.clinic_id == current_user.clinic_id)
-
+    # Build date filter once
+    date_filter = None
     if start_date and end_date:
         start = datetime.fromisoformat(start_date)
         end = datetime.fromisoformat(end_date)
-        query = query.filter(Invoice.created_at.between(start, end))
+        date_filter = Invoice.created_at.between(start, end)
 
+    # Total revenue with date filter
     total_revenue = db.query(func.sum(Invoice.total_amount)).filter(
         Invoice.clinic_id == current_user.clinic_id
-    ).scalar() or Decimal('0')
+    )
+    if date_filter is not None:
+        total_revenue = total_revenue.filter(date_filter)
+    total_revenue = total_revenue.scalar() or Decimal('0')
 
+    # Paid revenue with date filter
     paid_revenue = db.query(func.sum(Invoice.paid_amount)).filter(
         Invoice.clinic_id == current_user.clinic_id,
         Invoice.payment_status == "PAID"
-    ).scalar() or Decimal('0')
+    )
+    if date_filter is not None:
+        paid_revenue = paid_revenue.filter(date_filter)
+    paid_revenue = paid_revenue.scalar() or Decimal('0')
 
+    # Unpaid revenue with date filter
     unpaid_revenue = db.query(func.sum(Invoice.total_amount)).filter(
         Invoice.clinic_id == current_user.clinic_id,
         Invoice.payment_status == "UNPAID"
-    ).scalar() or Decimal('0')
+    )
+    if date_filter is not None:
+        unpaid_revenue = unpaid_revenue.filter(date_filter)
+    unpaid_revenue = unpaid_revenue.scalar() or Decimal('0')
 
-    total_invoices = query.count()
+    # Count with date filter
+    base_query = db.query(Invoice).filter(Invoice.clinic_id == current_user.clinic_id)
+    if date_filter is not None:
+        base_query = base_query.filter(date_filter)
+    total_invoices = base_query.count()
 
     return {
         "totalRevenue": float(total_revenue),

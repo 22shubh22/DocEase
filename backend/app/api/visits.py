@@ -1,14 +1,104 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
-from datetime import date
-from typing import Optional
-from app.db.database import get_db
-from app.core.deps import get_current_user
-from app.models.models import User, Visit, Appointment, AppointmentStatusEnum, Doctor, Patient
-from app.schemas.schemas import VisitCreate, VisitUpdate
+from sqlalchemy import or_, func, cast, Date
+from datetime import date, datetime
+from typing import Optional, Literal
+from collections import defaultdict
+from app.core.database import get_db
+from app.core.deps import get_current_user, require_permission
+from app.models.models import User, Visit, Appointment, AppointmentStatusEnum, Doctor, Patient, VisitMedicine, User as UserModel
+from app.schemas.schemas import VisitCreate, VisitUpdate, CollectionSummaryResponse
 
 router = APIRouter()
+
+
+@router.get("/collections/summary", response_model=CollectionSummaryResponse)
+async def get_collection_summary(
+    start_date: Optional[date] = Query(None, description="Start date for collection period (defaults to today)"),
+    end_date: Optional[date] = Query(None, description="End date for collection period (defaults to today)"),
+    group_by: Literal["day", "month"] = Query("day", description="Group collections by day or month"),
+    doctor_id: Optional[str] = Query(None, description="Filter by specific doctor ID"),
+    current_user: User = Depends(require_permission("can_view_collections")),
+    db: Session = Depends(get_db)
+):
+    """
+    Get collection summary for the clinic with day-wise or month-wise breakdown.
+    Shows all visits with amounts for all doctors in the clinic, or filtered by doctor.
+    """
+    # Default to today if no dates provided
+    if not start_date:
+        start_date = date.today()
+    if not end_date:
+        end_date = date.today()
+
+    # Query visits with amounts for the clinic within date range
+    query = db.query(Visit).join(
+        Patient, Visit.patient_id == Patient.id
+    ).join(
+        Doctor, Visit.doctor_id == Doctor.id
+    ).filter(
+        Visit.clinic_id == current_user.clinic_id,
+        Visit.amount.isnot(None),
+        cast(Visit.visit_date, Date) >= start_date,
+        cast(Visit.visit_date, Date) <= end_date
+    )
+
+    # Apply doctor filter if provided
+    if doctor_id:
+        query = query.filter(Visit.doctor_id == doctor_id)
+
+    query = query.order_by(Visit.visit_date.desc())
+
+    visits = query.all()
+
+    # Group visits by date
+    grouped_data = defaultdict(lambda: {"total": 0.0, "visits": []})
+    total_collection = 0.0
+
+    for visit in visits:
+        # Get date key based on grouping
+        if group_by == "month":
+            date_key = visit.visit_date.strftime("%Y-%m")
+        else:
+            date_key = visit.visit_date.strftime("%Y-%m-%d")
+
+        # Get patient and doctor info
+        patient = db.query(Patient).filter(Patient.id == visit.patient_id).first()
+        doctor = db.query(Doctor).filter(Doctor.id == visit.doctor_id).first()
+        doctor_user = db.query(UserModel).filter(UserModel.id == doctor.user_id).first() if doctor else None
+
+        amount = float(visit.amount) if visit.amount else 0.0
+        total_collection += amount
+        grouped_data[date_key]["total"] += amount
+        grouped_data[date_key]["visits"].append({
+            "visit_id": visit.id,
+            "patient_name": patient.full_name if patient else "Unknown",
+            "patient_code": patient.patient_code if patient else "",
+            "doctor_name": doctor_user.full_name if doctor_user else "Unknown",
+            "amount": amount,
+            "visit_time": visit.visit_date.strftime("%I:%M %p") if visit.visit_date else ""
+        })
+
+    # Build breakdown list sorted by date (most recent first)
+    breakdown = []
+    for date_key in sorted(grouped_data.keys(), reverse=True):
+        data = grouped_data[date_key]
+        breakdown.append({
+            "date": date_key,
+            "total": data["total"],
+            "visit_count": len(data["visits"]),
+            "visits": data["visits"]
+        })
+
+    return {
+        "total_collection": total_collection,
+        "visit_count": len(visits),
+        "period": {
+            "start": start_date.isoformat(),
+            "end": end_date.isoformat()
+        },
+        "breakdown": breakdown
+    }
 
 
 @router.get("/", response_model=dict)
@@ -18,7 +108,7 @@ async def get_doctor_visits(
     start_date: Optional[date] = Query(None, description="Filter visits from this date"),
     end_date: Optional[date] = Query(None, description="Filter visits until this date"),
     patient_search: Optional[str] = Query(None, description="Search by patient name or code"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_visits")),
     db: Session = Depends(get_db)
 ):
     """
@@ -89,7 +179,7 @@ async def get_doctor_visits(
 @router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def create_visit(
     visit_data: VisitCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_create_visits")),
     db: Session = Depends(get_db)
 ):
     """Create a new visit or update existing one if appointment already has a visit"""
@@ -107,11 +197,25 @@ async def create_visit(
 
     if existing_visit:
         # Update existing visit instead of creating a new one
-        update_fields = ['symptoms', 'diagnosis', 'observations', 'recommended_tests', 'follow_up_date', 'vitals']
+        update_fields = ['symptoms', 'diagnosis', 'observations', 'recommended_tests', 'follow_up_date', 'vitals', 'prescription_notes', 'amount']
         for field in update_fields:
             value = getattr(visit_data, field, None)
             if value is not None:
                 setattr(existing_visit, field, value)
+
+        # Handle medicines update - delete existing and add new
+        if visit_data.medicines is not None:
+            # Delete existing medicines
+            db.query(VisitMedicine).filter(VisitMedicine.visit_id == existing_visit.id).delete()
+            # Add new medicines
+            for med_data in visit_data.medicines:
+                medicine = VisitMedicine(
+                    visit_id=existing_visit.id,
+                    medicine_name=med_data.medicine_name,
+                    dosage=med_data.dosage,
+                    duration=med_data.duration
+                )
+                db.add(medicine)
 
         # Update appointment status to COMPLETED
         appointment = db.query(Appointment).filter(
@@ -132,17 +236,30 @@ async def create_visit(
 
     visit_number = (last_visit.visit_number + 1) if last_visit else 1
 
-    visit_dict = visit_data.model_dump(exclude={'appointment_id', 'doctor_id'})
+    # Exclude medicines from visit_dict as they need separate handling
+    visit_dict = visit_data.model_dump(exclude={'appointment_id', 'doctor_id', 'medicines'})
     visit = Visit(
         **visit_dict,
         doctor_id=visit_data.doctor_id or doctor.id,
         appointment_id=visit_data.appointment_id,
         visit_number=visit_number,
-        visit_date=date.today(),
+        visit_date=datetime.now(),
         clinic_id=current_user.clinic_id
     )
 
     db.add(visit)
+    db.flush()  # Get the visit ID before adding medicines
+
+    # Add medicines if provided
+    if visit_data.medicines:
+        for med_data in visit_data.medicines:
+            medicine = VisitMedicine(
+                visit_id=visit.id,
+                medicine_name=med_data.medicine_name,
+                dosage=med_data.dosage,
+                duration=med_data.duration
+            )
+            db.add(medicine)
 
     # Update appointment status if exists
     if visit_data.appointment_id:
@@ -161,12 +278,10 @@ async def create_visit(
 @router.get("/{visit_id}", response_model=dict)
 async def get_visit_by_id(
     visit_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_visits")),
     db: Session = Depends(get_db)
 ):
-    """Get visit by ID with patient and prescription details"""
-    from app.models.models import Prescription, PrescriptionMedicine
-
+    """Get visit by ID with patient and medicines details"""
     visit = db.query(Visit).filter(
         Visit.id == visit_id,
         Visit.clinic_id == current_user.clinic_id
@@ -178,31 +293,21 @@ async def get_visit_by_id(
     # Get patient info
     patient = db.query(Patient).filter(Patient.id == visit.patient_id).first()
 
-    # Get prescriptions with medicines for this visit
-    prescriptions = db.query(Prescription).filter(Prescription.visit_id == visit_id).all()
-    prescriptions_data = []
-    for rx in prescriptions:
-        medicines = db.query(PrescriptionMedicine).filter(
-            PrescriptionMedicine.prescription_id == rx.id
-        ).all()
-        prescriptions_data.append({
-            "id": rx.id,
-            "prescription_date": rx.prescription_date.isoformat() if rx.prescription_date else None,
-            "notes": rx.notes,
-            "pdf_url": rx.pdf_url,
-            "medicines": [
-                {
-                    "id": med.id,
-                    "medicine_name": med.medicine_name,
-                    "dosage": med.dosage,
-                    "frequency": med.frequency,
-                    "duration": med.duration,
-                    "instructions": med.instructions,
-                    "quantity": med.quantity
-                }
-                for med in medicines
-            ]
-        })
+    # Get doctor info
+    doctor = db.query(Doctor).filter(Doctor.id == visit.doctor_id).first()
+    doctor_user = db.query(User).filter(User.id == doctor.user_id).first() if doctor else None
+
+    # Get medicines for this visit
+    medicines = db.query(VisitMedicine).filter(VisitMedicine.visit_id == visit_id).all()
+    medicines_data = [
+        {
+            "id": med.id,
+            "medicine_name": med.medicine_name,
+            "dosage": med.dosage,
+            "duration": med.duration
+        }
+        for med in medicines
+    ]
 
     return {
         "visit": {
@@ -215,6 +320,8 @@ async def get_visit_by_id(
             "recommended_tests": visit.recommended_tests or [],
             "follow_up_date": visit.follow_up_date.isoformat() if visit.follow_up_date else None,
             "vitals": visit.vitals,
+            "prescription_notes": visit.prescription_notes,
+            "amount": float(visit.amount) if visit.amount else None,
             "created_at": visit.created_at.isoformat() if visit.created_at else None,
             "patient": {
                 "id": patient.id,
@@ -226,7 +333,14 @@ async def get_visit_by_id(
                 "allergies": patient.allergies or [],
                 "phone": patient.phone
             } if patient else None,
-            "prescriptions": prescriptions_data
+            "doctor": {
+                "id": doctor.id,
+                "name": doctor_user.full_name if doctor_user else None,
+                "doctor_code": doctor.doctor_code,
+                "specialization": doctor.specialization,
+                "registration_number": doctor.registration_number
+            } if doctor else None,
+            "medicines": medicines_data
         }
     }
 
@@ -235,7 +349,7 @@ async def get_visit_by_id(
 async def update_visit(
     visit_id: str,
     visit_data: VisitUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_edit_visits")),
     db: Session = Depends(get_db)
 ):
     """Update visit information"""
@@ -248,10 +362,55 @@ async def update_visit(
         raise HTTPException(status_code=404, detail="Visit not found")
 
     update_data = visit_data.model_dump(exclude_unset=True)
+
+    # Handle medicines separately
+    medicines_data = update_data.pop('medicines', None)
+
     for field, value in update_data.items():
         setattr(visit, field, value)
+
+    # Handle medicines update if provided
+    if medicines_data is not None:
+        # Delete existing medicines
+        db.query(VisitMedicine).filter(VisitMedicine.visit_id == visit_id).delete()
+        # Add new medicines
+        for med_data in medicines_data:
+            medicine = VisitMedicine(
+                visit_id=visit_id,
+                medicine_name=med_data.get('medicine_name') or med_data.medicine_name,
+                dosage=med_data.get('dosage') if isinstance(med_data, dict) else med_data.dosage,
+                duration=med_data.get('duration') if isinstance(med_data, dict) else med_data.duration
+            )
+            db.add(medicine)
 
     db.commit()
     db.refresh(visit)
 
-    return {"message": "Visit updated successfully", "visit": visit}
+    # Get updated medicines
+    medicines = db.query(VisitMedicine).filter(VisitMedicine.visit_id == visit_id).all()
+
+    return {
+        "message": "Visit updated successfully",
+        "visit": {
+            "id": visit.id,
+            "visit_date": visit.visit_date.isoformat() if visit.visit_date else None,
+            "visit_number": visit.visit_number,
+            "symptoms": visit.symptoms,
+            "diagnosis": visit.diagnosis,
+            "observations": visit.observations,
+            "recommended_tests": visit.recommended_tests or [],
+            "follow_up_date": visit.follow_up_date.isoformat() if visit.follow_up_date else None,
+            "vitals": visit.vitals,
+            "prescription_notes": visit.prescription_notes,
+            "amount": float(visit.amount) if visit.amount else None,
+            "medicines": [
+                {
+                    "id": med.id,
+                    "medicine_name": med.medicine_name,
+                    "dosage": med.dosage,
+                    "duration": med.duration
+                }
+                for med in medicines
+            ]
+        }
+    }

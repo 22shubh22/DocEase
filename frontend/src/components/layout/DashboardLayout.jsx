@@ -36,16 +36,14 @@ export default function DashboardLayout() {
     { name: 'Dashboard', path: '/', icon: '📊' },
     { name: 'Patients', path: '/patients', icon: '👥' },
     { name: 'OPD Queue', path: '/opd', icon: '🏥' },
-    { name: 'My Visits', path: '/visits', icon: '📋' },
-    { name: 'Billing', path: '/billing', icon: '💰' },
+    { name: 'Collections', path: '/reports/collections', icon: '💰' },
   ];
 
   const navigation = isAdmin ? [
     { name: 'Admin Dashboard', path: '/admin', icon: '🏢' },
   ] : [
     ...baseNavigation,
-    ...(isDoctor && isOwner ? [{ name: 'Settings', path: '/settings', icon: '⚙️' }] : []),
-    ...(!isDoctor ? [{ name: 'Settings', path: '/settings', icon: '⚙️' }] : []),
+    { name: 'Settings', path: '/settings', icon: '⚙️' },
   ];
 
   const isActive = (path) => {

@@ -1,466 +1,189 @@
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
-import { chiefComplaintsAPI, diagnosisOptionsAPI, observationOptionsAPI } from '../services/api';
+import { chiefComplaintsAPI, diagnosisOptionsAPI, observationOptionsAPI, testOptionsAPI, medicineOptionsAPI, dosageOptionsAPI, durationOptionsAPI, symptomOptionsAPI, clinicAPI } from '../services/api';
+
+// Settings Components
+import PermissionsManager from '../components/settings/PermissionsManager';
+import SubUserManager from '../components/settings/SubUserManager';
+import OptionManager from '../components/settings/OptionManager';
+import PasswordSettings from '../components/settings/PasswordSettings';
+import PreferencesSettings from '../components/settings/PreferencesSettings';
 
 export default function Settings() {
   const { user, updateUser } = useAuthStore();
-  const [activeTab, setActiveTab] = useState('profile');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-
-  // Print position settings
-  const [printPosition, setPrintPosition] = useState({
-    top: user?.printSettings?.top || 280,
-    left: user?.printSettings?.left || 40,
-  });
-
-  const { register: registerProfile, handleSubmit: handleProfileSubmit, formState: { errors: profileErrors } } = useForm({
-    defaultValues: {
-      fullName: user?.fullName || '',
-      email: user?.email || '',
-      phone: user?.phone || '',
-      specialty: user?.specialty || '',
-      licenseNumber: user?.licenseNumber || '',
-    }
-  });
-
-  const { register: registerClinic, handleSubmit: handleClinicSubmit, formState: { errors: clinicErrors } } = useForm({
-    defaultValues: {
-      clinicName: user?.clinic?.name || 'City Health Clinic',
-      clinicAddress: user?.clinic?.address || '123 Main Street, Mumbai, Maharashtra',
-      clinicPhone: user?.clinic?.phone || '+91 9876543210',
-      clinicEmail: user?.clinic?.email || 'info@cityhealthclinic.com',
-      clinicLogo: user?.clinic?.logo || '',
-    }
-  });
-
-  const { register: registerPassword, handleSubmit: handlePasswordSubmit, formState: { errors: passwordErrors }, reset: resetPassword } = useForm();
-
-  const [chiefComplaints, setChiefComplaints] = useState([]);
-  const [loadingComplaints, setLoadingComplaints] = useState(false);
-  const [showAddComplaint, setShowAddComplaint] = useState(false);
-  const [editingComplaint, setEditingComplaint] = useState(null);
-  const [complaintForm, setComplaintForm] = useState({ name: '', description: '', display_order: 0 });
-
-  const [diagnosisOptions, setDiagnosisOptions] = useState([]);
-  const [loadingDiagnosis, setLoadingDiagnosis] = useState(false);
-  const [showAddDiagnosis, setShowAddDiagnosis] = useState(false);
-  const [editingDiagnosis, setEditingDiagnosis] = useState(null);
-  const [diagnosisForm, setDiagnosisForm] = useState({ name: '', description: '', display_order: 0 });
-
-  const [observationOptions, setObservationOptions] = useState([]);
-  const [loadingObservations, setLoadingObservations] = useState(false);
-  const [showAddObservation, setShowAddObservation] = useState(false);
-  const [editingObservation, setEditingObservation] = useState(null);
-  const [observationForm, setObservationForm] = useState({ name: '', description: '', display_order: 0 });
+  const [activeTab, setActiveTab] = useState('password');
+  const [isOwner, setIsOwner] = useState(false);
+  const [isCheckingOwner, setIsCheckingOwner] = useState(user?.role === 'DOCTOR');
 
   const isDoctor = user?.role === 'DOCTOR';
 
+  // Check owner status for Team Permissions tab
+  useEffect(() => {
+    const checkOwnerStatus = async () => {
+      if (user?.role === 'DOCTOR') {
+        setIsCheckingOwner(true);
+        try {
+          const response = await clinicAPI.getInfo();
+          setIsOwner(response.data.is_owner);
+        } catch (error) {
+          console.error('Failed to check owner status:', error);
+          toast.error('Failed to load owner status');
+        } finally {
+          setIsCheckingOwner(false);
+        }
+      }
+    };
+    checkOwnerStatus();
+  }, [user]);
+
+  // Scroll to top when tab changes
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const tabs = [
-    { id: 'profile', label: 'Profile', icon: '👤' },
-    { id: 'clinic', label: 'Clinic Settings', icon: '🏥' },
+    ...(isDoctor && isOwner ? [
+      { id: 'team', label: 'Team Members', icon: '👥' },
+      { id: 'permissions', label: 'Edit Permissions', icon: '🔐' },
+    ] : []),
     ...(isDoctor ? [
       { id: 'complaints', label: 'Chief Complaints', icon: '📋' },
+      { id: 'symptoms', label: 'Symptom Options', icon: '🤒' },
       { id: 'diagnosis', label: 'Diagnosis Options', icon: '🩺' },
       { id: 'observations', label: 'Observations', icon: '👁️' },
+      { id: 'tests', label: 'Test Options', icon: '🧪' },
+      { id: 'medicines', label: 'Medicines', icon: '💊' },
+      { id: 'dosages', label: 'Dosage Options', icon: '📏' },
+      { id: 'durations', label: 'Duration Options', icon: '⏱️' },
     ] : []),
-    { id: 'password', label: 'Change Password', icon: '🔒' },
-    { id: 'preferences', label: 'Preferences', icon: '⚙️' },
+    { id: 'password', label: 'Profile', icon: '👤' },
+    { id: 'preferences', label: 'Print Preferences', icon: '⚙️' },
   ];
 
-  useEffect(() => {
-    if (isDoctor) {
-      fetchChiefComplaints();
-    }
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'complaints' && isDoctor && chiefComplaints.length === 0) {
-      fetchChiefComplaints();
-    }
-  }, [activeTab]);
-
-  const fetchChiefComplaints = async () => {
-    setLoadingComplaints(true);
-    try {
-      const response = await chiefComplaintsAPI.getAll(false);
-      setChiefComplaints(response.data || []);
-    } catch (error) {
-      console.error('Failed to fetch chief complaints:', error);
-      toast.error('Failed to load chief complaints');
-    } finally {
-      setLoadingComplaints(false);
-    }
+  // Option configurations for reusable OptionManager
+  const optionConfigs = {
+    complaints: {
+      title: 'Chief Complaints',
+      description: 'Configure the common complaints that appear in the OPD queue dropdown. Patients can still enter custom complaints if needed.',
+      api: chiefComplaintsAPI,
+      emptyIcon: '📋',
+      singularName: 'complaint',
+      tipText: 'Use the display order to arrange complaints. Lower numbers appear first in the dropdown. Deactivated complaints won\'t appear in the OPD queue but are kept for historical records.',
+    },
+    symptoms: {
+      title: 'Symptom Options',
+      description: 'Configure common symptoms that appear in the visit form dropdown. Doctors can still enter custom symptoms if needed.',
+      api: symptomOptionsAPI,
+      emptyIcon: '🤒',
+      singularName: 'symptom',
+      tipText: 'Use the display order to arrange symptoms. Lower numbers appear first in the dropdown. Deactivated symptoms won\'t appear in the visit form but are kept for historical records.',
+    },
+    diagnosis: {
+      title: 'Diagnosis Options',
+      description: 'Configure common diagnoses that appear in the visit form dropdown. Doctors can still enter custom diagnoses if needed.',
+      api: diagnosisOptionsAPI,
+      emptyIcon: '🩺',
+      singularName: 'diagnosis',
+      tipText: 'Use the display order to arrange diagnoses. Lower numbers appear first in the dropdown. Deactivated diagnoses won\'t appear in the visit form but are kept for historical records.',
+    },
+    observations: {
+      title: 'Clinical Observations',
+      description: 'Configure common clinical observations that appear in the visit form dropdown. Doctors can still enter custom observations if needed.',
+      api: observationOptionsAPI,
+      emptyIcon: '👁️',
+      singularName: 'observation',
+      tipText: 'Use the display order to arrange observations. Lower numbers appear first in the dropdown. Deactivated observations won\'t appear in the visit form but are kept for historical records.',
+    },
+    tests: {
+      title: 'Recommended Tests',
+      description: 'Configure common tests that appear in the visit form dropdown. Doctors can still enter custom tests if needed.',
+      api: testOptionsAPI,
+      emptyIcon: '🧪',
+      singularName: 'test',
+      tipText: 'Use the display order to arrange tests. Lower numbers appear first in the dropdown. Deactivated tests won\'t appear in the visit form but are kept for historical records.',
+    },
+    medicines: {
+      title: 'Medicine Options',
+      description: 'Configure common medicines that appear in the prescription dropdown. Doctors can still enter custom medicines if needed.',
+      api: medicineOptionsAPI,
+      emptyIcon: '💊',
+      singularName: 'medicine',
+      tipText: 'Use the display order to arrange medicines. Lower numbers appear first in the dropdown. Deactivated medicines won\'t appear in the prescription form but are kept for historical records.',
+    },
+    dosages: {
+      title: 'Dosage Options',
+      description: 'Configure common dosages that appear in the prescription dropdown. Doctors can still enter custom dosages if needed.',
+      api: dosageOptionsAPI,
+      emptyIcon: '📏',
+      singularName: 'dosage',
+      tipText: 'Use the display order to arrange dosages. Lower numbers appear first in the dropdown. Deactivated dosages won\'t appear in the prescription form but are kept for historical records.',
+    },
+    durations: {
+      title: 'Duration Options',
+      description: 'Configure common durations that appear in the prescription dropdown. Doctors can still enter custom durations if needed.',
+      api: durationOptionsAPI,
+      emptyIcon: '⏱️',
+      singularName: 'duration',
+      tipText: 'Use the display order to arrange durations. Lower numbers appear first in the dropdown. Deactivated durations won\'t appear in the prescription form but are kept for historical records.',
+    },
   };
 
-  const handleAddComplaint = async (e) => {
-    e.preventDefault();
-    if (!complaintForm.name.trim()) {
-      toast.error('Please enter a complaint name');
-      return;
-    }
-    try {
-      await chiefComplaintsAPI.create({
-        name: complaintForm.name,
-        description: complaintForm.description,
-        display_order: complaintForm.display_order || chiefComplaints.length + 1,
-        is_active: true,
-      });
-      toast.success('Chief complaint added');
-      setShowAddComplaint(false);
-      setComplaintForm({ name: '', description: '', display_order: 0 });
-      fetchChiefComplaints();
-    } catch (error) {
-      console.error('Failed to add complaint:', error);
-      toast.error(error.errorMessage || 'Failed to add chief complaint');
-    }
-  };
-
-  const handleUpdateComplaint = async (e) => {
-    e.preventDefault();
-    if (!complaintForm.name.trim()) {
-      toast.error('Please enter a complaint name');
-      return;
-    }
-    try {
-      await chiefComplaintsAPI.update(editingComplaint.id, {
-        name: complaintForm.name,
-        description: complaintForm.description,
-        display_order: complaintForm.display_order,
-        is_active: editingComplaint.is_active,
-      });
-      toast.success('Chief complaint updated');
-      setEditingComplaint(null);
-      setComplaintForm({ name: '', description: '', display_order: 0 });
-      fetchChiefComplaints();
-    } catch (error) {
-      console.error('Failed to update complaint:', error);
-      toast.error(error.errorMessage || 'Failed to update chief complaint');
-    }
-  };
-
-  const handleToggleActive = async (complaint) => {
-    try {
-      await chiefComplaintsAPI.update(complaint.id, {
-        name: complaint.name,
-        description: complaint.description,
-        display_order: complaint.display_order,
-        is_active: !complaint.is_active,
-      });
-      toast.success(complaint.is_active ? 'Complaint deactivated' : 'Complaint activated');
-      fetchChiefComplaints();
-    } catch (error) {
-      console.error('Failed to toggle complaint:', error);
-      toast.error(error.errorMessage || 'Failed to update complaint status');
-    }
-  };
-
-  const handleDeleteComplaint = async (complaint) => {
-    if (!confirm(`Are you sure you want to delete "${complaint.name}"?`)) return;
-    try {
-      await chiefComplaintsAPI.delete(complaint.id);
-      toast.success('Chief complaint deleted');
-      fetchChiefComplaints();
-    } catch (error) {
-      console.error('Failed to delete complaint:', error);
-      toast.error(error.errorMessage || 'Failed to delete chief complaint');
-    }
-  };
-
-  const startEditComplaint = (complaint) => {
-    setEditingComplaint(complaint);
-    setComplaintForm({
-      name: complaint.name,
-      description: complaint.description || '',
-      display_order: complaint.display_order,
-    });
-    setShowAddComplaint(false);
-  };
-
-  const fetchDiagnosisOptions = async () => {
-    setLoadingDiagnosis(true);
-    try {
-      const response = await diagnosisOptionsAPI.getAll(false);
-      setDiagnosisOptions(response.data || []);
-    } catch (error) {
-      console.error('Failed to fetch diagnosis options:', error);
-      toast.error('Failed to load diagnosis options');
-    } finally {
-      setLoadingDiagnosis(false);
-    }
-  };
-
-  const handleAddDiagnosis = async (e) => {
-    e.preventDefault();
-    if (!diagnosisForm.name.trim()) {
-      toast.error('Please enter a diagnosis name');
-      return;
-    }
-    try {
-      await diagnosisOptionsAPI.create({
-        name: diagnosisForm.name,
-        description: diagnosisForm.description,
-        display_order: diagnosisForm.display_order || diagnosisOptions.length + 1,
-        is_active: true,
-      });
-      toast.success('Diagnosis option added');
-      setShowAddDiagnosis(false);
-      setDiagnosisForm({ name: '', description: '', display_order: 0 });
-      fetchDiagnosisOptions();
-    } catch (error) {
-      console.error('Failed to add diagnosis:', error);
-      toast.error(error.errorMessage || 'Failed to add diagnosis option');
-    }
-  };
-
-  const handleUpdateDiagnosis = async (e) => {
-    e.preventDefault();
-    if (!diagnosisForm.name.trim()) {
-      toast.error('Please enter a diagnosis name');
-      return;
-    }
-    try {
-      await diagnosisOptionsAPI.update(editingDiagnosis.id, {
-        name: diagnosisForm.name,
-        description: diagnosisForm.description,
-        display_order: diagnosisForm.display_order,
-        is_active: editingDiagnosis.is_active,
-      });
-      toast.success('Diagnosis option updated');
-      setEditingDiagnosis(null);
-      setDiagnosisForm({ name: '', description: '', display_order: 0 });
-      fetchDiagnosisOptions();
-    } catch (error) {
-      console.error('Failed to update diagnosis:', error);
-      toast.error(error.errorMessage || 'Failed to update diagnosis option');
-    }
-  };
-
-  const handleToggleDiagnosis = async (option) => {
-    try {
-      await diagnosisOptionsAPI.update(option.id, {
-        name: option.name,
-        description: option.description,
-        display_order: option.display_order,
-        is_active: !option.is_active,
-      });
-      toast.success(option.is_active ? 'Diagnosis deactivated' : 'Diagnosis activated');
-      fetchDiagnosisOptions();
-    } catch (error) {
-      console.error('Failed to toggle diagnosis:', error);
-      toast.error(error.errorMessage || 'Failed to update diagnosis status');
-    }
-  };
-
-  const handleDeleteDiagnosis = async (option) => {
-    if (!confirm(`Are you sure you want to delete "${option.name}"?`)) return;
-    try {
-      await diagnosisOptionsAPI.delete(option.id);
-      toast.success('Diagnosis option deleted');
-      fetchDiagnosisOptions();
-    } catch (error) {
-      console.error('Failed to delete diagnosis:', error);
-      toast.error(error.errorMessage || 'Failed to delete diagnosis option');
-    }
-  };
-
-  const startEditDiagnosis = (option) => {
-    setEditingDiagnosis(option);
-    setDiagnosisForm({
-      name: option.name,
-      description: option.description || '',
-      display_order: option.display_order,
-    });
-    setShowAddDiagnosis(false);
-  };
-
-  const fetchObservationOptions = async () => {
-    setLoadingObservations(true);
-    try {
-      const response = await observationOptionsAPI.getAll(false);
-      setObservationOptions(response.data || []);
-    } catch (error) {
-      console.error('Failed to fetch observation options:', error);
-      toast.error('Failed to load observation options');
-    } finally {
-      setLoadingObservations(false);
-    }
-  };
-
-  const handleAddObservation = async (e) => {
-    e.preventDefault();
-    if (!observationForm.name.trim()) {
-      toast.error('Please enter an observation name');
-      return;
-    }
-    try {
-      await observationOptionsAPI.create({
-        name: observationForm.name,
-        description: observationForm.description,
-        display_order: observationForm.display_order || observationOptions.length + 1,
-        is_active: true,
-      });
-      toast.success('Observation option added');
-      setShowAddObservation(false);
-      setObservationForm({ name: '', description: '', display_order: 0 });
-      fetchObservationOptions();
-    } catch (error) {
-      console.error('Failed to add observation:', error);
-      toast.error(error.errorMessage || 'Failed to add observation option');
-    }
-  };
-
-  const handleUpdateObservation = async (e) => {
-    e.preventDefault();
-    if (!observationForm.name.trim()) {
-      toast.error('Please enter an observation name');
-      return;
-    }
-    try {
-      await observationOptionsAPI.update(editingObservation.id, {
-        name: observationForm.name,
-        description: observationForm.description,
-        display_order: observationForm.display_order,
-        is_active: editingObservation.is_active,
-      });
-      toast.success('Observation option updated');
-      setEditingObservation(null);
-      setObservationForm({ name: '', description: '', display_order: 0 });
-      fetchObservationOptions();
-    } catch (error) {
-      console.error('Failed to update observation:', error);
-      toast.error(error.errorMessage || 'Failed to update observation option');
-    }
-  };
-
-  const handleToggleObservation = async (option) => {
-    try {
-      await observationOptionsAPI.update(option.id, {
-        name: option.name,
-        description: option.description,
-        display_order: option.display_order,
-        is_active: !option.is_active,
-      });
-      toast.success(option.is_active ? 'Observation deactivated' : 'Observation activated');
-      fetchObservationOptions();
-    } catch (error) {
-      console.error('Failed to toggle observation:', error);
-      toast.error(error.errorMessage || 'Failed to update observation status');
-    }
-  };
-
-  const handleDeleteObservation = async (option) => {
-    if (!confirm(`Are you sure you want to delete "${option.name}"?`)) return;
-    try {
-      await observationOptionsAPI.delete(option.id);
-      toast.success('Observation option deleted');
-      fetchObservationOptions();
-    } catch (error) {
-      console.error('Failed to delete observation:', error);
-      toast.error(error.errorMessage || 'Failed to delete observation option');
-    }
-  };
-
-  const startEditObservation = (option) => {
-    setEditingObservation(option);
-    setObservationForm({
-      name: option.name,
-      description: option.description || '',
-      display_order: option.display_order,
-    });
-    setShowAddObservation(false);
-  };
-
-  useEffect(() => {
-    if (activeTab === 'diagnosis' && isDoctor && diagnosisOptions.length === 0) {
-      fetchDiagnosisOptions();
-    }
-    if (activeTab === 'observations' && isDoctor && observationOptions.length === 0) {
-      fetchObservationOptions();
-    }
-  }, [activeTab]);
-
-  const onProfileSubmit = async (data) => {
-    setIsSubmitting(true);
-    setSuccessMessage('');
-
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    try {
-      const updatedUser = {
-        ...user,
-        fullName: data.fullName,
-        email: data.email,
-        phone: data.phone,
-        specialty: data.specialty,
-        licenseNumber: data.licenseNumber,
-      };
-
-      updateUser(updatedUser);
-      setSuccessMessage('Profile updated successfully!');
-
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (error) {
-      console.error('Error updating profile:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const onClinicSubmit = async (data) => {
-    setIsSubmitting(true);
-    setSuccessMessage('');
-
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    try {
-      const updatedUser = {
-        ...user,
-        clinic: {
-          ...user.clinic,
-          name: data.clinicName,
-          address: data.clinicAddress,
-          phone: data.clinicPhone,
-          email: data.clinicEmail,
-          logo: data.clinicLogo,
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'team':
+        if (isDoctor && isOwner) {
+          return (
+            <div className="card">
+              <SubUserManager />
+            </div>
+          );
         }
-      };
+        return null;
 
-      updateUser(updatedUser);
-      setSuccessMessage('Clinic settings updated successfully!');
+      case 'permissions':
+        if (isDoctor && isOwner) {
+          return (
+            <div className="card">
+              <PermissionsManager />
+            </div>
+          );
+        }
+        return null;
 
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (error) {
-      console.error('Error updating clinic settings:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+      case 'complaints':
+      case 'symptoms':
+      case 'diagnosis':
+      case 'observations':
+      case 'tests':
+      case 'medicines':
+      case 'dosages':
+      case 'durations':
+        if (isDoctor) {
+          const config = optionConfigs[activeTab];
+          return (
+            <OptionManager
+              key={activeTab}
+              title={config.title}
+              description={config.description}
+              api={config.api}
+              emptyIcon={config.emptyIcon}
+              singularName={config.singularName}
+              tipText={config.tipText}
+            />
+          );
+        }
+        return null;
 
-  const onPasswordSubmit = async (data) => {
-    setIsSubmitting(true);
-    setSuccessMessage('');
+      case 'password':
+        return <PasswordSettings user={user} />;
 
-    if (data.newPassword !== data.confirmPassword) {
-      alert('New passwords do not match!');
-      setIsSubmitting(false);
-      return;
-    }
+      case 'preferences':
+        return <PreferencesSettings user={user} updateUser={updateUser} />;
 
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    try {
-      console.log('Password change requested');
-      setSuccessMessage('Password changed successfully!');
-      resetPassword();
-
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (error) {
-      console.error('Error changing password:', error);
-    } finally {
-      setIsSubmitting(false);
+      default:
+        return null;
     }
   };
 
@@ -472,19 +195,13 @@ export default function Settings() {
         <p className="text-gray-600 mt-1">Manage your account and clinic preferences</p>
       </div>
 
-      {successMessage && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-          {successMessage}
-        </div>
-      )}
-
       {/* Tabs */}
       <div className="border-b border-gray-200">
         <div className="flex space-x-1 sm:space-x-4 overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === tab.id
                   ? 'border-primary-600 text-primary-600'
@@ -495,849 +212,17 @@ export default function Settings() {
               {tab.label}
             </button>
           ))}
+          {/* Loading skeleton for Team Permissions tab */}
+          {isCheckingOwner && isDoctor && (
+            <div className="px-4 py-2 animate-pulse">
+              <div className="h-4 w-28 bg-gray-200 rounded"></div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Profile Settings */}
-      {activeTab === 'profile' && (
-        <div className="card">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4 pb-2 border-b">
-            Profile Information
-          </h2>
-          <form onSubmit={handleProfileSubmit(onProfileSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <label className="label">Full Name *</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="Enter full name"
-                  {...registerProfile('fullName', { required: 'Full name is required' })}
-                />
-                {profileErrors.fullName && (
-                  <p className="text-red-500 text-sm mt-1">{profileErrors.fullName.message}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="label">Email *</label>
-                <input
-                  type="email"
-                  className="input"
-                  placeholder="your@email.com"
-                  {...registerProfile('email', { required: 'Email is required' })}
-                />
-                {profileErrors.email && (
-                  <p className="text-red-500 text-sm mt-1">{profileErrors.email.message}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="label">Phone</label>
-                <input
-                  type="tel"
-                  className="input"
-                  placeholder="+91 1234567890"
-                  {...registerProfile('phone')}
-                />
-              </div>
-
-              <div>
-                <label className="label">Specialty</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="e.g., General Physician, Cardiologist"
-                  {...registerProfile('specialty')}
-                />
-              </div>
-
-              <div>
-                <label className="label">License Number</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="Medical license number"
-                  {...registerProfile('licenseNumber')}
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-4 border-t">
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Clinic Settings */}
-      {activeTab === 'clinic' && (
-        <div className="card">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4 pb-2 border-b">
-            Clinic Information
-          </h2>
-          <form onSubmit={handleClinicSubmit(onClinicSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <label className="label">Clinic Name *</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="Enter clinic name"
-                  {...registerClinic('clinicName', { required: 'Clinic name is required' })}
-                />
-                {clinicErrors.clinicName && (
-                  <p className="text-red-500 text-sm mt-1">{clinicErrors.clinicName.message}</p>
-                )}
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="label">Clinic Address</label>
-                <textarea
-                  className="input"
-                  rows="3"
-                  placeholder="Enter complete clinic address"
-                  {...registerClinic('clinicAddress')}
-                />
-              </div>
-
-              <div>
-                <label className="label">Clinic Phone</label>
-                <input
-                  type="tel"
-                  className="input"
-                  placeholder="+91 1234567890"
-                  {...registerClinic('clinicPhone')}
-                />
-              </div>
-
-              <div>
-                <label className="label">Clinic Email</label>
-                <input
-                  type="email"
-                  className="input"
-                  placeholder="clinic@email.com"
-                  {...registerClinic('clinicEmail')}
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="label">Clinic Logo URL (Optional)</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="https://example.com/logo.png"
-                  {...registerClinic('clinicLogo')}
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  Enter the URL of your clinic logo image
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-4 border-t">
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Chief Complaints */}
-      {activeTab === 'complaints' && isDoctor && (
-        <div className="space-y-6">
-          <div className="card">
-            <div className="flex items-center justify-between mb-4 pb-2 border-b">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Chief Complaints
-              </h2>
-              <button
-                onClick={() => {
-                  setShowAddComplaint(true);
-                  setEditingComplaint(null);
-                  setComplaintForm({ name: '', description: '', display_order: chiefComplaints.length + 1 });
-                }}
-                className="btn btn-primary"
-              >
-                + Add Complaint
-              </button>
-            </div>
-
-            <p className="text-sm text-gray-600 mb-4">
-              Configure the common complaints that appear in the OPD queue dropdown. 
-              Patients can still enter custom complaints if needed.
-            </p>
-
-            {(showAddComplaint || editingComplaint) && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <h3 className="font-medium text-gray-900 mb-3">
-                  {editingComplaint ? 'Edit Complaint' : 'Add New Complaint'}
-                </h3>
-                <form onSubmit={editingComplaint ? handleUpdateComplaint : handleAddComplaint} className="space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <label className="label">Complaint Name *</label>
-                      <input
-                        type="text"
-                        className="input"
-                        placeholder="e.g., Toothache, Routine Checkup"
-                        value={complaintForm.name}
-                        onChange={(e) => setComplaintForm({ ...complaintForm, name: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Display Order</label>
-                      <input
-                        type="number"
-                        className="input"
-                        placeholder="1"
-                        value={complaintForm.display_order}
-                        onChange={(e) => setComplaintForm({ ...complaintForm, display_order: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="label">Description (Optional)</label>
-                      <input
-                        type="text"
-                        className="input"
-                        placeholder="Brief description of the complaint"
-                        value={complaintForm.description}
-                        onChange={(e) => setComplaintForm({ ...complaintForm, description: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button type="submit" className="btn btn-primary">
-                      {editingComplaint ? 'Update' : 'Add'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAddComplaint(false);
-                        setEditingComplaint(null);
-                        setComplaintForm({ name: '', description: '', display_order: 0 });
-                      }}
-                      className="btn btn-secondary"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {loadingComplaints ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-                <p className="mt-2 text-gray-500">Loading complaints...</p>
-              </div>
-            ) : chiefComplaints.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <div className="text-4xl mb-2">📋</div>
-                <p>No chief complaints configured</p>
-                <p className="text-sm mt-1">Add complaints to show them in the OPD queue dropdown</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {chiefComplaints.map((complaint) => (
-                  <div
-                    key={complaint.id}
-                    className={`flex items-center justify-between p-3 rounded-lg border ${
-                      complaint.is_active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200 opacity-60'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm text-gray-400 w-8">#{complaint.display_order}</span>
-                      <div>
-                        <span className={`font-medium ${complaint.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
-                          {complaint.name}
-                        </span>
-                        {complaint.description && (
-                          <p className="text-sm text-gray-500">{complaint.description}</p>
-                        )}
-                      </div>
-                      {!complaint.is_active && (
-                        <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Inactive</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => startEditComplaint(complaint)}
-                        className="text-sm text-primary-600 hover:text-primary-700"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleToggleActive(complaint)}
-                        className={`text-sm ${complaint.is_active ? 'text-yellow-600 hover:text-yellow-700' : 'text-green-600 hover:text-green-700'}`}
-                      >
-                        {complaint.is_active ? 'Deactivate' : 'Activate'}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteComplaint(complaint)}
-                        className="text-sm text-red-600 hover:text-red-700"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="card bg-blue-50 border border-blue-200">
-            <p className="text-sm text-blue-800">
-              <strong>Tip:</strong> Use the display order to arrange complaints. Lower numbers appear first in the dropdown.
-              Deactivated complaints won't appear in the OPD queue but are kept for historical records.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Diagnosis Options */}
-      {activeTab === 'diagnosis' && isDoctor && (
-        <div className="space-y-6">
-          <div className="card">
-            <div className="flex items-center justify-between mb-4 pb-2 border-b">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Diagnosis Options
-              </h2>
-              <button
-                onClick={() => {
-                  setShowAddDiagnosis(true);
-                  setEditingDiagnosis(null);
-                  setDiagnosisForm({ name: '', description: '', display_order: diagnosisOptions.length + 1 });
-                }}
-                className="btn btn-primary"
-              >
-                + Add Diagnosis
-              </button>
-            </div>
-
-            <p className="text-sm text-gray-600 mb-4">
-              Configure common diagnoses that appear in the visit form dropdown. 
-              Doctors can still enter custom diagnoses if needed.
-            </p>
-
-            {(showAddDiagnosis || editingDiagnosis) && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <h3 className="font-medium text-gray-900 mb-3">
-                  {editingDiagnosis ? 'Edit Diagnosis' : 'Add New Diagnosis'}
-                </h3>
-                <form onSubmit={editingDiagnosis ? handleUpdateDiagnosis : handleAddDiagnosis} className="space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <label className="label">Diagnosis Name *</label>
-                      <input
-                        type="text"
-                        className="input"
-                        placeholder="e.g., Dental Caries, Gingivitis"
-                        value={diagnosisForm.name}
-                        onChange={(e) => setDiagnosisForm({ ...diagnosisForm, name: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Display Order</label>
-                      <input
-                        type="number"
-                        className="input"
-                        placeholder="1"
-                        value={diagnosisForm.display_order}
-                        onChange={(e) => setDiagnosisForm({ ...diagnosisForm, display_order: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="label">Description (Optional)</label>
-                      <input
-                        type="text"
-                        className="input"
-                        placeholder="Brief description of the diagnosis"
-                        value={diagnosisForm.description}
-                        onChange={(e) => setDiagnosisForm({ ...diagnosisForm, description: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button type="submit" className="btn btn-primary">
-                      {editingDiagnosis ? 'Update' : 'Add'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAddDiagnosis(false);
-                        setEditingDiagnosis(null);
-                        setDiagnosisForm({ name: '', description: '', display_order: 0 });
-                      }}
-                      className="btn btn-secondary"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {loadingDiagnosis ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-                <p className="mt-2 text-gray-500">Loading diagnoses...</p>
-              </div>
-            ) : diagnosisOptions.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <div className="text-4xl mb-2">🩺</div>
-                <p>No diagnosis options configured</p>
-                <p className="text-sm mt-1">Add diagnoses to show them in the visit form dropdown</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {diagnosisOptions.map((option) => (
-                  <div
-                    key={option.id}
-                    className={`flex items-center justify-between p-3 rounded-lg border ${
-                      option.is_active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200 opacity-60'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm text-gray-400 w-8">#{option.display_order}</span>
-                      <div>
-                        <span className={`font-medium ${option.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
-                          {option.name}
-                        </span>
-                        {option.description && (
-                          <p className="text-sm text-gray-500">{option.description}</p>
-                        )}
-                      </div>
-                      {!option.is_active && (
-                        <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Inactive</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => startEditDiagnosis(option)}
-                        className="text-sm text-primary-600 hover:text-primary-700"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleToggleDiagnosis(option)}
-                        className={`text-sm ${option.is_active ? 'text-yellow-600 hover:text-yellow-700' : 'text-green-600 hover:text-green-700'}`}
-                      >
-                        {option.is_active ? 'Deactivate' : 'Activate'}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteDiagnosis(option)}
-                        className="text-sm text-red-600 hover:text-red-700"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="card bg-blue-50 border border-blue-200">
-            <p className="text-sm text-blue-800">
-              <strong>Tip:</strong> Use the display order to arrange diagnoses. Lower numbers appear first in the dropdown.
-              Deactivated diagnoses won't appear in the visit form but are kept for historical records.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Observation Options */}
-      {activeTab === 'observations' && isDoctor && (
-        <div className="space-y-6">
-          <div className="card">
-            <div className="flex items-center justify-between mb-4 pb-2 border-b">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Clinical Observations
-              </h2>
-              <button
-                onClick={() => {
-                  setShowAddObservation(true);
-                  setEditingObservation(null);
-                  setObservationForm({ name: '', description: '', display_order: observationOptions.length + 1 });
-                }}
-                className="btn btn-primary"
-              >
-                + Add Observation
-              </button>
-            </div>
-
-            <p className="text-sm text-gray-600 mb-4">
-              Configure common clinical observations that appear in the visit form dropdown. 
-              Doctors can still enter custom observations if needed.
-            </p>
-
-            {(showAddObservation || editingObservation) && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <h3 className="font-medium text-gray-900 mb-3">
-                  {editingObservation ? 'Edit Observation' : 'Add New Observation'}
-                </h3>
-                <form onSubmit={editingObservation ? handleUpdateObservation : handleAddObservation} className="space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <label className="label">Observation Name *</label>
-                      <input
-                        type="text"
-                        className="input"
-                        placeholder="e.g., Gums appear healthy, Mild inflammation"
-                        value={observationForm.name}
-                        onChange={(e) => setObservationForm({ ...observationForm, name: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Display Order</label>
-                      <input
-                        type="number"
-                        className="input"
-                        placeholder="1"
-                        value={observationForm.display_order}
-                        onChange={(e) => setObservationForm({ ...observationForm, display_order: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="label">Description (Optional)</label>
-                      <input
-                        type="text"
-                        className="input"
-                        placeholder="Brief description of the observation"
-                        value={observationForm.description}
-                        onChange={(e) => setObservationForm({ ...observationForm, description: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button type="submit" className="btn btn-primary">
-                      {editingObservation ? 'Update' : 'Add'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAddObservation(false);
-                        setEditingObservation(null);
-                        setObservationForm({ name: '', description: '', display_order: 0 });
-                      }}
-                      className="btn btn-secondary"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {loadingObservations ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-                <p className="mt-2 text-gray-500">Loading observations...</p>
-              </div>
-            ) : observationOptions.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <div className="text-4xl mb-2">👁️</div>
-                <p>No observation options configured</p>
-                <p className="text-sm mt-1">Add observations to show them in the visit form dropdown</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {observationOptions.map((option) => (
-                  <div
-                    key={option.id}
-                    className={`flex items-center justify-between p-3 rounded-lg border ${
-                      option.is_active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200 opacity-60'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm text-gray-400 w-8">#{option.display_order}</span>
-                      <div>
-                        <span className={`font-medium ${option.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
-                          {option.name}
-                        </span>
-                        {option.description && (
-                          <p className="text-sm text-gray-500">{option.description}</p>
-                        )}
-                      </div>
-                      {!option.is_active && (
-                        <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Inactive</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => startEditObservation(option)}
-                        className="text-sm text-primary-600 hover:text-primary-700"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleToggleObservation(option)}
-                        className={`text-sm ${option.is_active ? 'text-yellow-600 hover:text-yellow-700' : 'text-green-600 hover:text-green-700'}`}
-                      >
-                        {option.is_active ? 'Deactivate' : 'Activate'}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteObservation(option)}
-                        className="text-sm text-red-600 hover:text-red-700"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="card bg-blue-50 border border-blue-200">
-            <p className="text-sm text-blue-800">
-              <strong>Tip:</strong> Use the display order to arrange observations. Lower numbers appear first in the dropdown.
-              Deactivated observations won't appear in the visit form but are kept for historical records.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Change Password */}
-      {activeTab === 'password' && (
-        <div className="card">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4 pb-2 border-b">
-            Change Password
-          </h2>
-          <form onSubmit={handlePasswordSubmit(onPasswordSubmit)} className="space-y-6">
-            <div className="max-w-md space-y-4">
-              <div>
-                <label className="label">Current Password *</label>
-                <input
-                  type="password"
-                  className="input"
-                  placeholder="Enter current password"
-                  {...registerPassword('currentPassword', { required: 'Current password is required' })}
-                />
-                {passwordErrors.currentPassword && (
-                  <p className="text-red-500 text-sm mt-1">{passwordErrors.currentPassword.message}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="label">New Password *</label>
-                <input
-                  type="password"
-                  className="input"
-                  placeholder="Enter new password"
-                  {...registerPassword('newPassword', {
-                    required: 'New password is required',
-                    minLength: { value: 6, message: 'Password must be at least 6 characters' }
-                  })}
-                />
-                {passwordErrors.newPassword && (
-                  <p className="text-red-500 text-sm mt-1">{passwordErrors.newPassword.message}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="label">Confirm New Password *</label>
-                <input
-                  type="password"
-                  className="input"
-                  placeholder="Confirm new password"
-                  {...registerPassword('confirmPassword', { required: 'Please confirm your password' })}
-                />
-                {passwordErrors.confirmPassword && (
-                  <p className="text-red-500 text-sm mt-1">{passwordErrors.confirmPassword.message}</p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-4 border-t">
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Changing...' : 'Change Password'}
-              </button>
-            </div>
-          </form>
-
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              💡 <strong>Password Requirements:</strong> Minimum 6 characters. Use a strong password with letters, numbers, and symbols.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Preferences */}
-      {activeTab === 'preferences' && (
-        <div className="space-y-6">
-          <div className="card">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4 pb-2 border-b">
-              Application Preferences
-            </h2>
-            <div className="space-y-4">
-              <div className="py-3">
-                <h3 className="font-medium text-gray-900 mb-2">Default Consultation Fee</h3>
-                <div className="max-w-xs">
-                  <input
-                    type="number"
-                    className="input"
-                    placeholder="500"
-                    defaultValue="500"
-                  />
-                  <p className="text-sm text-gray-500 mt-1">Amount in ₹</p>
-                </div>
-              </div>
-
-              <div className="py-3">
-                <h3 className="font-medium text-gray-900 mb-2">Appointment Duration</h3>
-                <div className="max-w-xs">
-                  <select className="input" defaultValue="15">
-                    <option value="10">10 minutes</option>
-                    <option value="15">15 minutes</option>
-                    <option value="20">20 minutes</option>
-                    <option value="30">30 minutes</option>
-                    <option value="60">60 minutes</option>
-                  </select>
-                  <p className="text-sm text-gray-500 mt-1">Default time slot for appointments</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Print Settings */}
-          <div className="card">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4 pb-2 border-b">
-              Prescription Print Settings
-            </h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Configure where prescriptions will be printed on your pre-printed letterhead
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="label">Distance from Top</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="400"
-                  value={printPosition.top}
-                  onChange={(e) => setPrintPosition({...printPosition, top: parseInt(e.target.value)})}
-                  className="w-full"
-                />
-                <div className="flex justify-between items-center mt-2">
-                  <input
-                    type="number"
-                    value={printPosition.top}
-                    onChange={(e) => setPrintPosition({...printPosition, top: parseInt(e.target.value) || 0})}
-                    className="input w-24"
-                  />
-                  <span className="text-sm text-gray-600">{Math.round(printPosition.top / 37.8)} cm</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="label">Distance from Left</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="200"
-                  value={printPosition.left}
-                  onChange={(e) => setPrintPosition({...printPosition, left: parseInt(e.target.value)})}
-                  className="w-full"
-                />
-                <div className="flex justify-between items-center mt-2">
-                  <input
-                    type="number"
-                    value={printPosition.left}
-                    onChange={(e) => setPrintPosition({...printPosition, left: parseInt(e.target.value) || 0})}
-                    className="input w-24"
-                  />
-                  <span className="text-sm text-gray-600">{Math.round(printPosition.left / 37.8)} cm</span>
-                </div>
-              </div>
-            </div>
-
-            {/* A4 Preview */}
-            <div className="mt-6">
-              <h3 className="font-medium text-gray-900 mb-3">Preview on A4 Page</h3>
-              <div className="bg-gray-200 p-4 rounded-lg">
-                <div className="bg-white mx-auto shadow-lg" style={{ width: '595px', height: '842px', position: 'relative', overflow: 'hidden' }}>
-                  <div className="absolute inset-0 border-2 border-dashed border-blue-300 pointer-events-none"></div>
-                  <div
-                    className="absolute bg-yellow-50 border-2 border-blue-400 opacity-50"
-                    style={{
-                      top: `${printPosition.top}px`,
-                      left: `${printPosition.left}px`,
-                      right: '40px',
-                      bottom: '40px',
-                    }}
-                  >
-                    <div className="text-center text-xs text-blue-600 mt-2">Print Area</div>
-                  </div>
-                </div>
-                <p className="text-center text-xs text-gray-600 mt-2">A4 Page (21cm × 29.7cm)</p>
-              </div>
-            </div>
-
-            {/* Preset Buttons */}
-            <div className="mt-4 flex gap-2">
-              <button
-                onClick={() => setPrintPosition({ top: 280, left: 40 })}
-                className="text-sm px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Default (Letterhead)
-              </button>
-              <button
-                onClick={() => setPrintPosition({ top: 0, left: 40 })}
-                className="text-sm px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Full Page
-              </button>
-            </div>
-
-            {/* Save Button */}
-            <div className="mt-6 pt-4 border-t">
-              <button
-                onClick={() => {
-                  const updatedUser = {
-                    ...user,
-                    printSettings: printPosition
-                  };
-                  updateUser(updatedUser);
-                  setSuccessMessage('Print settings saved successfully!');
-                  setTimeout(() => setSuccessMessage(''), 3000);
-                }}
-                className="btn btn-primary"
-              >
-                Save Print Settings
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Info Card */}
-      <div className="card bg-blue-50 border border-blue-200">
-        <p className="text-sm text-blue-800">
-          💡 <strong>Mock Mode:</strong> Changes to settings are stored in localStorage. Refresh the page to reset to defaults.
-        </p>
-      </div>
+      {/* Tab Content */}
+      {renderTabContent()}
     </div>
   );
 }

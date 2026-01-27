@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { parseISO, format } from 'date-fns';
 import { opdAPI, patientsAPI, chiefComplaintsAPI } from '../../services/api';
 
 export default function OPDQueue() {
+  const navigate = useNavigate();
   const [queue, setQueue] = useState([]);
   const [patients, setPatients] = useState([]);
   const [chiefComplaints, setChiefComplaints] = useState([]);
@@ -12,30 +13,51 @@ export default function OPDQueue() {
   const [stats, setStats] = useState({ total: 0, waiting: 0, inProgress: 0, completed: 0 });
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState('');
-  const [selectedComplaint, setSelectedComplaint] = useState('');
+  const [selectedComplaints, setSelectedComplaints] = useState([]);
   const [customComplaint, setCustomComplaint] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [followUpsDue, setFollowUpsDue] = useState([]);
+  const [showFollowUps, setShowFollowUps] = useState(false);
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 30000);
+    const interval = setInterval(fetchData, 10000); // Refresh every 10 seconds for better real-time updates
     return () => clearInterval(interval);
   }, [selectedDate]);
 
   const fetchData = async () => {
     try {
       const params = { queue_date: selectedDate, stats_date: selectedDate };
-      const [queueRes, statsRes, patientsRes, complaintsRes] = await Promise.all([
+      const isViewingToday = selectedDate === new Date().toISOString().split('T')[0];
+
+      const requests = [
         opdAPI.getQueue(params),
         opdAPI.getStats(params),
         patientsAPI.getAll({ limit: 100 }),
         chiefComplaintsAPI.getAll(true)
-      ]);
+      ];
+
+      // Only fetch follow-ups for today's queue
+      if (isViewingToday) {
+        requests.push(opdAPI.getFollowUpsDue());
+      }
+
+      const responses = await Promise.all(requests);
+      const [queueRes, statsRes, patientsRes, complaintsRes] = responses;
+
       setQueue(queueRes.data.queue || []);
       setStats(statsRes.data.stats || { total: 0, waiting: 0, inProgress: 0, completed: 0 });
       setPatients(patientsRes.data.patients || []);
       setChiefComplaints(complaintsRes.data || []);
+
+      if (isViewingToday && responses[4]) {
+        setFollowUpsDue(responses[4].data.follow_ups || []);
+      } else {
+        setFollowUpsDue([]);
+      }
     } catch (error) {
       console.error('Failed to fetch OPD data:', error);
       toast.error('Failed to load queue data');
@@ -46,27 +68,45 @@ export default function OPDQueue() {
 
   const handleAddToQueue = async (e) => {
     e.preventDefault();
-    const complaint = selectedComplaint === 'OTHER' ? customComplaint : selectedComplaint;
-    
-    if (!selectedPatient || !complaint) {
-      toast.error('Please fill in all required fields');
+
+    // Combine selected complaints with custom complaints
+    const allComplaints = [...selectedComplaints];
+    if (customComplaint.trim()) {
+      const customs = customComplaint.split(',').map(c => c.trim()).filter(c => c);
+      allComplaints.push(...customs);
+    }
+
+    if (!selectedPatient || allComplaints.length === 0) {
+      toast.error('Please select a patient and at least one complaint');
       return;
     }
 
+    // Check for duplicate patient in queue
+    if (isPatientInQueue(selectedPatient)) {
+      const patientName = patients.find(p => p.id === selectedPatient)?.full_name || 'This patient';
+      if (!window.confirm(`${patientName} is already in today's queue. Add again?`)) {
+        return;
+      }
+    }
+
+    setIsSubmitting(true);
     try {
-      await opdAPI.addToQueue({
+      const response = await opdAPI.addToQueue({
         patient_id: selectedPatient,
-        chief_complaint: complaint,
+        chief_complaints: allComplaints,
       });
-      toast.success('Patient added to queue');
+      const queueNumber = response.data?.appointment?.queue_number;
+      toast.success(queueNumber ? `Patient added as #${queueNumber}` : 'Patient added to queue');
       fetchData();
       setShowAddForm(false);
       setSelectedPatient('');
-      setSelectedComplaint('');
+      setSelectedComplaints([]);
       setCustomComplaint('');
     } catch (error) {
       console.error('Failed to add to queue:', error);
       toast.error(error.errorMessage || 'Failed to add patient to queue');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -78,6 +118,32 @@ export default function OPDQueue() {
     } catch (error) {
       console.error('Failed to update status:', error);
       toast.error('Failed to update status');
+    }
+  };
+
+  // Combined action: Start consultation and navigate to visit form
+  const handleStartConsultation = async (item) => {
+    try {
+      await opdAPI.updateStatus(item.id, 'IN_PROGRESS');
+      const complaintsParam = encodeURIComponent(JSON.stringify(item.chief_complaints || []));
+      navigate(`/visits/new?patientId=${item.patient_id}&complaints=${complaintsParam}&appointmentId=${item.id}`);
+    } catch (error) {
+      console.error('Failed to start consultation:', error);
+      toast.error('Failed to start consultation');
+    }
+  };
+
+  const handleViewVisit = async (appointmentId) => {
+    try {
+      const response = await opdAPI.getVisitByAppointment(appointmentId);
+      if (response.data.visit?.id) {
+        navigate(`/visits/${response.data.visit.id}`);
+      } else {
+        toast.error('No visit record found for this appointment');
+      }
+    } catch (error) {
+      console.error('Failed to fetch visit:', error);
+      toast.error('Failed to load visit details');
     }
   };
 
@@ -118,11 +184,63 @@ export default function OPDQueue() {
     }
   };
 
-  const filteredQueue = filterStatus === 'ALL'
-    ? queue
-    : queue.filter(item => item.status === filterStatus);
+  const filteredQueue = queue.filter(item => {
+    const matchesStatus = filterStatus === 'ALL' || item.status === filterStatus;
+    const matchesSearch = !searchQuery ||
+      (item.patient_name || item.patient?.full_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.patient_code || item.patient?.patient_code || '').toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
 
   const isToday = selectedDate === new Date().toISOString().split('T')[0];
+
+  // Check if patient is already in today's queue (waiting or in progress)
+  const isPatientInQueue = (patientId) => {
+    return queue.some(item =>
+      item.patient_id === patientId &&
+      ['WAITING', 'IN_PROGRESS'].includes(item.status)
+    );
+  };
+
+  // Add follow-up patient to queue with diagnosis as complaints
+  const handleAddFollowUpToQueue = async (followUp) => {
+    // Check if patient is already in queue
+    if (isPatientInQueue(followUp.patient_id)) {
+      toast.error(`${followUp.patient_name} is already in today's queue`);
+      return;
+    }
+
+    try {
+      // Use previous diagnosis as chief complaints with "Follow-up:" prefix
+      const complaints = (followUp.diagnosis || []).map(d => `Follow-up: ${d}`);
+      if (complaints.length === 0) {
+        complaints.push('Follow-up visit');
+      }
+
+      const response = await opdAPI.addToQueue({
+        patient_id: followUp.patient_id,
+        chief_complaints: complaints,
+      });
+      const queueNumber = response.data?.appointment?.queue_number;
+      toast.success(queueNumber ? `${followUp.patient_name} added as #${queueNumber}` : 'Patient added to queue');
+      fetchData();
+    } catch (error) {
+      console.error('Failed to add follow-up to queue:', error);
+      toast.error(error.errorMessage || 'Failed to add patient to queue');
+    }
+  };
+
+  // Calculate total amount collected today
+  const totalAmountCollected = queue
+    .filter(item => item.status === 'COMPLETED' && item.visit?.amount)
+    .reduce((sum, item) => sum + parseFloat(item.visit.amount || 0), 0);
+
+  // Compute form validity for submit button
+  const computedComplaints = [...selectedComplaints];
+  if (customComplaint.trim()) {
+    computedComplaints.push(...customComplaint.split(',').map(c => c.trim()).filter(c => c));
+  }
+  const isFormValid = selectedPatient && computedComplaints.length > 0;
 
   return (
     <div className="space-y-6">
@@ -141,12 +259,20 @@ export default function OPDQueue() {
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
           />
-          {isToday && (
+          {isToday ? (
             <button
               onClick={() => setShowAddForm(!showAddForm)}
               className="btn btn-primary"
             >
               {showAddForm ? 'Cancel' : '+ Add to Queue'}
+            </button>
+          ) : (
+            <button
+              className="btn btn-secondary opacity-50 cursor-not-allowed"
+              disabled
+              title="Can only add patients to today's queue"
+            >
+              + Add to Queue
             </button>
           )}
         </div>
@@ -173,57 +299,95 @@ export default function OPDQueue() {
                     </option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className="label">Chief Complaint *</label>
-                {chiefComplaints.length > 0 ? (
-                  <select
-                    className="input"
-                    value={selectedComplaint}
-                    onChange={(e) => setSelectedComplaint(e.target.value)}
-                    required
-                  >
-                    <option value="">Select a complaint...</option>
-                    {chiefComplaints.map(complaint => (
-                      <option key={complaint.id} value={complaint.name}>
-                        {complaint.name}
-                      </option>
-                    ))}
-                    <option value="OTHER">Other (specify)</option>
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="e.g., Fever, headache, routine checkup"
-                    value={customComplaint}
-                    onChange={(e) => setCustomComplaint(e.target.value)}
-                    required
-                  />
+                {patients.length === 0 && (
+                  <p className="text-sm text-gray-500 mt-2">
+                    No patients found. <Link to="/patients/new" className="text-primary-600 underline">Create a patient</Link> first.
+                  </p>
                 )}
               </div>
-              {selectedComplaint === 'OTHER' && (
-                <div className="md:col-span-2">
-                  <label className="label">Specify Complaint *</label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="Enter the complaint..."
-                    value={customComplaint}
-                    onChange={(e) => setCustomComplaint(e.target.value)}
-                    required
-                  />
+              <div className="md:col-span-2">
+                <label className="label">Chief Complaints *</label>
+                <div className="space-y-3">
+                  {/* Selected complaints as chips */}
+                  {selectedComplaints.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedComplaints.map((complaint, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm"
+                        >
+                          {complaint}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedComplaints(selectedComplaints.filter((_, i) => i !== index))}
+                            className="hover:text-red-900 font-bold"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Dropdown to add complaints */}
+                  {chiefComplaints.length > 0 && (
+                    <select
+                      className="input"
+                      value=""
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value && !selectedComplaints.includes(value)) {
+                          setSelectedComplaints([...selectedComplaints, value]);
+                        }
+                      }}
+                    >
+                      <option value="">Add a complaint...</option>
+                      {chiefComplaints
+                        .filter(c => !selectedComplaints.includes(c.name))
+                        .map(complaint => (
+                          <option key={complaint.id} value={complaint.name}>
+                            {complaint.name}
+                          </option>
+                        ))}
+                    </select>
+                  )}
+
+                  {/* Message when no preset complaints */}
+                  {chiefComplaints.length === 0 && (
+                    <p className="text-sm text-amber-600">
+                      No preset complaints configured. Enter custom complaints below or configure in Settings.
+                    </p>
+                  )}
+
+                  {/* Custom complaint input */}
+                  <div>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="Add custom complaints (comma separated)"
+                      value={customComplaint}
+                      onChange={(e) => setCustomComplaint(e.target.value)}
+                    />
+                    <p className="text-sm text-gray-500 mt-1">
+                      Enter additional complaints not in the list, separated by commas
+                    </p>
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
             <div className="flex gap-3">
-              <button type="submit" className="btn btn-primary">
-                Add to Queue
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={isSubmitting || !isFormValid}
+              >
+                {isSubmitting ? 'Adding...' : 'Add to Queue'}
               </button>
               <button
                 type="button"
                 onClick={() => setShowAddForm(false)}
                 className="btn btn-secondary"
+                disabled={isSubmitting}
               >
                 Cancel
               </button>
@@ -252,8 +416,103 @@ export default function OPDQueue() {
         </div>
       </div>
 
-      {/* Filter Tabs */}
+      {/* Secondary Stats: Amount Collected */}
+      {isToday && stats.completed > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="card !p-4 bg-green-50 border border-green-200">
+            <p className="text-sm text-green-700">Amount Collected Today</p>
+            <p className="text-2xl font-bold text-green-700">
+              ₹{totalAmountCollected.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Follow-up Alert Banner */}
+      {isToday && followUpsDue.length > 0 && (
+        <div className="card !p-4 bg-amber-50 border border-amber-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                <span className="text-xl">📅</span>
+              </div>
+              <div>
+                <p className="font-medium text-amber-800">
+                  {followUpsDue.length} patient{followUpsDue.length > 1 ? 's' : ''} due for follow-up today
+                </p>
+                <p className="text-sm text-amber-600">
+                  These patients have follow-up appointments scheduled for today
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowFollowUps(!showFollowUps)}
+              className="btn btn-secondary text-sm"
+            >
+              {showFollowUps ? 'Hide' : 'View'}
+            </button>
+          </div>
+
+          {showFollowUps && (
+            <div className="mt-4 space-y-2 border-t border-amber-200 pt-4">
+              {followUpsDue.map(fu => {
+                const alreadyInQueue = isPatientInQueue(fu.patient_id);
+                return (
+                  <div
+                    key={fu.visit_id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-white rounded-lg border border-amber-100"
+                  >
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {fu.patient_name}
+                        <span className="text-gray-500 text-sm ml-2">({fu.patient_code})</span>
+                      </p>
+                      {fu.diagnosis && fu.diagnosis.length > 0 && (
+                        <p className="text-sm text-gray-600">
+                          Previous: {fu.diagnosis.slice(0, 3).join(', ')}
+                          {fu.diagnosis.length > 3 && '...'}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      {alreadyInQueue ? (
+                        <span className="text-sm text-green-600 font-medium">Already in queue</span>
+                      ) : (
+                        <button
+                          onClick={() => handleAddFollowUpToQueue(fu)}
+                          className="btn btn-primary text-sm"
+                        >
+                          Add to Queue
+                        </button>
+                      )}
+                      <Link
+                        to={`/patients/${fu.patient_id}`}
+                        className="btn btn-secondary text-sm"
+                      >
+                        View Patient
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Search and Filter */}
       <div className="card !p-4">
+        <div className="flex flex-col sm:flex-row gap-4 mb-4">
+          <div className="flex-grow">
+            <input
+              type="text"
+              className="input"
+              placeholder="Search by patient name or code..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => setFilterStatus('ALL')}
@@ -371,8 +630,14 @@ export default function OPDQueue() {
                     </div>
                     <div className="sm:col-span-2 lg:col-span-2">
                       <span className="text-gray-600">Complaint:</span>
-                      <span className="ml-1 font-medium">{item.chief_complaint || '-'}</span>
+                      <span className="ml-1 font-medium">{item.chief_complaints?.join(', ') || '-'}</span>
                     </div>
+                    {item.patient?.address && (
+                      <div className="sm:col-span-2 lg:col-span-3">
+                        <span className="text-gray-600">Address:</span>
+                        <span className="ml-1 font-medium">{item.patient.address}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -381,7 +646,7 @@ export default function OPDQueue() {
                   {item.status === 'WAITING' && (
                     <>
                       <button
-                        onClick={() => handleStatusChange(item.id, 'IN_PROGRESS')}
+                        onClick={() => handleStartConsultation(item)}
                         className="btn btn-primary text-sm"
                       >
                         Start Consultation
@@ -397,29 +662,44 @@ export default function OPDQueue() {
                   {item.status === 'IN_PROGRESS' && (
                     <>
                       <Link
-                        to={`/visits/new?patientId=${item.patient_id}&complaint=${encodeURIComponent(item.chief_complaint || '')}&appointmentId=${item.id}`}
+                        to={`/visits/new?patientId=${item.patient_id}&complaints=${encodeURIComponent(JSON.stringify(item.chief_complaints || []))}&appointmentId=${item.id}`}
                         className="btn btn-primary text-sm"
                       >
-                        Record Visit
+                        Continue Visit
                       </Link>
                     </>
                   )}
                   {item.status === 'COMPLETED' && (
                     <>
+                      <div className="flex flex-col gap-1 mr-2">
+                        {item.doctor && (
+                          <span className="text-sm text-gray-600">
+                            Attended by Dr. {item.doctor.name}
+                          </span>
+                        )}
+                        {item.visit?.amount && (
+                          <span className="text-sm font-medium text-green-600">
+                            ₹{parseFloat(item.visit.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </span>
+                        )}
+                        {item.visit?.follow_up_date && (
+                          <span className="text-xs text-amber-600">
+                            Follow-up: {new Date(item.visit.follow_up_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                          </span>
+                        )}
+                      </div>
                       <Link
                         to={`/patients/${item.patient_id}`}
                         className="btn btn-secondary text-sm"
                       >
                         View Patient
                       </Link>
-                      {isToday && (
-                        <button
-                          onClick={() => handleStatusChange(item.id, 'WAITING')}
-                          className="btn btn-secondary text-sm"
-                        >
-                          Reopen
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleViewVisit(item.id)}
+                        className="btn btn-secondary text-sm"
+                      >
+                        View Visit
+                      </button>
                     </>
                   )}
                 </div>

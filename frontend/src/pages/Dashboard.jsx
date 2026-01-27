@@ -14,6 +14,11 @@ export default function Dashboard() {
     queryFn: () => opdAPI.getStats().then(res => res.data),
   });
 
+  const { data: patientStats } = useQuery({
+    queryKey: ['patientStats'],
+    queryFn: () => patientsAPI.getStats().then(res => res.data),
+  });
+
   const { data: patientsData } = useQuery({
     queryKey: ['patients', { page: 1, limit: 5 }],
     queryFn: () => patientsAPI.getAll({ page: 1, limit: 5 }).then(res => res.data),
@@ -22,26 +27,20 @@ export default function Dashboard() {
   const statsCards = [
     {
       title: 'Today\'s Appointments',
-      value: stats?.totalAppointments || 0,
+      value: stats?.stats?.total || 0,
       icon: '📅',
       color: 'bg-blue-50 text-blue-700',
     },
     {
       title: 'Completed',
-      value: stats?.completedAppointments || 0,
+      value: stats?.stats?.completed || 0,
       icon: '✅',
       color: 'bg-green-50 text-green-700',
     },
     {
-      title: 'Pending',
-      value: stats?.pendingAppointments || 0,
-      icon: '⏳',
-      color: 'bg-yellow-50 text-yellow-700',
-    },
-    {
-      title: 'Today\'s Revenue',
-      value: `₹${stats?.totalRevenue || 0}`,
-      icon: '💰',
+      title: 'Total Patients',
+      value: patientStats?.total_patients || 0,
+      icon: '👥',
       color: 'bg-purple-50 text-purple-700',
     },
   ];
@@ -56,7 +55,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {statsCards.map((stat, index) => (
           <div key={index} className="card">
             <div className="flex items-center justify-between">
@@ -105,7 +104,7 @@ export default function Dashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
         <Link to="/patients/new" className="card hover:shadow-md transition-shadow cursor-pointer">
           <div className="text-center py-4">
             <div className="text-4xl mb-2">➕</div>
@@ -116,12 +115,6 @@ export default function Dashboard() {
           <div className="text-center py-4">
             <div className="text-4xl mb-2">🏥</div>
             <h3 className="font-semibold text-gray-900">Manage OPD Queue</h3>
-          </div>
-        </Link>
-        <Link to="/billing/new" className="card hover:shadow-md transition-shadow cursor-pointer">
-          <div className="text-center py-4">
-            <div className="text-4xl mb-2">💳</div>
-            <h3 className="font-semibold text-gray-900">Create Invoice</h3>
           </div>
         </Link>
       </div>

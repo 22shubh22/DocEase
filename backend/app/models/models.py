@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, Integer, Boolean, DateTime, Date, ForeignKey, Enum, Numeric, ARRAY, JSON, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from app.db.database import Base
+from app.core.database import Base
 import enum
 import uuid
 
@@ -65,12 +65,17 @@ class Clinic(Base):
     patients = relationship("Patient", back_populates="clinic", cascade="all, delete-orphan")
     appointments = relationship("Appointment", back_populates="clinic", cascade="all, delete-orphan")
     visits = relationship("Visit", back_populates="clinic", cascade="all, delete-orphan")
-    prescriptions = relationship("Prescription", back_populates="clinic", cascade="all, delete-orphan")
     invoices = relationship("Invoice", back_populates="clinic", cascade="all, delete-orphan")
     admins = relationship("ClinicAdmin", back_populates="clinic", cascade="all, delete-orphan")
     chief_complaints = relationship("ChiefComplaint", back_populates="clinic", cascade="all, delete-orphan")
     diagnosis_options = relationship("DiagnosisOption", back_populates="clinic", cascade="all, delete-orphan")
     observation_options = relationship("ObservationOption", back_populates="clinic", cascade="all, delete-orphan")
+    test_options = relationship("TestOption", back_populates="clinic", cascade="all, delete-orphan")
+    medicine_options = relationship("MedicineOption", back_populates="clinic", cascade="all, delete-orphan")
+    dosage_options = relationship("DosageOption", back_populates="clinic", cascade="all, delete-orphan")
+    duration_options = relationship("DurationOption", back_populates="clinic", cascade="all, delete-orphan")
+    symptom_options = relationship("SymptomOption", back_populates="clinic", cascade="all, delete-orphan")
+    user_permissions = relationship("UserPermission", back_populates="clinic", cascade="all, delete-orphan")
 
 
 class User(Base):
@@ -95,6 +100,7 @@ class User(Base):
     created_patients = relationship("Patient", back_populates="creator")
     created_appointments = relationship("Appointment", back_populates="creator")
     created_invoices = relationship("Invoice", back_populates="creator")
+    permissions = relationship("UserPermission", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
 
 class Doctor(Base):
@@ -114,7 +120,6 @@ class Doctor(Base):
     user = relationship("User", back_populates="doctor")
     clinic = relationship("Clinic", back_populates="doctors", foreign_keys=[clinic_id])
     visits = relationship("Visit", back_populates="doctor")
-    prescriptions = relationship("Prescription", back_populates="doctor")
 
 
 class Patient(Base):
@@ -140,7 +145,6 @@ class Patient(Base):
     creator = relationship("User", back_populates="created_patients")
     appointments = relationship("Appointment", back_populates="patient", cascade="all, delete-orphan")
     visits = relationship("Visit", back_populates="patient", cascade="all, delete-orphan")
-    prescriptions = relationship("Prescription", back_populates="patient", cascade="all, delete-orphan")
     invoices = relationship("Invoice", back_populates="patient", cascade="all, delete-orphan")
 
 
@@ -151,7 +155,7 @@ class Appointment(Base):
     patient_id = Column(String, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False)
     appointment_date = Column(Date, nullable=False, index=True)
     queue_number = Column(Integer)
-    chief_complaint = Column(String, nullable=True)
+    chief_complaints = Column(ARRAY(String), default=[])
     status = Column(Enum(AppointmentStatusEnum), default=AppointmentStatusEnum.WAITING)
     clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
     created_by = Column(String, ForeignKey("users.id"), nullable=False)
@@ -170,15 +174,17 @@ class Visit(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     patient_id = Column(String, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False)
     appointment_id = Column(String, ForeignKey("appointments.id"), unique=True)
-    visit_date = Column(Date, nullable=False, index=True)
+    visit_date = Column(DateTime(timezone=True), nullable=False, index=True)
     visit_number = Column(Integer, nullable=False)
     doctor_id = Column(String, ForeignKey("doctors.id"), nullable=False)
-    symptoms = Column(Text)
-    diagnosis = Column(Text)
-    observations = Column(Text)
+    symptoms = Column(ARRAY(String), default=[])
+    diagnosis = Column(ARRAY(String), default=[])
+    observations = Column(ARRAY(String), default=[])
     recommended_tests = Column(ARRAY(String), default=[])
     follow_up_date = Column(Date)
     vitals = Column(JSON)
+    prescription_notes = Column(Text)
+    amount = Column(Numeric(10, 2), nullable=True)
     clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -187,44 +193,20 @@ class Visit(Base):
     appointment = relationship("Appointment", back_populates="visit")
     doctor = relationship("Doctor", back_populates="visits")
     clinic = relationship("Clinic", back_populates="visits")
-    prescriptions = relationship("Prescription", back_populates="visit", cascade="all, delete-orphan")
+    medicines = relationship("VisitMedicine", back_populates="visit", cascade="all, delete-orphan")
     invoice = relationship("Invoice", back_populates="visit", uselist=False, cascade="all, delete-orphan")
 
 
-class Prescription(Base):
-    __tablename__ = "prescriptions"
+class VisitMedicine(Base):
+    __tablename__ = "visit_medicines"
 
     id = Column(String, primary_key=True, default=generate_uuid)
     visit_id = Column(String, ForeignKey("visits.id", ondelete="CASCADE"), nullable=False)
-    patient_id = Column(String, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False)
-    doctor_id = Column(String, ForeignKey("doctors.id"), nullable=False)
-    prescription_date = Column(Date, nullable=False)
-    notes = Column(Text)
-    pdf_url = Column(String)
-    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-    visit = relationship("Visit", back_populates="prescriptions")
-    patient = relationship("Patient", back_populates="prescriptions")
-    doctor = relationship("Doctor", back_populates="prescriptions")
-    clinic = relationship("Clinic", back_populates="prescriptions")
-    medicines = relationship("PrescriptionMedicine", back_populates="prescription", cascade="all, delete-orphan")
-
-
-class PrescriptionMedicine(Base):
-    __tablename__ = "prescription_medicines"
-
-    id = Column(String, primary_key=True, default=generate_uuid)
-    prescription_id = Column(String, ForeignKey("prescriptions.id", ondelete="CASCADE"), nullable=False)
     medicine_name = Column(String, nullable=False)
-    dosage = Column(String, nullable=False)
-    frequency = Column(String, nullable=False)
-    duration = Column(String, nullable=False)
-    instructions = Column(Text)
-    quantity = Column(Integer)
+    dosage = Column(String)
+    duration = Column(String)
 
-    prescription = relationship("Prescription", back_populates="medicines")
+    visit = relationship("Visit", back_populates="medicines")
 
 
 class Invoice(Base):
@@ -319,3 +301,117 @@ class ObservationOption(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     clinic = relationship("Clinic", back_populates="observation_options")
+
+
+class TestOption(Base):
+    __tablename__ = "test_options"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    display_order = Column(Integer, default=0)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    clinic = relationship("Clinic", back_populates="test_options")
+
+
+class MedicineOption(Base):
+    __tablename__ = "medicine_options"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    display_order = Column(Integer, default=0)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    clinic = relationship("Clinic", back_populates="medicine_options")
+
+
+class DosageOption(Base):
+    __tablename__ = "dosage_options"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    display_order = Column(Integer, default=0)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    clinic = relationship("Clinic", back_populates="dosage_options")
+
+
+class DurationOption(Base):
+    __tablename__ = "duration_options"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    display_order = Column(Integer, default=0)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    clinic = relationship("Clinic", back_populates="duration_options")
+
+
+class SymptomOption(Base):
+    __tablename__ = "symptom_options"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    display_order = Column(Integer, default=0)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    clinic = relationship("Clinic", back_populates="symptom_options")
+
+
+class UserPermission(Base):
+    __tablename__ = "user_permissions"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+
+    # Patient Management
+    can_view_patients = Column(Boolean, default=True)
+    can_create_patients = Column(Boolean, default=True)
+    can_edit_patients = Column(Boolean, default=True)
+    can_delete_patients = Column(Boolean, default=False)
+
+    # OPD Management
+    can_view_opd = Column(Boolean, default=True)
+    can_manage_opd = Column(Boolean, default=True)
+
+    # Visit/Prescription Management
+    can_view_visits = Column(Boolean, default=True)
+    can_create_visits = Column(Boolean, default=False)
+    can_edit_visits = Column(Boolean, default=False)
+
+    # Billing Management
+    can_view_invoices = Column(Boolean, default=True)
+    can_create_invoices = Column(Boolean, default=True)
+    can_edit_invoices = Column(Boolean, default=True)
+    can_view_collections = Column(Boolean, default=True)
+
+    # Settings Management
+    can_manage_clinic_options = Column(Boolean, default=False)
+    can_edit_print_settings = Column(Boolean, default=False)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    user = relationship("User", back_populates="permissions")
+    clinic = relationship("Clinic", back_populates="user_permissions")
