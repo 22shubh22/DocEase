@@ -38,6 +38,12 @@ class AppointmentStatusEnum(str, enum.Enum):
     NO_SHOW = "NO_SHOW"
 
 
+class OnboardingRequestStatusEnum(str, enum.Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
 class Clinic(Base):
     __tablename__ = "clinics"
 
@@ -364,3 +370,45 @@ class UserPermission(Base):
 
     user = relationship("User", back_populates="permissions")
     clinic = relationship("Clinic", back_populates="user_permissions")
+
+
+class OnboardingRequest(Base):
+    __tablename__ = "onboarding_requests"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+
+    # Doctor info
+    doctor_name = Column(String, nullable=False)
+    doctor_email = Column(String, nullable=False, index=True)
+    doctor_phone = Column(String, nullable=False)
+    specialization = Column(String, nullable=True)
+    qualification = Column(String, nullable=True)
+    registration_number = Column(String, nullable=True)
+
+    # Clinic info
+    clinic_name = Column(String, nullable=False)
+    clinic_address = Column(String, nullable=True)
+    clinic_city = Column(String, nullable=True)
+    clinic_state = Column(String, nullable=True)
+    clinic_pincode = Column(String, nullable=True)
+    clinic_phone = Column(String)
+    clinic_email = Column(String)
+    clinic_specialty = Column(Enum(ClinicSpecialtyEnum), nullable=True)
+    expected_patient_volume = Column(String)
+
+    additional_notes = Column(Text)
+
+    # Status tracking
+    status = Column(Enum(OnboardingRequestStatusEnum), nullable=False, default=OnboardingRequestStatusEnum.PENDING, index=True)
+    reviewed_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    admin_notes = Column(Text, nullable=True)
+
+    # Links to created entities (populated on approval)
+    created_clinic_id = Column(String, ForeignKey("clinics.id", ondelete="SET NULL"), nullable=True)
+    created_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    reviewer = relationship("User", foreign_keys=[reviewed_by])

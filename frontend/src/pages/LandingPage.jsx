@@ -99,9 +99,14 @@ export default function LandingPage() {
               <a href="#demo" className="text-sm text-gray-600 hover:text-primary-600 transition-colors">Demo</a>
               <a href="#contact" className="text-sm text-gray-600 hover:text-primary-600 transition-colors">Contact</a>
             </div>
-            <Link to="/login" className="btn btn-primary text-sm">
-              Login
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link to="/onboard" className="text-sm text-primary-600 font-medium hover:text-primary-700 transition-colors">
+                Register Your Clinic
+              </Link>
+              <Link to="/login" className="btn btn-primary text-sm">
+                Login
+              </Link>
+            </div>
           </div>
         </div>
       </nav>
@@ -118,15 +123,12 @@ export default function LandingPage() {
             and track finances — all from one platform built for clinics like yours.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to="/login" className="btn btn-primary px-8 py-3 text-lg">
-              Get Started
+            <Link to="/onboard" className="btn btn-primary px-8 py-3 text-lg">
+              Register Your Clinic
             </Link>
-            <a
-              href="#demo"
-              className="btn btn-secondary px-8 py-3 text-lg"
-            >
-              Watch Demo
-            </a>
+            <Link to="/login" className="btn btn-secondary px-8 py-3 text-lg">
+              Login
+            </Link>
           </div>
         </div>
       </section>
@@ -257,12 +259,18 @@ export default function LandingPage() {
           <p className="mt-4 text-lg text-primary-100 max-w-2xl mx-auto">
             Join clinics that have already made the switch to modern, digital clinic management.
           </p>
-          <div className="mt-8">
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              to="/login"
+              to="/onboard"
               className="inline-block bg-white text-primary-600 font-medium px-8 py-3 rounded-lg hover:bg-primary-50 transition-colors"
             >
-              Get Started Now
+              Register Your Clinic
+            </Link>
+            <Link
+              to="/login"
+              className="inline-block border border-white text-white font-medium px-8 py-3 rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              Login
             </Link>
           </div>
         </div>
@@ -291,8 +299,9 @@ export default function LandingPage() {
             <div>
               <h4 className="text-white font-semibold mb-4">Contact</h4>
               <ul className="space-y-2 text-sm">
-                <li>info@docease.in</li>
-                <li>+91 XXXXX XXXXX</li>
+                <li><a href="mailto:22shubh22@gmail.com" className="hover:text-white transition-colors">22shubh22@gmail.com</a></li>
+                <li><a href="tel:+917780984023" className="hover:text-white transition-colors">+91 77809 84023</a></li>
+                <li><a href="https://wa.me/917780984023" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">WhatsApp: 7780984023</a></li>
               </ul>
             </div>
           </div>

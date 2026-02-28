@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
@@ -84,6 +84,12 @@ export default function Login() {
           </button>
         </form>
 
+        <p className="text-center text-sm text-gray-500 mt-6">
+          Don't have an account?{' '}
+          <Link to="/onboard" className="text-primary-600 hover:text-primary-700 font-medium">
+            Register your clinic
+          </Link>
+        </p>
       </div>
     </div>
   );

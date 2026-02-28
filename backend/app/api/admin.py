@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 from typing import List, Optional
 from app.core.deps import get_db, get_current_user
-from app.models.models import User, Clinic, Doctor, Patient, ClinicAdmin, RoleEnum
+from app.models.models import User, Clinic, Doctor, Patient, ClinicAdmin, RoleEnum, OnboardingRequest, OnboardingRequestStatusEnum
 from app.schemas.schemas import (
     ClinicCreate, ClinicResponse, ClinicUpdate, ClinicWithDoctors,
     DoctorAssignment, AdminDashboardStats, UserCreate, UserResponse,
@@ -51,11 +51,15 @@ async def get_admin_stats(
     total_clinics = len(admin_clinic_ids)
     total_doctors = db.query(Doctor).filter(Doctor.clinic_id.in_(admin_clinic_ids)).count() if admin_clinic_ids else 0
     total_patients = db.query(Patient).filter(Patient.clinic_id.in_(admin_clinic_ids)).count() if admin_clinic_ids else 0
-    
+    pending_onboarding_requests = db.query(OnboardingRequest).filter(
+        OnboardingRequest.status == OnboardingRequestStatusEnum.PENDING
+    ).count()
+
     return AdminDashboardStats(
         total_clinics=total_clinics,
         total_doctors=total_doctors,
-        total_patients=total_patients
+        total_patients=total_patients,
+        pending_onboarding_requests=pending_onboarding_requests
     )
 
 

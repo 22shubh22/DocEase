@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime, date
 from decimal import Decimal
-from app.models.models import RoleEnum, GenderEnum, AppointmentStatusEnum, ClinicSpecialtyEnum
+from app.models.models import RoleEnum, GenderEnum, AppointmentStatusEnum, ClinicSpecialtyEnum, OnboardingRequestStatusEnum
 
 
 # Auth Schemas
@@ -284,6 +284,7 @@ class AdminDashboardStats(BaseModel):
     total_clinics: int
     total_doctors: int
     total_patients: int
+    pending_onboarding_requests: int = 0
 
 
 # Chief Complaint Schemas
@@ -616,3 +617,64 @@ class SubUserStats(BaseModel):
     current_count: int
     max_allowed: int
     can_create: bool
+
+
+# Onboarding Request Schemas
+class OnboardingRequestCreate(BaseModel):
+    doctor_name: str
+    doctor_email: EmailStr
+    doctor_phone: str
+    clinic_name: str
+
+
+class OnboardingRequestResponse(BaseModel):
+    id: str
+    doctor_name: str
+    doctor_email: str
+    doctor_phone: str
+    specialization: Optional[str] = None
+    qualification: Optional[str] = None
+    registration_number: Optional[str] = None
+    clinic_name: str
+    clinic_address: Optional[str] = None
+    clinic_city: Optional[str] = None
+    clinic_state: Optional[str] = None
+    clinic_pincode: Optional[str] = None
+    clinic_phone: Optional[str] = None
+    clinic_email: Optional[str] = None
+    clinic_specialty: Optional[str] = None
+    expected_patient_volume: Optional[str] = None
+    additional_notes: Optional[str] = None
+    status: str
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    admin_notes: Optional[str] = None
+    created_clinic_id: Optional[str] = None
+    created_user_id: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class OnboardingRequestListItem(BaseModel):
+    id: str
+    doctor_name: str
+    doctor_email: str
+    doctor_phone: str
+    clinic_name: str
+    clinic_specialty: Optional[str] = None
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class OnboardingApproveRequest(BaseModel):
+    admin_notes: Optional[str] = None
+
+
+class OnboardingRejectRequest(BaseModel):
+    admin_notes: str

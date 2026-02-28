@@ -184,6 +184,18 @@ export const adminAPI = {
   getAllDoctors: (params) => api.get('/admin/doctors', { params }),
 };
 
+// Onboarding API (public - no auth needed)
+export const onboardingAPI = {
+  submitRequest: (data) => axios.post(`${API_URL}/onboarding/request`, data, {
+    headers: { 'Content-Type': 'application/json' }
+  }),
+  // Admin endpoints (use authenticated api instance)
+  getRequests: (params) => api.get('/onboarding/requests', { params }),
+  getRequest: (id) => api.get(`/onboarding/requests/${id}`),
+  approveRequest: (id, data) => api.post(`/onboarding/requests/${id}/approve`, data),
+  rejectRequest: (id, data) => api.post(`/onboarding/requests/${id}/reject`, data),
+};
+
 // Permissions API
 export const permissionsAPI = {
   getClinicUsers: () => api.get('/permissions/clinic-users'),

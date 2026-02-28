@@ -47,6 +47,7 @@ build.sh
 
 # Videos (too large for git)
 *.mp4
+!frontend/public/docease-intro.mp4
 
 # Misc
 .claude/

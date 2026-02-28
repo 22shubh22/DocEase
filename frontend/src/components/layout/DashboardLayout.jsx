@@ -41,6 +41,7 @@ export default function DashboardLayout() {
 
   const navigation = isAdmin ? [
     { name: 'Admin Dashboard', path: '/admin', icon: '🏢' },
+    { name: 'Onboarding Requests', path: '/admin/onboarding', icon: '📋' },
   ] : [
     ...baseNavigation,
     { name: 'Settings', path: '/settings', icon: '⚙️' },
@@ -66,9 +67,12 @@ export default function DashboardLayout() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
-              <h1 className="text-2xl font-bold text-primary-600 ml-2 md:ml-0">
-                DocEase
-              </h1>
+              <div className="flex items-center ml-2 md:ml-0">
+                <img src="/docease-icon.svg" alt="DocEase" className="h-8 w-8" />
+                <h1 className="text-2xl font-bold text-primary-600 ml-2">
+                  DocEase
+                </h1>
+              </div>
             </div>
 
             <div className="flex items-center space-x-4">
