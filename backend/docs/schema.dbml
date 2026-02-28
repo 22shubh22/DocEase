@@ -6,6 +6,7 @@
 // RoleEnum: DOCTOR, ASSISTANT, ADMIN
 // GenderEnum: MALE, FEMALE, OTHER
 // AppointmentStatusEnum: WAITING, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW
+// ClinicSpecialtyEnum: dental, dermatology, general_physician, pediatrics, orthopedics
 // PaymentStatusEnum: PAID, UNPAID, PARTIAL
 // PaymentModeEnum: CASH, UPI, CARD, OTHER
 
@@ -19,6 +20,7 @@ Table clinics {
   logo_url varchar
   opd_start_time varchar
   opd_end_time varchar
+  specialty varchar [note: 'dental, dermatology, general_physician, pediatrics, orthopedics']
   owner_doctor_id varchar
   created_at datetime
   updated_at datetime
@@ -108,31 +110,6 @@ Table visit_medicines {
   medicine_name varchar [not null]
   dosage varchar
   duration varchar
-}
-
-Table invoices {
-  id varchar [pk]
-  invoice_number varchar [not null, unique]
-  patient_id varchar [not null]
-  visit_id varchar [unique]
-  total_amount decimal [not null]
-  paid_amount decimal
-  payment_status varchar
-  payment_mode varchar
-  payment_date date
-  notes varchar
-  clinic_id varchar [not null]
-  created_by varchar [not null]
-  created_at datetime
-  updated_at datetime
-}
-
-Table invoice_items {
-  id varchar [pk]
-  invoice_id varchar [not null]
-  description varchar [not null]
-  amount decimal [not null]
-  quantity int
 }
 
 Table clinic_admins {
@@ -234,11 +211,6 @@ Ref: visits.appointment_id - appointments.id
 Ref: visits.doctor_id > doctors.id
 Ref: visits.clinic_id > clinics.id
 Ref: visit_medicines.visit_id > visits.id
-Ref: invoices.patient_id > patients.id
-Ref: invoices.visit_id - visits.id
-Ref: invoices.clinic_id > clinics.id
-Ref: invoices.created_by > users.id
-Ref: invoice_items.invoice_id > invoices.id
 Ref: clinic_admins.admin_id > users.id
 Ref: clinic_admins.clinic_id > clinics.id
 Ref: chief_complaints.clinic_id > clinics.id

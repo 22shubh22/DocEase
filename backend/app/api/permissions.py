@@ -15,8 +15,7 @@ def get_default_permissions_for_role(role: RoleEnum) -> dict:
         'can_view_patients', 'can_create_patients', 'can_edit_patients', 'can_delete_patients',
         'can_view_opd', 'can_manage_opd',
         'can_view_visits', 'can_create_visits', 'can_edit_visits',
-        'can_view_invoices', 'can_create_invoices', 'can_edit_invoices', 'can_view_collections',
-        'can_manage_clinic_options'
+        'can_manage_clinic_options', 'can_edit_print_settings'
     ]
 
     if role == RoleEnum.DOCTOR:

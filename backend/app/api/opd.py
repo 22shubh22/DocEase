@@ -5,7 +5,7 @@ from datetime import date, datetime
 from typing import Optional
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_permission
-from app.models.models import User, Appointment, Invoice, Patient, AppointmentStatusEnum, Visit, Doctor
+from app.models.models import User, Appointment, Patient, AppointmentStatusEnum, Visit, Doctor
 from app.schemas.schemas import AppointmentCreate, AppointmentUpdate, AppointmentPositionUpdate
 
 router = APIRouter()

@@ -44,11 +44,6 @@ def create_default_permissions(user_id: str, clinic_id: str, role: RoleEnum) -> 
             can_view_visits=True,
             can_create_visits=True,
             can_edit_visits=True,
-            # Billing Management
-            can_view_invoices=True,
-            can_create_invoices=True,
-            can_edit_invoices=True,
-            can_view_collections=True,
             # Settings Management
             can_manage_clinic_options=True,
             can_edit_print_settings=True
@@ -69,11 +64,6 @@ def create_default_permissions(user_id: str, clinic_id: str, role: RoleEnum) -> 
             can_view_visits=True,
             can_create_visits=False,
             can_edit_visits=False,
-            # Billing Management
-            can_view_invoices=True,
-            can_create_invoices=True,
-            can_edit_invoices=True,
-            can_view_collections=True,
             # Settings Management
             can_manage_clinic_options=False,
             can_edit_print_settings=False
@@ -92,10 +82,6 @@ def create_default_permissions(user_id: str, clinic_id: str, role: RoleEnum) -> 
             can_view_visits=False,
             can_create_visits=False,
             can_edit_visits=False,
-            can_view_invoices=False,
-            can_create_invoices=False,
-            can_edit_invoices=False,
-            can_view_collections=False,
             can_manage_clinic_options=False,
             can_edit_print_settings=False
         )

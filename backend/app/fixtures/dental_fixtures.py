@@ -2,6 +2,19 @@
 Dental clinic fixture data for auto-populating new clinics.
 """
 
+DENTAL_SYMPTOMS = [
+    {"name": "Tooth Pain", "description": "Pain in one or more teeth", "display_order": 1},
+    {"name": "Gum Bleeding", "description": "Bleeding from gums", "display_order": 2},
+    {"name": "Swelling in Mouth", "description": "Swelling in oral cavity", "display_order": 3},
+    {"name": "Sensitivity to Hot/Cold", "description": "Pain when consuming hot or cold food/drinks", "display_order": 4},
+    {"name": "Bad Breath", "description": "Persistent halitosis", "display_order": 5},
+    {"name": "Difficulty Chewing", "description": "Pain or trouble while chewing", "display_order": 6},
+    {"name": "Jaw Pain", "description": "Pain in jaw or TMJ area", "display_order": 7},
+    {"name": "Loose Tooth", "description": "One or more teeth feel mobile", "display_order": 8},
+    {"name": "Dry Mouth", "description": "Reduced saliva production", "display_order": 9},
+    {"name": "Mouth Sores", "description": "Ulcers or sores in the mouth", "display_order": 10},
+]
+
 DENTAL_CHIEF_COMPLAINTS = [
     {"name": "Toothache", "description": "Pain in or around a tooth", "display_order": 1},
     {"name": "Tooth Decay / Cavity", "description": "Cavities or holes in teeth", "display_order": 2},
@@ -99,33 +112,6 @@ DENTAL_MEDICINES = [
     {"name": "Gel Lignocaine 2%", "description": "Topical anesthetic gel", "display_order": 15},
 ]
 
-DENTAL_DOSAGES = [
-    {"name": "1 tablet", "description": "Single tablet dose", "display_order": 1},
-    {"name": "2 tablets", "description": "Double tablet dose", "display_order": 2},
-    {"name": "Half tablet", "description": "Half tablet dose", "display_order": 3},
-    {"name": "1 capsule", "description": "Single capsule dose", "display_order": 4},
-    {"name": "2 capsules", "description": "Double capsule dose", "display_order": 5},
-    {"name": "5ml", "description": "5 milliliters", "display_order": 6},
-    {"name": "10ml", "description": "10 milliliters", "display_order": 7},
-    {"name": "15ml", "description": "15 milliliters", "display_order": 8},
-    {"name": "Apply locally", "description": "For topical application", "display_order": 9},
-    {"name": "Rinse with 10ml", "description": "For mouthwash", "display_order": 10},
-    {"name": "1-0-1", "description": "Morning and night", "display_order": 11},
-    {"name": "1-1-1", "description": "Three times daily", "display_order": 12},
-    {"name": "0-0-1", "description": "Night only", "display_order": 13},
-    {"name": "1-0-0", "description": "Morning only", "display_order": 14},
-    {"name": "SOS", "description": "As needed/when required", "display_order": 15},
-]
-
-DENTAL_DURATIONS = [
-    {"name": "3 days", "description": "Short course", "display_order": 1},
-    {"name": "5 days", "description": "Standard short course", "display_order": 2},
-    {"name": "7 days", "description": "One week course", "display_order": 3},
-    {"name": "10 days", "description": "Extended course", "display_order": 4},
-    {"name": "14 days", "description": "Two week course", "display_order": 5},
-    {"name": "1 month", "description": "Monthly course", "display_order": 6},
-    {"name": "As directed", "description": "Follow doctor instructions", "display_order": 7},
-    {"name": "Until finished", "description": "Complete the course", "display_order": 8},
-    {"name": "Single dose", "description": "One-time use", "display_order": 9},
-    {"name": "2 weeks", "description": "Two week duration", "display_order": 10},
-]
+# Backward compatibility - dosages and durations are now in common_fixtures
+from app.fixtures.common_fixtures import COMMON_DOSAGES as DENTAL_DOSAGES  # noqa: F401
+from app.fixtures.common_fixtures import COMMON_DURATIONS as DENTAL_DURATIONS  # noqa: F401

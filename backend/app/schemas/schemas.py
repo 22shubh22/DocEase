@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime, date
 from decimal import Decimal
-from app.models.models import RoleEnum, GenderEnum, AppointmentStatusEnum, PaymentStatusEnum, PaymentModeEnum
+from app.models.models import RoleEnum, GenderEnum, AppointmentStatusEnum, ClinicSpecialtyEnum
 
 
 # Auth Schemas
@@ -93,6 +93,7 @@ class ClinicResponse(ClinicBase):
     clinic_code: Optional[str] = None
     logo_url: Optional[str] = None
     owner_doctor_id: Optional[str] = None
+    specialty: Optional[str] = None
     created_at: Optional[datetime] = None
 
     class Config:
@@ -245,56 +246,6 @@ class VisitResponse(VisitBase):
         from_attributes = True
 
 
-# Invoice Schemas
-class InvoiceItemBase(BaseModel):
-    description: str
-    amount: Decimal
-    quantity: int = 1
-
-
-class InvoiceItemCreate(InvoiceItemBase):
-    pass
-
-
-class InvoiceItemResponse(InvoiceItemBase):
-    id: str
-
-    class Config:
-        from_attributes = True
-
-
-class InvoiceBase(BaseModel):
-    patient_id: str
-    visit_id: Optional[str] = None
-    payment_status: PaymentStatusEnum = PaymentStatusEnum.UNPAID
-    payment_mode: Optional[PaymentModeEnum] = None
-    payment_date: Optional[date] = None
-    notes: Optional[str] = None
-
-
-class InvoiceCreate(InvoiceBase):
-    items: List[InvoiceItemCreate]
-
-
-class InvoiceUpdate(BaseModel):
-    paid_amount: Optional[Decimal] = None
-    payment_status: Optional[PaymentStatusEnum] = None
-    payment_mode: Optional[PaymentModeEnum] = None
-    payment_date: Optional[date] = None
-
-
-class InvoiceResponse(InvoiceBase):
-    id: str
-    invoice_number: str
-    total_amount: Decimal
-    paid_amount: Decimal
-    items: List[InvoiceItemResponse]
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
 # Admin Schemas
 class ClinicCreate(BaseModel):
     name: str
@@ -303,6 +254,7 @@ class ClinicCreate(BaseModel):
     email: Optional[str] = None
     opd_start_time: Optional[str] = None
     opd_end_time: Optional[str] = None
+    specialty: Optional[ClinicSpecialtyEnum] = ClinicSpecialtyEnum.DENTAL
 
 
 class DoctorWithUser(DoctorResponse):
@@ -601,11 +553,6 @@ class UserPermissionBase(BaseModel):
     can_view_visits: bool = True
     can_create_visits: bool = False
     can_edit_visits: bool = False
-    # Billing Management
-    can_view_invoices: bool = True
-    can_create_invoices: bool = True
-    can_edit_invoices: bool = True
-    can_view_collections: bool = True
     # Settings Management
     can_manage_clinic_options: bool = False
     can_edit_print_settings: bool = False

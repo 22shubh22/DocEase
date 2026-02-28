@@ -22,25 +22,20 @@ class GenderEnum(str, enum.Enum):
     OTHER = "OTHER"
 
 
+class ClinicSpecialtyEnum(str, enum.Enum):
+    DENTAL = "dental"
+    DERMATOLOGY = "dermatology"
+    GENERAL_PHYSICIAN = "general_physician"
+    PEDIATRICS = "pediatrics"
+    ORTHOPEDICS = "orthopedics"
+
+
 class AppointmentStatusEnum(str, enum.Enum):
     WAITING = "WAITING"
     IN_PROGRESS = "IN_PROGRESS"
     COMPLETED = "COMPLETED"
     CANCELLED = "CANCELLED"
     NO_SHOW = "NO_SHOW"
-
-
-class PaymentStatusEnum(str, enum.Enum):
-    PAID = "PAID"
-    UNPAID = "UNPAID"
-    PARTIAL = "PARTIAL"
-
-
-class PaymentModeEnum(str, enum.Enum):
-    CASH = "CASH"
-    UPI = "UPI"
-    CARD = "CARD"
-    OTHER = "OTHER"
 
 
 class Clinic(Base):
@@ -55,6 +50,7 @@ class Clinic(Base):
     logo_url = Column(String)
     opd_start_time = Column(String)
     opd_end_time = Column(String)
+    specialty = Column(Enum(ClinicSpecialtyEnum), nullable=True, default=ClinicSpecialtyEnum.DENTAL)
     owner_doctor_id = Column(String, ForeignKey("doctors.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -65,7 +61,6 @@ class Clinic(Base):
     patients = relationship("Patient", back_populates="clinic", cascade="all, delete-orphan")
     appointments = relationship("Appointment", back_populates="clinic", cascade="all, delete-orphan")
     visits = relationship("Visit", back_populates="clinic", cascade="all, delete-orphan")
-    invoices = relationship("Invoice", back_populates="clinic", cascade="all, delete-orphan")
     admins = relationship("ClinicAdmin", back_populates="clinic", cascade="all, delete-orphan")
     chief_complaints = relationship("ChiefComplaint", back_populates="clinic", cascade="all, delete-orphan")
     diagnosis_options = relationship("DiagnosisOption", back_populates="clinic", cascade="all, delete-orphan")
@@ -99,7 +94,6 @@ class User(Base):
     doctor = relationship("Doctor", back_populates="user", uselist=False, cascade="all, delete-orphan")
     created_patients = relationship("Patient", back_populates="creator")
     created_appointments = relationship("Appointment", back_populates="creator")
-    created_invoices = relationship("Invoice", back_populates="creator")
     permissions = relationship("UserPermission", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
 
@@ -145,7 +139,6 @@ class Patient(Base):
     creator = relationship("User", back_populates="created_patients")
     appointments = relationship("Appointment", back_populates="patient", cascade="all, delete-orphan")
     visits = relationship("Visit", back_populates="patient", cascade="all, delete-orphan")
-    invoices = relationship("Invoice", back_populates="patient", cascade="all, delete-orphan")
 
 
 class Appointment(Base):
@@ -194,7 +187,6 @@ class Visit(Base):
     doctor = relationship("Doctor", back_populates="visits")
     clinic = relationship("Clinic", back_populates="visits")
     medicines = relationship("VisitMedicine", back_populates="visit", cascade="all, delete-orphan")
-    invoice = relationship("Invoice", back_populates="visit", uselist=False, cascade="all, delete-orphan")
 
 
 class VisitMedicine(Base):
@@ -207,43 +199,6 @@ class VisitMedicine(Base):
     duration = Column(String)
 
     visit = relationship("Visit", back_populates="medicines")
-
-
-class Invoice(Base):
-    __tablename__ = "invoices"
-
-    id = Column(String, primary_key=True, default=generate_uuid)
-    invoice_number = Column(String, unique=True, nullable=False, index=True)
-    patient_id = Column(String, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False)
-    visit_id = Column(String, ForeignKey("visits.id"), unique=True)
-    total_amount = Column(Numeric(10, 2), nullable=False)
-    paid_amount = Column(Numeric(10, 2), default=0)
-    payment_status = Column(Enum(PaymentStatusEnum), default=PaymentStatusEnum.UNPAID)
-    payment_mode = Column(Enum(PaymentModeEnum))
-    payment_date = Column(Date)
-    notes = Column(Text)
-    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
-    created_by = Column(String, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-    patient = relationship("Patient", back_populates="invoices")
-    visit = relationship("Visit", back_populates="invoice")
-    clinic = relationship("Clinic", back_populates="invoices")
-    creator = relationship("User", back_populates="created_invoices")
-    items = relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
-
-
-class InvoiceItem(Base):
-    __tablename__ = "invoice_items"
-
-    id = Column(String, primary_key=True, default=generate_uuid)
-    invoice_id = Column(String, ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False)
-    description = Column(String, nullable=False)
-    amount = Column(Numeric(10, 2), nullable=False)
-    quantity = Column(Integer, default=1)
-
-    invoice = relationship("Invoice", back_populates="items")
 
 
 class ClinicAdmin(Base):
@@ -399,12 +354,6 @@ class UserPermission(Base):
     can_view_visits = Column(Boolean, default=True)
     can_create_visits = Column(Boolean, default=False)
     can_edit_visits = Column(Boolean, default=False)
-
-    # Billing Management
-    can_view_invoices = Column(Boolean, default=True)
-    can_create_invoices = Column(Boolean, default=True)
-    can_edit_invoices = Column(Boolean, default=True)
-    can_view_collections = Column(Boolean, default=True)
 
     # Settings Management
     can_manage_clinic_options = Column(Boolean, default=False)

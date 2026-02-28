@@ -1,0 +1,110 @@
+"""
+Dermatology clinic fixture data for auto-populating new clinics.
+"""
+
+DERMATOLOGY_CHIEF_COMPLAINTS = [
+    {"name": "Acne / Pimples", "description": "Breakouts, blackheads, whiteheads", "display_order": 1},
+    {"name": "Eczema / Dermatitis", "description": "Itchy, inflamed skin patches", "display_order": 2},
+    {"name": "Psoriasis", "description": "Scaly, red skin patches", "display_order": 3},
+    {"name": "Fungal Infection", "description": "Ringworm, athlete's foot, etc.", "display_order": 4},
+    {"name": "Hair Loss / Alopecia", "description": "Thinning or loss of hair", "display_order": 5},
+    {"name": "Pigmentation / Dark Spots", "description": "Hyperpigmentation, melasma", "display_order": 6},
+    {"name": "Skin Rash", "description": "Redness, bumps, or irritation", "display_order": 7},
+    {"name": "Urticaria / Hives", "description": "Raised, itchy welts on skin", "display_order": 8},
+    {"name": "Warts / Moles", "description": "Skin growths or moles", "display_order": 9},
+    {"name": "Dandruff / Seborrheic Dermatitis", "description": "Flaky, itchy scalp", "display_order": 10},
+    {"name": "Skin Allergy", "description": "Allergic reaction on skin", "display_order": 11},
+    {"name": "Vitiligo", "description": "Loss of skin color in patches", "display_order": 12},
+    {"name": "Scabies / Skin Infestation", "description": "Parasitic skin infection", "display_order": 13},
+    {"name": "Nail Disorder", "description": "Nail infection, discoloration, brittleness", "display_order": 14},
+    {"name": "Sunburn / Photodermatitis", "description": "Sun-related skin damage", "display_order": 15},
+    {"name": "Skin Tag Removal", "description": "Removal of benign skin growths", "display_order": 16},
+    {"name": "Cosmetic Consultation", "description": "Skin rejuvenation, anti-aging", "display_order": 17},
+    {"name": "Routine Checkup", "description": "Regular skin examination", "display_order": 18},
+    {"name": "Follow-up Visit", "description": "Follow-up after previous treatment", "display_order": 19},
+]
+
+DERMATOLOGY_DIAGNOSES = [
+    {"name": "Acne Vulgaris", "description": "Common acne condition", "display_order": 1},
+    {"name": "Atopic Dermatitis", "description": "Chronic eczema", "display_order": 2},
+    {"name": "Contact Dermatitis", "description": "Skin reaction from contact with irritant/allergen", "display_order": 3},
+    {"name": "Psoriasis Vulgaris", "description": "Chronic autoimmune skin disease", "display_order": 4},
+    {"name": "Tinea Corporis", "description": "Fungal infection of the body", "display_order": 5},
+    {"name": "Tinea Capitis", "description": "Fungal infection of the scalp", "display_order": 6},
+    {"name": "Urticaria", "description": "Hives/allergic skin reaction", "display_order": 7},
+    {"name": "Melasma", "description": "Facial hyperpigmentation", "display_order": 8},
+    {"name": "Alopecia Areata", "description": "Patchy hair loss", "display_order": 9},
+    {"name": "Androgenetic Alopecia", "description": "Male/female pattern baldness", "display_order": 10},
+    {"name": "Vitiligo", "description": "Autoimmune depigmentation", "display_order": 11},
+    {"name": "Scabies", "description": "Parasitic mite infestation", "display_order": 12},
+    {"name": "Seborrheic Dermatitis", "description": "Chronic inflammatory skin condition", "display_order": 13},
+    {"name": "Verruca Vulgaris", "description": "Common warts", "display_order": 14},
+    {"name": "Impetigo", "description": "Bacterial skin infection", "display_order": 15},
+]
+
+DERMATOLOGY_OBSERVATIONS = [
+    {"name": "Skin appears healthy", "description": "No visible lesions or abnormalities", "display_order": 1},
+    {"name": "Erythematous lesions present", "description": "Red, inflamed patches visible", "display_order": 2},
+    {"name": "Papular rash noted", "description": "Raised bumps on skin surface", "display_order": 3},
+    {"name": "Scaling/flaking present", "description": "Dry, scaly skin patches", "display_order": 4},
+    {"name": "Hyperpigmentation noted", "description": "Darkened areas of skin", "display_order": 5},
+    {"name": "Hypopigmentation noted", "description": "Lighter areas of skin", "display_order": 6},
+    {"name": "Excoriation marks present", "description": "Scratch marks visible", "display_order": 7},
+    {"name": "Vesicles/blisters noted", "description": "Fluid-filled lesions present", "display_order": 8},
+    {"name": "Nail changes observed", "description": "Discoloration, pitting, or thickening", "display_order": 9},
+    {"name": "Hair thinning noted", "description": "Visible hair loss or thinning", "display_order": 10},
+    {"name": "Pruritus reported", "description": "Patient reports itching", "display_order": 11},
+    {"name": "Lichenification present", "description": "Thickened, leathery skin from chronic scratching", "display_order": 12},
+    {"name": "Pustular lesions noted", "description": "Pus-filled bumps visible", "display_order": 13},
+    {"name": "Plaque-type lesions noted", "description": "Well-defined raised patches", "display_order": 14},
+    {"name": "No signs of infection", "description": "No pus, warmth, or spreading redness", "display_order": 15},
+]
+
+DERMATOLOGY_TEST_OPTIONS = [
+    {"name": "Skin Biopsy", "description": "Tissue sample for histopathological examination", "display_order": 1},
+    {"name": "KOH Test", "description": "Potassium hydroxide test for fungal infection", "display_order": 2},
+    {"name": "Patch Test", "description": "Contact allergy testing", "display_order": 3},
+    {"name": "Wood's Lamp Examination", "description": "UV light examination for skin conditions", "display_order": 4},
+    {"name": "Dermoscopy", "description": "Magnified skin surface examination", "display_order": 5},
+    {"name": "Skin Scraping", "description": "Sample for microscopic examination", "display_order": 6},
+    {"name": "IgE Levels", "description": "Blood test for allergy markers", "display_order": 7},
+    {"name": "Complete Blood Count (CBC)", "description": "General blood test", "display_order": 8},
+    {"name": "Thyroid Function Test", "description": "For hair loss evaluation", "display_order": 9},
+    {"name": "ANA Test", "description": "Antinuclear antibody for autoimmune conditions", "display_order": 10},
+    {"name": "Skin Culture", "description": "Culture for bacterial/fungal identification", "display_order": 11},
+    {"name": "Tzanck Smear", "description": "Smear for viral infection diagnosis", "display_order": 12},
+    {"name": "Trichoscopy", "description": "Dermoscopic examination of scalp/hair", "display_order": 13},
+    {"name": "Serum Iron & Ferritin", "description": "Iron studies for hair loss workup", "display_order": 14},
+    {"name": "VDRL Test", "description": "Screening for syphilis", "display_order": 15},
+]
+
+DERMATOLOGY_MEDICINES = [
+    {"name": "Tab Cetirizine 10mg", "description": "Antihistamine for allergy/itching", "display_order": 1},
+    {"name": "Tab Levocetirizine 5mg", "description": "Antihistamine for urticaria", "display_order": 2},
+    {"name": "Tab Prednisolone 10mg", "description": "Corticosteroid for inflammation", "display_order": 3},
+    {"name": "Tab Fluconazole 150mg", "description": "Oral antifungal", "display_order": 4},
+    {"name": "Tab Itraconazole 100mg", "description": "Oral antifungal for dermatophytes", "display_order": 5},
+    {"name": "Tab Doxycycline 100mg", "description": "Antibiotic for acne", "display_order": 6},
+    {"name": "Cream Clobetasol 0.05%", "description": "Potent topical steroid", "display_order": 7},
+    {"name": "Cream Mometasone 0.1%", "description": "Moderate topical steroid", "display_order": 8},
+    {"name": "Cream Ketoconazole 2%", "description": "Topical antifungal cream", "display_order": 9},
+    {"name": "Gel Adapalene 0.1%", "description": "Topical retinoid for acne", "display_order": 10},
+    {"name": "Lotion Calamine", "description": "Soothing lotion for itchy skin", "display_order": 11},
+    {"name": "Tab Hydroxyzine 25mg", "description": "Antihistamine for itching", "display_order": 12},
+    {"name": "Cream Permethrin 5%", "description": "Topical treatment for scabies", "display_order": 13},
+    {"name": "Ointment Tacrolimus 0.1%", "description": "Immunomodulator for eczema", "display_order": 14},
+    {"name": "Shampoo Ketoconazole 2%", "description": "Antifungal shampoo for dandruff", "display_order": 15},
+]
+
+DERMATOLOGY_SYMPTOMS = [
+    {"name": "Itching", "description": "Pruritus - persistent itchy sensation", "display_order": 1},
+    {"name": "Skin Redness", "description": "Erythema on skin surface", "display_order": 2},
+    {"name": "Skin Rash", "description": "Visible eruptions on skin", "display_order": 3},
+    {"name": "Dry Skin", "description": "Xerosis/dryness of skin", "display_order": 4},
+    {"name": "Skin Peeling", "description": "Desquamation/flaking", "display_order": 5},
+    {"name": "Hair Fall", "description": "Noticeable hair shedding", "display_order": 6},
+    {"name": "Burning Sensation", "description": "Burning feeling on skin", "display_order": 7},
+    {"name": "Skin Darkening", "description": "Hyperpigmentation", "display_order": 8},
+    {"name": "Swelling", "description": "Skin edema/puffiness", "display_order": 9},
+    {"name": "Blisters", "description": "Fluid-filled lesions", "display_order": 10},
+]
