@@ -8,7 +8,7 @@ export default function AdminDashboard() {
   const [clinics, setClinics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddClinic, setShowAddClinic] = useState(false);
-  const [newClinic, setNewClinic] = useState({ name: '', address: '', phone: '', email: '' });
+  const [newClinic, setNewClinic] = useState({ name: '', address: '', phone: '', email: '', specialty: 'dental' });
 
   useEffect(() => {
     fetchData();
@@ -34,7 +34,7 @@ export default function AdminDashboard() {
     e.preventDefault();
     try {
       await adminAPI.createClinic(newClinic);
-      setNewClinic({ name: '', address: '', phone: '', email: '' });
+      setNewClinic({ name: '', address: '', phone: '', email: '', specialty: 'dental' });
       setShowAddClinic(false);
       fetchData();
     } catch (error) {
@@ -146,6 +146,11 @@ export default function AdminDashboard() {
                         {clinic.clinic_code}
                       </span>
                     )}
+                    {clinic.specialty && (
+                      <span className="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded capitalize">
+                        {clinic.specialty.replace('_', ' ')}
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-gray-500">{clinic.address || 'No address'}</p>
                   <p className="text-sm text-gray-400">{clinic.phone} | {clinic.email}</p>
@@ -212,6 +217,21 @@ export default function AdminDashboard() {
                     onChange={(e) => setNewClinic({ ...newClinic, email: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Specialty *</label>
+                  <select
+                    required
+                    value={newClinic.specialty}
+                    onChange={(e) => setNewClinic({ ...newClinic, specialty: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="dental">Dental</option>
+                    <option value="dermatology">Dermatology</option>
+                    <option value="general_physician">General Physician</option>
+                    <option value="pediatrics">Pediatrics</option>
+                    <option value="orthopedics">Orthopedics</option>
+                  </select>
                 </div>
               </div>
               <div className="flex gap-3 mt-6">

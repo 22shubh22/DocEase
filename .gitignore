@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+venv/
+.venv/
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
+
+# Database dumps
+*.dump
+*.sql.bak
+
+# Backup files
+*.bak
+
+# Replit artifacts
+.replit
+replit.md
+attached_assets/
+build.sh
+/package.json
+/package-lock.json
+
+# Videos (too large for git)
+*.mp4
+
+# Misc
+.claude/

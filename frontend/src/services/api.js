@@ -149,15 +149,6 @@ export const visitsAPI = {
   getCollections: (params) => api.get('/visits/collections/summary', { params }),
 };
 
-// Invoices API
-export const invoicesAPI = {
-  getAll: (params) => api.get('/invoices/', { params }),
-  create: (data) => api.post('/invoices/', data),
-  getById: (id) => api.get(`/invoices/${id}`),
-  update: (id, data) => api.put(`/invoices/${id}`, data),
-  getStats: (params) => api.get('/invoices/stats/summary', { params }),
-};
-
 // Clinic API
 export const clinicAPI = {
   getInfo: () => api.get('/clinic/'),

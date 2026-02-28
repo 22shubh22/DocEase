@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import useAuthStore from './store/authStore';
+import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import DashboardLayout from './components/layout/DashboardLayout';
 import Dashboard from './pages/Dashboard';
@@ -11,7 +12,6 @@ import OPDQueue from './pages/opd/OPDQueue';
 import VisitForm from './pages/visits/VisitForm';
 import VisitDetails from './pages/visits/VisitDetails';
 import DoctorVisitsList from './pages/visits/DoctorVisitsList';
-import Billing from './pages/billing/Billing';
 import Settings from './pages/Settings';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ClinicManagement from './pages/admin/ClinicManagement';
@@ -40,6 +40,10 @@ function App() {
       <Toaster position="top-right" />
       <Routes>
       <Route
+        path="/landing"
+        element={isAuthenticated ? <Navigate to="/" /> : <LandingPage />}
+      />
+      <Route
         path="/login"
         element={isAuthenticated ? <Navigate to="/" /> : <Login />}
       />
@@ -47,9 +51,13 @@ function App() {
       <Route
         path="/"
         element={
-          <ProtectedRoute>
-            <DashboardLayout />
-          </ProtectedRoute>
+          isAuthenticated ? (
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          ) : (
+            <Navigate to="/landing" />
+          )
         }
       >
         <Route index element={<Dashboard />} />
@@ -68,10 +76,6 @@ function App() {
         <Route path="visits/new" element={<VisitForm />} />
         <Route path="visits/:id" element={<VisitDetails />} />
         <Route path="visits/:id/edit" element={<VisitForm />} />
-
-        {/* Billing */}
-        <Route path="billing" element={<Billing />} />
-        <Route path="billing/new" element={<Billing />} />
 
         {/* Reports */}
         <Route path="reports/collections" element={<CollectionReport />} />

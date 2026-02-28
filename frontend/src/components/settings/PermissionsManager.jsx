@@ -28,15 +28,6 @@ const PERMISSION_GROUPS = [
     ],
   },
   {
-    title: 'Billing',
-    permissions: [
-      { key: 'can_view_invoices', label: 'View invoices' },
-      { key: 'can_create_invoices', label: 'Create invoices' },
-      { key: 'can_edit_invoices', label: 'Edit invoices' },
-      { key: 'can_view_collections', label: 'View collections' },
-    ],
-  },
-  {
     title: 'Settings',
     permissions: [
       { key: 'can_manage_clinic_options', label: 'Manage clinic options' },
@@ -142,10 +133,6 @@ export default function PermissionsManager() {
         can_view_visits: true,
         can_create_visits: true,
         can_edit_visits: true,
-        can_view_invoices: true,
-        can_create_invoices: true,
-        can_edit_invoices: true,
-        can_view_collections: true,
         can_manage_clinic_options: true,
         can_edit_print_settings: true,
       } : {
@@ -158,10 +145,6 @@ export default function PermissionsManager() {
         can_view_visits: true,
         can_create_visits: false,
         can_edit_visits: false,
-        can_view_invoices: true,
-        can_create_invoices: true,
-        can_edit_invoices: true,
-        can_view_collections: true,
         can_manage_clinic_options: false,
         can_edit_print_settings: false,
       };

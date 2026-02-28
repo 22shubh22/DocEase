@@ -1,0 +1,111 @@
+"""
+General physician clinic fixture data for auto-populating new clinics.
+"""
+
+GENERAL_CHIEF_COMPLAINTS = [
+    {"name": "Fever", "description": "Elevated body temperature", "display_order": 1},
+    {"name": "Cold / Cough", "description": "Upper respiratory symptoms", "display_order": 2},
+    {"name": "Headache", "description": "Pain in head region", "display_order": 3},
+    {"name": "Body Pain", "description": "Generalized body aches", "display_order": 4},
+    {"name": "Sore Throat", "description": "Pain or irritation in throat", "display_order": 5},
+    {"name": "Stomach Pain", "description": "Abdominal discomfort or pain", "display_order": 6},
+    {"name": "Vomiting / Nausea", "description": "Feeling of nausea or vomiting", "display_order": 7},
+    {"name": "Diarrhea", "description": "Loose or watery stools", "display_order": 8},
+    {"name": "Weakness / Fatigue", "description": "Generalized weakness", "display_order": 9},
+    {"name": "Back Pain", "description": "Pain in the back region", "display_order": 10},
+    {"name": "Joint Pain", "description": "Pain in one or more joints", "display_order": 11},
+    {"name": "Chest Pain", "description": "Pain or discomfort in chest", "display_order": 12},
+    {"name": "Breathlessness", "description": "Difficulty breathing", "display_order": 13},
+    {"name": "Dizziness", "description": "Lightheadedness or vertigo", "display_order": 14},
+    {"name": "Skin Rash", "description": "Rash or skin irritation", "display_order": 15},
+    {"name": "Urinary Problems", "description": "Burning urination, frequency", "display_order": 16},
+    {"name": "Diabetes Follow-up", "description": "Routine diabetes check", "display_order": 17},
+    {"name": "Hypertension Follow-up", "description": "Blood pressure management", "display_order": 18},
+    {"name": "Routine Checkup", "description": "General health examination", "display_order": 19},
+    {"name": "Follow-up Visit", "description": "Follow-up after previous treatment", "display_order": 20},
+]
+
+GENERAL_DIAGNOSES = [
+    {"name": "Upper Respiratory Infection", "description": "Common cold / viral URI", "display_order": 1},
+    {"name": "Viral Fever", "description": "Fever due to viral infection", "display_order": 2},
+    {"name": "Acute Gastroenteritis", "description": "Stomach infection with vomiting/diarrhea", "display_order": 3},
+    {"name": "Urinary Tract Infection", "description": "Bacterial infection of urinary tract", "display_order": 4},
+    {"name": "Hypertension", "description": "High blood pressure", "display_order": 5},
+    {"name": "Type 2 Diabetes Mellitus", "description": "Diabetes management", "display_order": 6},
+    {"name": "Acute Pharyngitis", "description": "Throat infection", "display_order": 7},
+    {"name": "Acute Bronchitis", "description": "Inflammation of bronchial tubes", "display_order": 8},
+    {"name": "Allergic Rhinitis", "description": "Nasal allergy", "display_order": 9},
+    {"name": "Migraine", "description": "Recurrent headache disorder", "display_order": 10},
+    {"name": "Acid Reflux / GERD", "description": "Gastroesophageal reflux disease", "display_order": 11},
+    {"name": "Anemia", "description": "Low hemoglobin levels", "display_order": 12},
+    {"name": "Hypothyroidism", "description": "Underactive thyroid", "display_order": 13},
+    {"name": "Musculoskeletal Pain", "description": "General muscle or joint pain", "display_order": 14},
+    {"name": "Vitamin D Deficiency", "description": "Low vitamin D levels", "display_order": 15},
+]
+
+GENERAL_OBSERVATIONS = [
+    {"name": "Patient appears well", "description": "No acute distress", "display_order": 1},
+    {"name": "Patient appears unwell", "description": "Signs of illness evident", "display_order": 2},
+    {"name": "Throat is congested", "description": "Pharyngeal inflammation noted", "display_order": 3},
+    {"name": "Lungs clear on auscultation", "description": "No abnormal breath sounds", "display_order": 4},
+    {"name": "Lungs - crackles/rhonchi noted", "description": "Abnormal breath sounds present", "display_order": 5},
+    {"name": "Abdomen soft, non-tender", "description": "Normal abdominal examination", "display_order": 6},
+    {"name": "Abdominal tenderness present", "description": "Pain on palpation", "display_order": 7},
+    {"name": "Blood pressure elevated", "description": "BP above normal range", "display_order": 8},
+    {"name": "Blood pressure within normal limits", "description": "BP in normal range", "display_order": 9},
+    {"name": "Heart sounds normal", "description": "No murmurs or abnormal sounds", "display_order": 10},
+    {"name": "Mild dehydration noted", "description": "Signs of fluid deficit", "display_order": 11},
+    {"name": "Lymph nodes palpable", "description": "Enlarged lymph nodes felt", "display_order": 12},
+    {"name": "No pedal edema", "description": "No swelling in lower extremities", "display_order": 13},
+    {"name": "Pallor noted", "description": "Pale appearance suggesting anemia", "display_order": 14},
+    {"name": "General examination unremarkable", "description": "No significant findings", "display_order": 15},
+]
+
+GENERAL_TEST_OPTIONS = [
+    {"name": "Complete Blood Count (CBC)", "description": "Full blood count with differential", "display_order": 1},
+    {"name": "Blood Sugar Fasting", "description": "Fasting blood glucose level", "display_order": 2},
+    {"name": "Blood Sugar PP", "description": "Post-prandial blood glucose", "display_order": 3},
+    {"name": "HbA1c", "description": "Glycated hemoglobin for diabetes monitoring", "display_order": 4},
+    {"name": "Lipid Profile", "description": "Cholesterol and triglyceride levels", "display_order": 5},
+    {"name": "Thyroid Function Test (TFT)", "description": "TSH, T3, T4 levels", "display_order": 6},
+    {"name": "Liver Function Test (LFT)", "description": "Liver enzyme and bilirubin levels", "display_order": 7},
+    {"name": "Kidney Function Test (KFT)", "description": "Creatinine, BUN, electrolytes", "display_order": 8},
+    {"name": "Urine Routine", "description": "Urinalysis for infection/abnormalities", "display_order": 9},
+    {"name": "Chest X-Ray", "description": "X-ray of chest/lungs", "display_order": 10},
+    {"name": "ECG", "description": "Electrocardiogram for heart assessment", "display_order": 11},
+    {"name": "Serum Vitamin D", "description": "Vitamin D level assessment", "display_order": 12},
+    {"name": "Serum Vitamin B12", "description": "Vitamin B12 level", "display_order": 13},
+    {"name": "Widal Test", "description": "Test for typhoid fever", "display_order": 14},
+    {"name": "Dengue NS1 / Serology", "description": "Test for dengue infection", "display_order": 15},
+]
+
+GENERAL_MEDICINES = [
+    {"name": "Tab Paracetamol 500mg", "description": "Pain and fever reliever", "display_order": 1},
+    {"name": "Tab Ibuprofen 400mg", "description": "Anti-inflammatory pain reliever", "display_order": 2},
+    {"name": "Tab Amoxicillin 500mg", "description": "Broad spectrum antibiotic", "display_order": 3},
+    {"name": "Tab Azithromycin 500mg", "description": "Macrolide antibiotic", "display_order": 4},
+    {"name": "Tab Cetirizine 10mg", "description": "Antihistamine for allergy", "display_order": 5},
+    {"name": "Tab Pantoprazole 40mg", "description": "Proton pump inhibitor for acidity", "display_order": 6},
+    {"name": "Tab Domperidone 10mg", "description": "Anti-nausea/vomiting", "display_order": 7},
+    {"name": "Tab Metformin 500mg", "description": "Oral hypoglycemic for diabetes", "display_order": 8},
+    {"name": "Tab Amlodipine 5mg", "description": "Calcium channel blocker for BP", "display_order": 9},
+    {"name": "Tab Montelukast 10mg", "description": "Leukotriene inhibitor for allergic rhinitis", "display_order": 10},
+    {"name": "Syp Ambroxol", "description": "Cough expectorant syrup", "display_order": 11},
+    {"name": "Tab ORS", "description": "Oral rehydration salts", "display_order": 12},
+    {"name": "Tab Calcium + Vitamin D3", "description": "Calcium supplement", "display_order": 13},
+    {"name": "Tab Iron + Folic Acid", "description": "Iron supplement for anemia", "display_order": 14},
+    {"name": "Tab Vitamin B Complex", "description": "B vitamin supplement", "display_order": 15},
+]
+
+GENERAL_SYMPTOMS = [
+    {"name": "Fever", "description": "Elevated body temperature", "display_order": 1},
+    {"name": "Cough", "description": "Dry or productive cough", "display_order": 2},
+    {"name": "Runny Nose", "description": "Nasal discharge", "display_order": 3},
+    {"name": "Headache", "description": "Pain in head", "display_order": 4},
+    {"name": "Body Aches", "description": "Generalized myalgia", "display_order": 5},
+    {"name": "Fatigue", "description": "Tiredness/exhaustion", "display_order": 6},
+    {"name": "Nausea", "description": "Feeling of sickness", "display_order": 7},
+    {"name": "Vomiting", "description": "Forceful expulsion of stomach contents", "display_order": 8},
+    {"name": "Loose Stools", "description": "Watery or loose bowel movements", "display_order": 9},
+    {"name": "Loss of Appetite", "description": "Reduced desire to eat", "display_order": 10},
+]

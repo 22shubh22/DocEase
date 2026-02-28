@@ -81,16 +81,13 @@ def require_clinic_owner(
 # Default permissions for each role
 DEFAULT_ASSISTANT_PERMISSIONS = [
     'can_view_patients', 'can_create_patients', 'can_edit_patients',
-    'can_view_opd', 'can_manage_opd', 'can_view_visits',
-    'can_view_invoices', 'can_create_invoices', 'can_edit_invoices',
-    'can_view_collections'
+    'can_view_opd', 'can_manage_opd', 'can_view_visits'
 ]
 
 DEFAULT_DOCTOR_PERMISSIONS = [
     'can_view_patients', 'can_create_patients', 'can_edit_patients', 'can_delete_patients',
     'can_view_opd', 'can_manage_opd',
     'can_view_visits', 'can_create_visits', 'can_edit_visits',
-    'can_view_invoices', 'can_create_invoices', 'can_edit_invoices', 'can_view_collections',
     'can_manage_clinic_options', 'can_edit_print_settings'
 ]
 

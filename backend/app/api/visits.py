@@ -18,7 +18,7 @@ async def get_collection_summary(
     end_date: Optional[date] = Query(None, description="End date for collection period (defaults to today)"),
     group_by: Literal["day", "month"] = Query("day", description="Group collections by day or month"),
     doctor_id: Optional[str] = Query(None, description="Filter by specific doctor ID"),
-    current_user: User = Depends(require_permission("can_view_collections")),
+    current_user: User = Depends(require_permission("can_view_visits")),
     db: Session = Depends(get_db)
 ):
     """
