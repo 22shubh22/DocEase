@@ -20,8 +20,11 @@ logger.info(f"Starting DocEase API with DATABASE_URL: {mask_database_url(setting
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: create tables
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables created, connection pool initialized")
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables created, connection pool initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
     yield
     # Shutdown: dispose all connections
     engine.dispose()
