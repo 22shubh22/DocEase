@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [stats, setStats] = useState({ total_clinics: 0, total_doctors: 0, total_patients: 0 });
+  const [stats, setStats] = useState({ total_clinics: 0, total_doctors: 0, total_patients: 0, pending_onboarding_requests: 0 });
   const [clinics, setClinics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddClinic, setShowAddClinic] = useState(false);
@@ -74,7 +74,7 @@ export default function AdminDashboard() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
           <div className="flex items-center">
             <div className="p-3 bg-blue-100 rounded-lg">
@@ -121,6 +121,28 @@ export default function AdminDashboard() {
             <div className="ml-4">
               <p className="text-sm text-gray-500">Total Patients</p>
               <p className="text-2xl font-bold text-gray-800">{stats.total_patients}</p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => navigate('/admin/onboarding')}
+        >
+          <div className="flex items-center">
+            <div className="p-3 bg-yellow-100 rounded-lg">
+              <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm text-gray-500">Pending Requests</p>
+              <p className="text-2xl font-bold text-gray-800">{stats.pending_onboarding_requests}</p>
+            </div>
+            <div className="ml-auto">
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </div>
           </div>
         </div>

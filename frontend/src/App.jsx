@@ -16,6 +16,8 @@ import Settings from './pages/Settings';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ClinicManagement from './pages/admin/ClinicManagement';
 import DoctorList from './pages/admin/DoctorList';
+import OnboardingRequests from './pages/admin/OnboardingRequests';
+import OnboardingRequest from './pages/OnboardingRequest';
 import CollectionReport from './pages/reports/CollectionReport';
 
 function ProtectedRoute({ children }) {
@@ -46,6 +48,10 @@ function App() {
       <Route
         path="/login"
         element={isAuthenticated ? <Navigate to="/" /> : <Login />}
+      />
+      <Route
+        path="/onboard"
+        element={isAuthenticated ? <Navigate to="/" /> : <OnboardingRequest />}
       />
 
       <Route
@@ -91,6 +97,7 @@ function App() {
         {/* Admin Routes */}
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="admin/doctors" element={<AdminRoute><DoctorList /></AdminRoute>} />
+        <Route path="admin/onboarding" element={<AdminRoute><OnboardingRequests /></AdminRoute>} />
         <Route path="admin/clinics/:clinicId" element={<AdminRoute><ClinicManagement /></AdminRoute>} />
       </Route>
     </Routes>
