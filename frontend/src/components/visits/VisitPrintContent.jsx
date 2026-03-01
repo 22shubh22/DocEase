@@ -11,7 +11,9 @@ const VisitPrintContent = forwardRef(({
   medicines,
   prescriptionNotes,
   printSettings,
-  doctor
+  doctor,
+  visitDate,
+  visitNumber
 }, ref) => {
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
@@ -27,6 +29,8 @@ const VisitPrintContent = forwardRef(({
     month: 'short',
     year: 'numeric'
   });
+
+  const displayDate = visitDate ? formatDate(visitDate) : today;
 
   const hasVitals = vitals && Object.values(vitals).some(v => v);
   const hasMedicines = medicines && medicines.length > 0;
@@ -49,11 +53,12 @@ const VisitPrintContent = forwardRef(({
         </h2>
         <div className="flex flex-wrap gap-x-4 text-sm text-gray-700 mt-1">
           <span>ID: {patient?.patient_code || '-'}</span>
+          {visitNumber && <span>Visit #: {visitNumber}</span>}
           <span>Age: {patient?.age || '-'} yrs</span>
           <span>Gender: {patient?.gender || '-'}</span>
           {patient?.blood_group && <span>Blood Group: {patient.blood_group}</span>}
         </div>
-        <div className="text-sm text-gray-600 mt-1">Date: {today}</div>
+        <div className="text-sm text-gray-600 mt-1">Date: {displayDate}</div>
       </div>
 
       {/* Allergies Warning */}

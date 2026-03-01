@@ -304,8 +304,8 @@ export default function PatientDetails() {
                   {/* Header - diagnosis, symptoms, date */}
                   <div className="flex justify-between items-start mb-3">
                     <div>
-                      <h3 className="font-semibold text-gray-900">{visit.diagnosis || 'No diagnosis'}</h3>
-                      <p className="text-sm text-gray-600">{visit.symptoms || 'No symptoms recorded'}</p>
+                      <h3 className="font-semibold text-gray-900">{Array.isArray(visit.diagnosis) ? visit.diagnosis.join(', ') : visit.diagnosis || 'No diagnosis'}</h3>
+                      <p className="text-sm text-gray-600">{Array.isArray(visit.symptoms) ? visit.symptoms.join(', ') : visit.symptoms || 'No symptoms recorded'}</p>
                     </div>
                     <span className="text-sm text-gray-500">{formatDateTime(visit.visit_date)}</span>
                   </div>
