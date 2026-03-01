@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { usersAPI, permissionsAPI } from '../../services/api';
+import { validatePhone } from '../../utils/phoneValidation';
 
 export default function SubUserManager() {
   const [users, setUsers] = useState([]);
@@ -11,6 +12,7 @@ export default function SubUserManager() {
   const [createdUser, setCreatedUser] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const [phoneError, setPhoneError] = useState('');
 
   const [formData, setFormData] = useState({
     email: '',
@@ -71,6 +73,7 @@ export default function SubUserManager() {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === 'phone') setPhoneError('');
   };
 
   const handleCreateUser = async (e) => {
@@ -80,6 +83,13 @@ export default function SubUserManager() {
       toast.error('Please fill in all required fields');
       return;
     }
+
+    const phoneResult = validatePhone(formData.phone, false);
+    if (phoneResult !== true) {
+      setPhoneError(phoneResult);
+      return;
+    }
+    setPhoneError('');
 
     try {
       setSaving(true);
@@ -315,6 +325,9 @@ export default function SubUserManager() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter phone number"
                   />
+                  {phoneError && (
+                    <p className="text-red-500 text-xs mt-1">{phoneError}</p>
+                  )}
                 </div>
 
                 <div>

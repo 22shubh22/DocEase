@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { patientsAPI } from '../../services/api';
+import { validatePhoneRequired, validatePhoneOptional } from '../../utils/phoneValidation';
 
 export default function PatientForm() {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ export default function PatientForm() {
             phone: patient.phone,
             emergencyContact: patient.emergency_contact,
             address: patient.address,
-            allergies: patient.allergies,
+            allergies: Array.isArray(patient.allergies) ? patient.allergies.join(', ') : (patient.allergies || ''),
             medicalHistory: patient.medical_history,
             patientSince: patient.created_at ? patient.created_at.split('T')[0] : '',
           });
@@ -189,11 +190,7 @@ export default function PatientForm() {
                 className="input"
                 placeholder="+91 1234567890"
                 {...register('phone', {
-                  required: 'Phone number is required',
-                  pattern: {
-                    value: /^[+]?[\d\s-()]+$/,
-                    message: 'Invalid phone number'
-                  }
+                  validate: validatePhoneRequired
                 })}
               />
               {errors.phone && (
@@ -207,8 +204,13 @@ export default function PatientForm() {
                 type="tel"
                 className="input"
                 placeholder="+91 1234567890"
-                {...register('emergencyContact')}
+                {...register('emergencyContact', {
+                  validate: validatePhoneOptional
+                })}
               />
+              {errors.emergencyContact && (
+                <p className="text-red-500 text-sm mt-1">{errors.emergencyContact.message}</p>
+              )}
             </div>
 
             <div className="md:col-span-2">

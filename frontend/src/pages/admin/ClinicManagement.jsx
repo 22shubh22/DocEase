@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { adminAPI } from '../../services/api';
+import { validatePhone } from '../../utils/phoneValidation';
 
 export default function ClinicManagement() {
   const { clinicId } = useParams();
@@ -25,6 +26,7 @@ export default function ClinicManagement() {
     full_name: '',
     phone: ''
   });
+  const [phoneErrors, setPhoneErrors] = useState({});
   const [showEditClinic, setShowEditClinic] = useState(false);
   const [editClinic, setEditClinic] = useState({
     name: '',
@@ -56,6 +58,12 @@ export default function ClinicManagement() {
 
   const handleAddDoctor = async (e) => {
     e.preventDefault();
+    const phoneResult = validatePhone(newDoctor.phone, false);
+    if (phoneResult !== true) {
+      setPhoneErrors(prev => ({ ...prev, newDoctor: phoneResult }));
+      return;
+    }
+    setPhoneErrors(prev => ({ ...prev, newDoctor: '' }));
     try {
       await adminAPI.addDoctor(clinicId, newDoctor);
       setNewDoctor({ email: '', password: '', full_name: '', phone: '', role: 'DOCTOR' });
@@ -88,6 +96,12 @@ export default function ClinicManagement() {
 
   const handleUpdateDoctor = async (e) => {
     e.preventDefault();
+    const phoneResult = validatePhone(editDoctor.phone, false);
+    if (phoneResult !== true) {
+      setPhoneErrors(prev => ({ ...prev, editDoctor: phoneResult }));
+      return;
+    }
+    setPhoneErrors(prev => ({ ...prev, editDoctor: '' }));
     try {
       const updateData = {
         email: editDoctor.email,
@@ -156,6 +170,12 @@ export default function ClinicManagement() {
 
   const handleUpdateClinic = async (e) => {
     e.preventDefault();
+    const phoneResult = validatePhone(editClinic.phone, false);
+    if (phoneResult !== true) {
+      setPhoneErrors(prev => ({ ...prev, editClinic: phoneResult }));
+      return;
+    }
+    setPhoneErrors(prev => ({ ...prev, editClinic: '' }));
     try {
       await adminAPI.updateClinic(clinicId, editClinic);
       setShowEditClinic(false);
@@ -344,9 +364,15 @@ export default function ClinicManagement() {
                   <input
                     type="text"
                     value={newDoctor.phone}
-                    onChange={(e) => setNewDoctor({ ...newDoctor, phone: e.target.value })}
+                    onChange={(e) => {
+                      setNewDoctor({ ...newDoctor, phone: e.target.value });
+                      setPhoneErrors(prev => ({ ...prev, newDoctor: '' }));
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
+                  {phoneErrors.newDoctor && (
+                    <p className="text-red-500 text-xs mt-1">{phoneErrors.newDoctor}</p>
+                  )}
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
@@ -471,9 +497,15 @@ export default function ClinicManagement() {
                   <input
                     type="text"
                     value={editDoctor.phone}
-                    onChange={(e) => setEditDoctor({ ...editDoctor, phone: e.target.value })}
+                    onChange={(e) => {
+                      setEditDoctor({ ...editDoctor, phone: e.target.value });
+                      setPhoneErrors(prev => ({ ...prev, editDoctor: '' }));
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
+                  {phoneErrors.editDoctor && (
+                    <p className="text-red-500 text-xs mt-1">{phoneErrors.editDoctor}</p>
+                  )}
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
@@ -529,9 +561,15 @@ export default function ClinicManagement() {
                   <input
                     type="text"
                     value={editClinic.phone}
-                    onChange={(e) => setEditClinic({ ...editClinic, phone: e.target.value })}
+                    onChange={(e) => {
+                      setEditClinic({ ...editClinic, phone: e.target.value });
+                      setPhoneErrors(prev => ({ ...prev, editClinic: '' }));
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
+                  {phoneErrors.editClinic && (
+                    <p className="text-red-500 text-xs mt-1">{phoneErrors.editClinic}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
