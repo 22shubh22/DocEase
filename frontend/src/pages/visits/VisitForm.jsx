@@ -8,6 +8,20 @@ import PrescriptionEditor from '../../components/prescriptions/PrescriptionEdito
 import PatientHistoryPanel from '../../components/patients/PatientHistoryPanel';
 import VisitPreviewModal from '../../components/visits/VisitPreviewModal';
 
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return 'N/A';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  }) + ', ' + date.toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
 export default function VisitForm() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -563,7 +577,7 @@ export default function VisitForm() {
         </h1>
         <p className="text-gray-600 mt-1">
           {existingVisit
-            ? `Updating Visit #${existingVisit.visit_number} from ${existingVisit.visit_date}`
+            ? `Updating Visit #${existingVisit.visit_number} from ${formatDateTime(existingVisit.visit_date)}`
             : 'Document patient consultation and vitals'}
         </p>
       </div>
