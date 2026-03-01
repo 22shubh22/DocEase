@@ -73,14 +73,78 @@ export default function PrescriptionEditor({ medicines, setMedicines, notes, set
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto">
+          {/* Mobile: stacked card layout */}
+          <div className="md:hidden space-y-3">
+            {medicines.map((med, index) => (
+              <div key={med.id} className="border rounded-lg p-3 bg-gray-50 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">Medicine #{index + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeMedicine(med.id)}
+                    className="text-red-500 hover:text-red-700 font-bold text-lg"
+                    title="Remove medicine"
+                  >
+                    ×
+                  </button>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Medicine Name *</label>
+                  <input
+                    type="text"
+                    className="input text-sm"
+                    placeholder="Select or type medicine..."
+                    list={`medicine-list-m-${med.id}`}
+                    value={med.medicine_name}
+                    onChange={(e) => updateMedicine(med.id, 'medicine_name', e.target.value)}
+                  />
+                  <datalist id={`medicine-list-m-${med.id}`}>
+                    {medicineOptions.map(opt => (
+                      <option key={opt.id} value={opt.name} />
+                    ))}
+                  </datalist>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-500">Dosage *</label>
+                    <select
+                      className="input text-sm"
+                      value={med.dosage}
+                      onChange={(e) => updateMedicine(med.id, 'dosage', e.target.value)}
+                    >
+                      <option value="">Select...</option>
+                      {dosageOptions.map(opt => (
+                        <option key={opt.id} value={opt.name}>{opt.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">Duration *</label>
+                    <select
+                      className="input text-sm"
+                      value={med.duration}
+                      onChange={(e) => updateMedicine(med.id, 'duration', e.target.value)}
+                    >
+                      <option value="">Select...</option>
+                      {durationOptions.map(opt => (
+                        <option key={opt.id} value={opt.name}>{opt.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: table layout */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b">
                   <th className="text-left p-2 font-medium text-gray-700">#</th>
-                  <th className="text-left p-2 font-medium text-gray-700 min-w-[200px]">Medicine Name *</th>
-                  <th className="text-left p-2 font-medium text-gray-700 min-w-[150px]">Dosage *</th>
-                  <th className="text-left p-2 font-medium text-gray-700 min-w-[150px]">Duration *</th>
+                  <th className="text-left p-2 font-medium text-gray-700">Medicine Name *</th>
+                  <th className="text-left p-2 font-medium text-gray-700">Dosage *</th>
+                  <th className="text-left p-2 font-medium text-gray-700">Duration *</th>
                   <th className="p-2 w-10"></th>
                 </tr>
               </thead>

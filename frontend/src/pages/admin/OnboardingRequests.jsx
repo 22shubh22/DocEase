@@ -188,41 +188,42 @@ export default function OnboardingRequests() {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Doctor</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clinic</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Doctor</th>
+                    <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clinic</th>
+                    <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {requests.map((req) => (
                     <tr key={req.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                          <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
                             <span className="text-purple-600 font-medium">{req.doctor_name?.charAt(0) || 'D'}</span>
                           </div>
-                          <div className="ml-4">
+                          <div className="ml-3 sm:ml-4">
                             <p className="text-sm font-medium text-gray-900">{req.doctor_name}</p>
                             <p className="text-sm text-gray-500">{req.doctor_email}</p>
+                            <p className="text-xs text-gray-400 sm:hidden">{req.clinic_name}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
                         <p className="text-sm text-gray-900">{req.clinic_name}</p>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-gray-600">
                           {new Date(req.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${STATUS_STYLES[req.status] || 'bg-gray-100 text-gray-700'}`}>
                           {req.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">
                         <button
                           onClick={() => openDetail(req.id)}
                           className="text-blue-600 hover:text-blue-800 font-medium"
@@ -375,7 +376,7 @@ export default function OnboardingRequests() {
                   {/* Contact Info */}
                   <div>
                     <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wider">Contact Information</h4>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <DetailField label="Doctor Name" value={selectedRequest.doctor_name} />
                       <DetailField label="Email" value={selectedRequest.doctor_email} />
                       <DetailField label="Phone" value={selectedRequest.doctor_phone} />

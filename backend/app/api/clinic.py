@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user, get_current_doctor
-from app.models.models import User, Clinic, Doctor
+from app.models.models import User, Clinic, Doctor, RoleEnum
 from app.schemas.schemas import ClinicUpdate, DoctorUpdate
 
 router = APIRouter()
@@ -12,11 +12,15 @@ def clinic_to_dict(clinic):
     """Convert a Clinic model to a dictionary"""
     return {
         "id": clinic.id,
+        "clinic_code": clinic.clinic_code,
         "name": clinic.name,
         "address": clinic.address,
         "phone": clinic.phone,
         "email": clinic.email,
         "logo_url": clinic.logo_url,
+        "opd_start_time": clinic.opd_start_time,
+        "opd_end_time": clinic.opd_end_time,
+        "specialty": clinic.specialty.value if clinic.specialty else None,
         "owner_doctor_id": clinic.owner_doctor_id,
         "created_at": clinic.created_at.isoformat() if clinic.created_at else None,
         "updated_at": clinic.updated_at.isoformat() if clinic.updated_at else None,
@@ -50,7 +54,7 @@ async def get_clinic_info(
         raise HTTPException(status_code=404, detail="Clinic not found")
 
     is_owner = False
-    if current_user.role.value == "DOCTOR":
+    if current_user.role == RoleEnum.DOCTOR:
         doctor = db.query(Doctor).filter(Doctor.user_id == current_user.id).first()
         if doctor and clinic.owner_doctor_id == doctor.id:
             is_owner = True

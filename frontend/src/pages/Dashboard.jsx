@@ -83,19 +83,22 @@ export default function Dashboard() {
           <table className="min-w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patient Code</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Age/Gender</th>
+                <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patient Code</th>
+                <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Age/Gender</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {patientsData?.patients?.map((patient) => (
                 <tr key={patient.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{patient.patient_code || patient.patientCode}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{patient.full_name || patient.fullName}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{patient.phone}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{patient.age} / {patient.gender}</td>
+                  <td className="px-3 sm:px-4 py-3 text-sm font-medium text-gray-900">{patient.patient_code || patient.patientCode}</td>
+                  <td className="px-3 sm:px-4 py-3 text-sm text-gray-900">
+                    <div>{patient.full_name || patient.fullName}</div>
+                    <div className="text-xs text-gray-500 sm:hidden">{patient.age} / {patient.gender}</div>
+                  </td>
+                  <td className="hidden md:table-cell px-4 py-3 text-sm text-gray-600">{patient.phone}</td>
+                  <td className="hidden sm:table-cell px-4 py-3 text-sm text-gray-600">{patient.age} / {patient.gender}</td>
                 </tr>
               ))}
             </tbody>
