@@ -1,8 +1,25 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional, List
 from datetime import datetime, date
 from decimal import Decimal
+import re
 from app.models.models import RoleEnum, GenderEnum, AppointmentStatusEnum, ClinicSpecialtyEnum, OnboardingRequestStatusEnum
+
+
+def validate_phone_number(phone: str, field_name: str = "Phone number") -> str:
+    """Validates Indian phone numbers: strips +91 prefix and formatting, checks for exactly 10 digits."""
+    if not phone or phone.strip() == '':
+        return phone
+    if not re.match(r'^[+\d\s\-()]+$', phone):
+        raise ValueError(f'{field_name} can only contain digits, +, spaces, hyphens, and parentheses')
+    cleaned = re.sub(r'[\s\-()]', '', phone)
+    if cleaned.startswith('+91'):
+        cleaned = cleaned[3:]
+    elif cleaned.startswith('91') and len(cleaned) > 10:
+        cleaned = cleaned[2:]
+    if not re.match(r'^\d{10}$', cleaned):
+        raise ValueError(f'{field_name} must be exactly 10 digits')
+    return cleaned
 
 
 # Auth Schemas
@@ -32,6 +49,13 @@ class UserBase(BaseModel):
     phone: Optional[str] = None
     role: RoleEnum
 
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v):
+        if v is None or v.strip() == '':
+            return v
+        return validate_phone_number(v, 'Phone number')
+
 
 class UserCreate(UserBase):
     password: str
@@ -41,6 +65,13 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     phone: Optional[str] = None
     is_active: Optional[bool] = None
+
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v):
+        if v is None or v.strip() == '':
+            return v
+        return validate_phone_number(v, 'Phone number')
 
 
 class UserResponse(UserBase):
@@ -73,6 +104,13 @@ class UserUpdateByAdmin(BaseModel):
     password: Optional[str] = None
     is_active: Optional[bool] = None
 
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v):
+        if v is None or v.strip() == '':
+            return v
+        return validate_phone_number(v, 'Phone number')
+
 
 # Clinic Schemas
 class ClinicBase(BaseModel):
@@ -82,6 +120,13 @@ class ClinicBase(BaseModel):
     email: Optional[str] = None
     opd_start_time: Optional[str] = None
     opd_end_time: Optional[str] = None
+
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v):
+        if v is None or v.strip() == '':
+            return v
+        return validate_phone_number(v, 'Clinic phone')
 
 
 class ClinicUpdate(ClinicBase):
@@ -132,6 +177,18 @@ class PatientBase(BaseModel):
     blood_group: Optional[str] = None
     allergies: Optional[List[str]] = []
     medical_history: Optional[dict] = None
+
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v):
+        return validate_phone_number(v, 'Phone number')
+
+    @field_validator('emergency_contact')
+    @classmethod
+    def validate_emergency_contact(cls, v):
+        if v is None or v.strip() == '':
+            return v
+        return validate_phone_number(v, 'Emergency contact')
 
 
 class PatientCreate(PatientBase):
@@ -255,6 +312,13 @@ class ClinicCreate(BaseModel):
     opd_start_time: Optional[str] = None
     opd_end_time: Optional[str] = None
     specialty: Optional[ClinicSpecialtyEnum] = ClinicSpecialtyEnum.DENTAL
+
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v):
+        if v is None or v.strip() == '':
+            return v
+        return validate_phone_number(v, 'Clinic phone')
 
 
 class DoctorWithUser(DoctorResponse):
@@ -598,6 +662,13 @@ class SubUserCreate(BaseModel):
     qualification: Optional[str] = None
     registration_number: Optional[str] = None
 
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v):
+        if v is None or v.strip() == '':
+            return v
+        return validate_phone_number(v, 'Phone number')
+
 
 class SubUserResponse(BaseModel):
     id: str
@@ -625,6 +696,11 @@ class OnboardingRequestCreate(BaseModel):
     doctor_email: EmailStr
     doctor_phone: str
     clinic_name: str
+
+    @field_validator('doctor_phone')
+    @classmethod
+    def validate_doctor_phone(cls, v):
+        return validate_phone_number(v, 'Phone number')
 
 
 class OnboardingRequestResponse(BaseModel):

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
 import { onboardingAPI } from '../services/api';
+import { validatePhoneRequired } from '../utils/phoneValidation';
 
 export default function OnboardingRequest() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -101,7 +102,9 @@ export default function OnboardingRequest() {
               type="tel"
               className="input"
               placeholder="+91 9876543210"
-              {...register('doctor_phone', { required: 'Phone number is required' })}
+              {...register('doctor_phone', {
+                validate: validatePhoneRequired
+              })}
             />
             {errors.doctor_phone && <p className="text-red-500 text-sm mt-1">{errors.doctor_phone.message}</p>}
           </div>
