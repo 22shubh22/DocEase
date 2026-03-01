@@ -22,6 +22,50 @@ def validate_phone_number(phone: str, field_name: str = "Phone number") -> str:
     return cleaned
 
 
+def validate_vitals_dict(vitals: dict) -> dict:
+    """Validates vital signs dictionary values are within reasonable medical ranges."""
+    if not vitals:
+        return vitals
+
+    bp = vitals.get('blood_pressure')
+    if bp and isinstance(bp, str) and bp.strip():
+        bp = bp.strip()
+        if not re.match(r'^\d{2,3}/\d{2,3}$', bp):
+            raise ValueError('Blood pressure must be in format like 120/80')
+        systolic, diastolic = map(int, bp.split('/'))
+        if not (50 <= systolic <= 300):
+            raise ValueError('Systolic BP must be between 50 and 300')
+        if not (20 <= diastolic <= 200):
+            raise ValueError('Diastolic BP must be between 20 and 200')
+
+    temp = vitals.get('temperature')
+    if temp is not None and str(temp).strip():
+        try:
+            temp_val = float(temp)
+        except (ValueError, TypeError):
+            raise ValueError('Temperature must be a valid number')
+        if not (90 <= temp_val <= 110):
+            raise ValueError('Temperature must be between 90 and 110 °F')
+
+    numeric_ranges = {
+        'pulse': (20, 300, 'bpm'),
+        'weight': (0.5, 500, 'kg'),
+        'height': (10, 300, 'cm'),
+        'spo2': (0, 100, '%'),
+    }
+    for field, (lo, hi, unit) in numeric_ranges.items():
+        val = vitals.get(field)
+        if val is not None and str(val).strip():
+            try:
+                num = float(val)
+            except (ValueError, TypeError):
+                raise ValueError(f'{field.capitalize()} must be a valid number')
+            if not (lo <= num <= hi):
+                raise ValueError(f'{field.capitalize()} must be between {lo} and {hi} {unit}')
+
+    return vitals
+
+
 # Auth Schemas
 class Token(BaseModel):
     access_token: str
@@ -40,6 +84,10 @@ class LoginRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
+
+
+class GuestCleanupRequest(BaseModel):
+    user_id: str
 
 
 # User Schemas
@@ -262,6 +310,13 @@ class VisitBase(BaseModel):
     prescription_notes: Optional[str] = None
     amount: Optional[Decimal] = None
 
+    @field_validator('vitals')
+    @classmethod
+    def validate_vitals(cls, v):
+        if v is None:
+            return v
+        return validate_vitals_dict(v)
+
 
 class VisitCreate(VisitBase):
     doctor_id: Optional[str] = None
@@ -278,6 +333,13 @@ class VisitUpdate(BaseModel):
     prescription_notes: Optional[str] = None
     medicines: Optional[List[VisitMedicineCreate]] = None
     amount: Optional[Decimal] = None
+
+    @field_validator('vitals')
+    @classmethod
+    def validate_vitals(cls, v):
+        if v is None:
+            return v
+        return validate_vitals_dict(v)
 
 
 class VisitMedicineResponse(BaseModel):

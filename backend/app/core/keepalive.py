@@ -29,16 +29,18 @@ async def db_keep_alive() -> None:
     )
 
     while True:
+        # Run cleanup first, then sleep — ensures it runs immediately on startup
+        # and after every Railway restart (before the first interval elapses)
+        try:
+            await asyncio.get_event_loop().run_in_executor(None, _ping_and_cleanup)
+        except Exception:
+            logger.exception("Keep-alive ping failed")
+
         try:
             await asyncio.sleep(interval_seconds)
         except asyncio.CancelledError:
             logger.info("Database keep-alive task cancelled, shutting down")
             return
-
-        try:
-            await asyncio.get_event_loop().run_in_executor(None, _ping_and_cleanup)
-        except Exception:
-            logger.exception("Keep-alive ping failed")
 
 
 def _ping_and_cleanup() -> None:

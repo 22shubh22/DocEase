@@ -1,6 +1,4 @@
 import logging
-import time
-from collections import defaultdict
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -8,17 +6,12 @@ from app.core.database import get_db
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.core.deps import get_current_user
 from app.models.models import User
-from app.schemas.schemas import LoginRequest, Token, ChangePasswordRequest, UserResponse
+from app.schemas.schemas import LoginRequest, Token, ChangePasswordRequest, UserResponse, GuestCleanupRequest
 from app.services.guest_service import create_guest_session, cleanup_guest_session
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-# Simple in-memory rate limiter for guest endpoint
-_guest_requests: list[float] = []
-GUEST_RATE_LIMIT = 10  # max requests
-GUEST_RATE_WINDOW = 60  # per 60 seconds
 
 
 @router.post("/login", response_model=dict)
@@ -66,16 +59,6 @@ async def login(
 @router.post("/guest")
 async def guest_login(db: Session = Depends(get_db)):
     """Create a guest demo session with isolated clinic and pre-loaded data"""
-    # Rate limiting
-    now = time.time()
-    _guest_requests[:] = [t for t in _guest_requests if now - t < GUEST_RATE_WINDOW]
-    if len(_guest_requests) >= GUEST_RATE_LIMIT:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many guest sessions. Please try again later.",
-        )
-    _guest_requests.append(now)
-
     try:
         return create_guest_session(db)
     except Exception as e:
@@ -100,6 +83,21 @@ async def logout(
             logger.error(f"Failed to cleanup guest session: {e}")
 
     return {"message": "Logout successful"}
+
+
+@router.post("/guest-cleanup")
+async def guest_cleanup(
+    request: GuestCleanupRequest,
+    db: Session = Depends(get_db)
+):
+    """Unauthenticated cleanup for expired guest sessions.
+    Only deletes data for is_guest=True users. Called by the frontend
+    when a guest session expires (401) or the tab is closing."""
+    try:
+        cleanup_guest_session(db, request.user_id)
+    except Exception as e:
+        logger.error(f"Guest cleanup failed for user {request.user_id}: {e}")
+    return {"message": "OK"}
 
 
 @router.get("/me", response_model=dict)
