@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { parseISO, format } from 'date-fns';
 import { opdAPI, patientsAPI, chiefComplaintsAPI } from '../../services/api';
+import SearchablePatientSelect from '../../components/ui/SearchablePatientSelect';
 
 export default function OPDQueue() {
   const navigate = useNavigate();
@@ -286,19 +287,12 @@ export default function OPDQueue() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="label">Select Patient *</label>
-                <select
-                  className="input"
+                <SearchablePatientSelect
+                  patients={patients}
                   value={selectedPatient}
-                  onChange={(e) => setSelectedPatient(e.target.value)}
+                  onChange={setSelectedPatient}
                   required
-                >
-                  <option value="">Choose a patient...</option>
-                  {patients.map(patient => (
-                    <option key={patient.id} value={patient.id}>
-                      {patient.patient_code} - {patient.full_name}
-                    </option>
-                  ))}
-                </select>
+                />
                 {patients.length === 0 && (
                   <p className="text-sm text-gray-500 mt-2">
                     No patients found. <Link to="/patients/new" className="text-primary-600 underline">Create a patient</Link> first.
