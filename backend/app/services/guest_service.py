@@ -4,7 +4,7 @@ Each guest gets an isolated clinic with pre-loaded demo data.
 """
 
 import uuid
-from datetime import datetime, timedelta, timezone, date
+from datetime import datetime, timedelta, timezone, date, time
 from sqlalchemy.orm import Session
 
 from app.models.models import (
@@ -79,6 +79,152 @@ DEMO_PATIENTS = [
         "blood_group": "A-",
         "allergies": ["Peanuts"],
         "medical_history": {},
+    },
+]
+
+
+# Additional completed visits seeded for collection report demo data.
+# Ordered oldest-first so visit_number assignment is naturally sequential per patient.
+DEMO_HISTORICAL_VISITS = [
+    {
+        "patient_index": 4,  # Vikram Singh
+        "days_ago": 12,
+        "queue_number": 1,
+        "visit_time": time(10, 0),
+        "chief_complaints": ["BP check", "General weakness"],
+        "symptoms": ["General weakness", "Occasional dizziness"],
+        "diagnosis": ["Essential Hypertension", "Age-related weakness"],
+        "observations": ["BP controlled on medication", "Gait steady"],
+        "recommended_tests": ["CBC", "Thyroid Profile"],
+        "vitals": {
+            "bp_systolic": "134", "bp_diastolic": "82",
+            "temperature": "98.4", "pulse": "70",
+            "weight": "83", "spo2": "97",
+        },
+        "prescription_notes": "Continue current medications. Blood tests advised. Review after reports.",
+        "follow_up_days": 7,
+        "amount": 800,
+        "medicines": [
+            ("Telmisartan 40mg", "1 tablet morning", "30 days"),
+            ("Methylcobalamin 1500mcg", "1 tablet daily", "30 days"),
+            ("Multivitamin", "1 tablet daily", "30 days"),
+        ],
+    },
+    {
+        "patient_index": 5,  # Ananya Gupta
+        "days_ago": 8,
+        "queue_number": 1,
+        "visit_time": time(14, 30),
+        "chief_complaints": ["Cough", "Cold"],
+        "symptoms": ["Persistent cough", "Runny nose", "Low-grade fever"],
+        "diagnosis": ["Upper Respiratory Tract Infection"],
+        "observations": ["Chest clear", "Mild rhinorrhea", "No respiratory distress"],
+        "recommended_tests": [],
+        "vitals": {
+            "bp_systolic": "100", "bp_diastolic": "65",
+            "temperature": "99.8", "pulse": "96",
+            "weight": "24", "spo2": "98",
+        },
+        "prescription_notes": "Adequate rest and fluids. Keep child warm. Follow up if symptoms worsen.",
+        "follow_up_days": None,
+        "amount": 350,
+        "medicines": [
+            ("Cetirizine Syrup 5ml", "5ml at night", "5 days"),
+            ("Ambroxol Syrup", "5ml twice daily", "5 days"),
+        ],
+    },
+    {
+        "patient_index": 2,  # Amit Patel
+        "days_ago": 5,
+        "queue_number": 1,
+        "visit_time": time(9, 45),
+        "chief_complaints": ["Diabetes follow-up", "Increased thirst"],
+        "symptoms": ["Increased thirst", "Frequent urination", "Tingling in feet"],
+        "diagnosis": ["Type 2 Diabetes Mellitus - uncontrolled"],
+        "observations": ["Dry skin on feet", "Peripheral sensation reduced"],
+        "recommended_tests": ["HbA1c", "Fasting Blood Sugar", "Kidney Function Test"],
+        "vitals": {
+            "bp_systolic": "130", "bp_diastolic": "84",
+            "temperature": "98.2", "pulse": "82",
+            "weight": "75", "spo2": "97",
+        },
+        "prescription_notes": "Strict diet control advised. Monitor blood sugar daily. Insulin dose adjustment needed.",
+        "follow_up_days": 10,
+        "amount": 600,
+        "medicines": [
+            ("Metformin 500mg", "1 tablet twice daily", "30 days"),
+            ("Glimepiride 1mg", "1 tablet before breakfast", "30 days"),
+        ],
+    },
+    {
+        "patient_index": 1,  # Priya Sharma
+        "days_ago": 3,
+        "queue_number": 1,
+        "visit_time": time(11, 0),
+        "chief_complaints": ["Sore throat", "Runny nose"],
+        "symptoms": ["Sore throat", "Nasal congestion", "Sneezing"],
+        "diagnosis": ["Acute Pharyngitis"],
+        "observations": ["Pharynx congested", "No tonsillar enlargement"],
+        "recommended_tests": [],
+        "vitals": {
+            "bp_systolic": "118", "bp_diastolic": "76",
+            "temperature": "99.0", "pulse": "80",
+            "weight": "60", "spo2": "98",
+        },
+        "prescription_notes": "Warm saline gargles. Plenty of fluids. Rest for 2 days.",
+        "follow_up_days": None,
+        "amount": 400,
+        "medicines": [
+            ("Amoxicillin 500mg", "1 capsule thrice daily", "5 days"),
+            ("Chlorpheniramine 4mg", "1 tablet at night", "3 days"),
+        ],
+    },
+    {
+        "patient_index": 0,  # Rajesh Kumar
+        "days_ago": 0,  # today
+        "queue_number": 10,  # high to avoid conflict with WAITING queue 1-3
+        "visit_time": time(10, 30),
+        "chief_complaints": ["Blood pressure check", "Routine follow-up"],
+        "symptoms": ["Mild headache", "Fatigue"],
+        "diagnosis": ["Essential Hypertension"],
+        "observations": ["BP slightly elevated", "Advised lifestyle changes"],
+        "recommended_tests": ["Lipid Profile"],
+        "vitals": {
+            "bp_systolic": "145", "bp_diastolic": "92",
+            "temperature": "98.4", "pulse": "76",
+            "weight": "78", "spo2": "98",
+        },
+        "prescription_notes": "Continue Amlodipine. Reduce salt intake. Review in 2 weeks.",
+        "follow_up_days": 14,
+        "amount": 300,
+        "medicines": [
+            ("Amlodipine 5mg", "1 tablet morning", "30 days"),
+            ("Ecosprin 75mg", "1 tablet after lunch", "30 days"),
+        ],
+    },
+    {
+        "patient_index": 4,  # Vikram Singh (second visit)
+        "days_ago": 0,  # today
+        "queue_number": 11,
+        "visit_time": time(12, 15),
+        "chief_complaints": ["Knee pain", "Difficulty walking"],
+        "symptoms": ["Bilateral knee pain", "Morning stiffness", "Swelling in right knee"],
+        "diagnosis": ["Osteoarthritis - Knee"],
+        "observations": ["Crepitus in both knees", "Mild swelling right knee", "Limited range of motion"],
+        "recommended_tests": ["X-Ray Knee AP/Lateral"],
+        "vitals": {
+            "bp_systolic": "138", "bp_diastolic": "85",
+            "temperature": "98.6", "pulse": "72",
+            "weight": "82", "spo2": "97",
+        },
+        "prescription_notes": "Hot fomentation advised. Avoid stairs. Physiotherapy recommended.",
+        "follow_up_days": 7,
+        "amount": 700,
+        "medicines": [
+            ("Diclofenac 50mg", "1 tablet twice daily after food", "7 days"),
+            ("Pantoprazole 40mg", "1 tablet before breakfast", "7 days"),
+            ("Calcium + Vitamin D3", "1 tablet daily", "30 days"),
+        ],
     },
 ]
 
@@ -227,9 +373,68 @@ def create_guest_session(db: Session) -> dict:
     for med in medicines:
         db.add(med)
 
+    # 10. Create additional completed visits for collection report demo data
+    first_of_month = today.replace(day=1)
+    patient_visit_counts = {patients[3].id: 1}  # Sunita already has visit_number=1
+
+    for vdata in DEMO_HISTORICAL_VISITS:
+        visit_date_date = today - timedelta(days=vdata["days_ago"])
+
+        # Skip visits that would fall before the current month
+        if visit_date_date < first_of_month:
+            continue
+
+        patient = patients[vdata["patient_index"]]
+
+        hist_appt = Appointment(
+            patient_id=patient.id,
+            appointment_date=visit_date_date,
+            queue_number=vdata["queue_number"],
+            chief_complaints=vdata["chief_complaints"],
+            status=AppointmentStatusEnum.COMPLETED,
+            clinic_id=clinic.id,
+            created_by=user.id,
+        )
+        db.add(hist_appt)
+        db.flush()
+
+        patient_visit_counts[patient.id] = patient_visit_counts.get(patient.id, 0) + 1
+        v_number = patient_visit_counts[patient.id]
+
+        follow_up = None
+        if vdata["follow_up_days"] is not None:
+            follow_up = visit_date_date + timedelta(days=vdata["follow_up_days"])
+
+        hist_visit = Visit(
+            patient_id=patient.id,
+            appointment_id=hist_appt.id,
+            visit_date=datetime.combine(visit_date_date, vdata["visit_time"]).replace(tzinfo=timezone.utc),
+            visit_number=v_number,
+            doctor_id=doctor.id,
+            symptoms=vdata["symptoms"],
+            diagnosis=vdata["diagnosis"],
+            observations=vdata["observations"],
+            recommended_tests=vdata["recommended_tests"],
+            vitals=vdata["vitals"],
+            prescription_notes=vdata["prescription_notes"],
+            follow_up_date=follow_up,
+            amount=vdata["amount"],
+            clinic_id=clinic.id,
+        )
+        db.add(hist_visit)
+        db.flush()
+
+        for med_name, med_dosage, med_duration in vdata["medicines"]:
+            db.add(VisitMedicine(
+                visit_id=hist_visit.id,
+                medicine_name=med_name,
+                dosage=med_dosage,
+                duration=med_duration,
+            ))
+
     db.commit()
 
-    # 10. Generate JWT token
+    # 11. Generate JWT token
     access_token = create_access_token(data={"sub": user.id, "role": user.role.value})
 
     return {
