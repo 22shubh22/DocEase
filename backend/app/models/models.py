@@ -56,7 +56,7 @@ class Clinic(Base):
     logo_url = Column(String)
     opd_start_time = Column(String)
     opd_end_time = Column(String)
-    specialty = Column(Enum(ClinicSpecialtyEnum), nullable=True, default=ClinicSpecialtyEnum.DENTAL)
+    specialty = Column(Enum(ClinicSpecialtyEnum, values_callable=lambda x: [e.value for e in x]), nullable=True, default=ClinicSpecialtyEnum.DENTAL)
     owner_doctor_id = Column(String, ForeignKey("doctors.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

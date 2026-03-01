@@ -171,7 +171,7 @@ export default function CollectionReport() {
                 <select
                   value={selectedDoctor}
                   onChange={(e) => setSelectedDoctor(e.target.value)}
-                  className="input py-2 px-3 text-sm min-w-[150px]"
+                  className="input py-2 px-3 text-sm w-full sm:w-auto"
                 >
                   <option value="">All Doctors</option>
                   {doctors.map((doctor) => (
@@ -300,26 +300,28 @@ export default function CollectionReport() {
                     <table className="w-full">
                       <thead className="bg-gray-50 border-t">
                         <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Patient</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Doctor</th>
-                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
-                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Action</th>
+                          <th className="hidden sm:table-cell px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                          <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Patient</th>
+                          <th className="hidden md:table-cell px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Doctor</th>
+                          <th className="px-3 sm:px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                          <th className="px-3 sm:px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
                         {group.visits.map((visit) => (
                           <tr key={visit.visit_id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm text-gray-600">{visit.visit_time}</td>
-                            <td className="px-4 py-3">
+                            <td className="hidden sm:table-cell px-4 py-3 text-sm text-gray-600">{visit.visit_time}</td>
+                            <td className="px-3 sm:px-4 py-3">
                               <div className="text-sm font-medium text-gray-900">{visit.patient_name}</div>
                               <div className="text-xs text-gray-500">{visit.patient_code}</div>
+                              <div className="text-xs text-gray-500 sm:hidden">{visit.visit_time}</div>
+                              <div className="text-xs text-gray-500 md:hidden">{visit.doctor_name}</div>
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">{visit.doctor_name}</td>
-                            <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
+                            <td className="hidden md:table-cell px-4 py-3 text-sm text-gray-600">{visit.doctor_name}</td>
+                            <td className="px-3 sm:px-4 py-3 text-sm font-medium text-gray-900 text-right">
                               {formatCurrency(visit.amount)}
                             </td>
-                            <td className="px-4 py-3 text-center">
+                            <td className="px-3 sm:px-4 py-3 text-center">
                               <Link
                                 to={`/visits/${visit.visit_id}`}
                                 className="text-primary-600 hover:text-primary-700 text-sm font-medium"

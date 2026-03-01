@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 
 // CSS pixels per centimeter at 96 DPI (standard screen resolution)
@@ -25,6 +25,10 @@ export default function PreferencesSettings({ user, updateUser }) {
   // Debounced preview position for smooth updates
   const [previewPosition, setPreviewPosition] = useState(printPosition);
 
+  // Scale A4 preview to fit container on mobile
+  const previewContainerRef = useRef(null);
+  const [previewScale, setPreviewScale] = useState(1);
+
   // Loading state
   const [isSavingPrintSettings, setIsSavingPrintSettings] = useState(false);
 
@@ -35,6 +39,19 @@ export default function PreferencesSettings({ user, updateUser }) {
     }, 100);
     return () => clearTimeout(timer);
   }, [printPosition]);
+
+  // Update preview scale on resize
+  useEffect(() => {
+    const updateScale = () => {
+      if (previewContainerRef.current) {
+        const containerWidth = previewContainerRef.current.clientWidth - 32;
+        setPreviewScale(Math.min(1, containerWidth / A4_WIDTH_PX));
+      }
+    };
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, []);
 
   const savePrintSettings = async () => {
     setIsSavingPrintSettings(true);
@@ -147,24 +164,34 @@ export default function PreferencesSettings({ user, updateUser }) {
       {/* A4 Preview */}
       <div className="mt-6">
         <h3 className="font-medium text-gray-900 mb-3">Preview on A4 Page</h3>
-        <div className="bg-gray-200 p-4 rounded-lg overflow-x-auto">
+        <div ref={previewContainerRef} className="bg-gray-200 p-4 rounded-lg overflow-hidden">
           <div
-            className="bg-white mx-auto shadow-lg"
-            style={{ width: `${A4_WIDTH_PX}px`, height: `${A4_HEIGHT_PX}px`, position: 'relative', overflow: 'hidden' }}
-            role="img"
-            aria-label="A4 page preview showing print area position"
+            className="mx-auto"
+            style={{
+              width: `${A4_WIDTH_PX}px`,
+              height: `${A4_HEIGHT_PX * previewScale}px`,
+              transform: `scale(${previewScale})`,
+              transformOrigin: 'top center',
+            }}
           >
-            <div className="absolute inset-0 border-2 border-dashed border-blue-300 pointer-events-none"></div>
             <div
-              className="absolute bg-yellow-50 border-2 border-blue-400 opacity-50 transition-all duration-100"
-              style={{
-                top: `${previewPosition.top}px`,
-                left: `${previewPosition.left}px`,
-                right: '40px',
-                bottom: '40px',
-              }}
+              className="bg-white shadow-lg"
+              style={{ width: `${A4_WIDTH_PX}px`, height: `${A4_HEIGHT_PX}px`, position: 'relative', overflow: 'hidden' }}
+              role="img"
+              aria-label="A4 page preview showing print area position"
             >
-              <div className="text-center text-xs text-blue-600 mt-2">Print Area</div>
+              <div className="absolute inset-0 border-2 border-dashed border-blue-300 pointer-events-none"></div>
+              <div
+                className="absolute bg-yellow-50 border-2 border-blue-400 opacity-50 transition-all duration-100"
+                style={{
+                  top: `${previewPosition.top}px`,
+                  left: `${previewPosition.left}px`,
+                  right: '40px',
+                  bottom: '40px',
+                }}
+              >
+                <div className="text-center text-xs text-blue-600 mt-2">Print Area</div>
+              </div>
             </div>
           </div>
           <p className="text-center text-xs text-gray-600 mt-2">A4 Page (21cm x 29.7cm)</p>

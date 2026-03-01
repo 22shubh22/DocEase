@@ -202,14 +202,15 @@ export default function Settings() {
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
-              className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              title={tab.label}
+              className={`px-2 sm:px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === tab.id
                   ? 'border-primary-600 text-primary-600'
                   : 'border-transparent text-gray-600 hover:text-gray-900'
               }`}
             >
-              <span className="mr-1">{tab.icon}</span>
-              {tab.label}
+              <span className="sm:mr-1">{tab.icon}</span>
+              <span className="hidden sm:inline">{tab.label}</span>
             </button>
           ))}
           {/* Loading skeleton for Team Permissions tab */}

@@ -111,22 +111,22 @@ export default function VisitDetails() {
             )}
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           <button
             onClick={() => setShowPreviewModal(true)}
-            className="btn btn-secondary"
+            className="btn btn-secondary text-sm sm:text-base"
           >
             Print
           </button>
           <Link
             to={`/visits/${visit.id}/edit`}
-            className="btn btn-primary"
+            className="btn btn-primary text-sm sm:text-base"
           >
             Edit Visit
           </Link>
           <Link
             to="/opd"
-            className="btn bg-green-600 hover:bg-green-700 text-white"
+            className="btn bg-green-600 hover:bg-green-700 text-white text-sm sm:text-base"
           >
             Next Patient →
           </Link>
