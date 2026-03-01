@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import re
 from contextlib import asynccontextmanager
@@ -8,6 +9,7 @@ from app.core.config import settings
 from app.core.database import engine, Base
 from app.api import auth, patients, opd, visits, clinic, users, admin, chief_complaints, diagnosis_options, observation_options, test_options, medicine_options, dosage_options, duration_options, symptom_options, permissions, onboarding
 from app.services.guest_service import cleanup_expired_guests
+from app.core.keepalive import db_keep_alive
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -38,8 +40,19 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to cleanup expired guest sessions: {e}")
 
+    # Start background keep-alive task to prevent Supabase from pausing
+    keep_alive_task = asyncio.create_task(db_keep_alive())
+
     yield
-    # Shutdown: dispose all connections
+
+    # Shutdown: cancel keep-alive, then dispose connections
+    keep_alive_task.cancel()
+    try:
+        await keep_alive_task
+    except asyncio.CancelledError:
+        pass
+    logger.info("Keep-alive task stopped")
+
     engine.dispose()
     logger.info("Database connections disposed")
 
@@ -80,7 +93,21 @@ app.include_router(onboarding.router, prefix="/api/onboarding", tags=["Onboardin
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "message": "DocEase API is running"}
+    from sqlalchemy import text
+    from app.core.database import SessionLocal
+    db_ok = False
+    try:
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        db_ok = True
+        db.close()
+    except Exception:
+        pass
+    return {
+        "status": "ok" if db_ok else "degraded",
+        "database": "connected" if db_ok else "unreachable",
+        "message": "DocEase API is running",
+    }
 
 @app.get("/")
 async def root():
