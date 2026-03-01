@@ -47,6 +47,7 @@ api.interceptors.response.use(
 // Auth API
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
+  guestLogin: () => axios.post(`${API_URL}/auth/guest`),
   logout: () => api.post('/auth/logout'),
   getProfile: () => api.get('/auth/me'),
   changePassword: (data) => api.post('/auth/change-password', data),

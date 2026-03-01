@@ -6,18 +6,32 @@ import useAuthStore from '../store/authStore';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, isLoading, error } = useAuthStore();
+  const { login, guestLogin, isLoading, error } = useAuthStore();
   const { register, handleSubmit, formState: { errors } } = useForm();
   const [showPassword, setShowPassword] = useState(false);
+  const [isGuestLoading, setIsGuestLoading] = useState(false);
 
   const onSubmit = async (data) => {
     const result = await login(data);
-    
+
     if (result.success) {
       toast.success('Welcome back!');
       navigate('/');
     } else {
       // result.error already contains the message from extraction in store
+      toast.error(result.error);
+    }
+  };
+
+  const handleGuestLogin = async () => {
+    setIsGuestLoading(true);
+    const result = await guestLogin();
+    setIsGuestLoading(false);
+
+    if (result.success) {
+      toast.success('Welcome! Explore the demo with pre-loaded data.');
+      navigate('/');
+    } else {
       toast.error(result.error);
     }
   };
@@ -78,13 +92,33 @@ export default function Login() {
           <button
             type="submit"
             className="btn btn-primary w-full"
-            disabled={isLoading}
+            disabled={isLoading || isGuestLoading}
           >
             {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-200"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">or</span>
+          </div>
+        </div>
+
+        <button
+          onClick={handleGuestLogin}
+          disabled={isLoading || isGuestLoading}
+          className="w-full py-2.5 px-4 border-2 border-primary-300 text-primary-700 rounded-lg font-medium hover:bg-primary-50 hover:border-primary-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isGuestLoading ? 'Setting up demo...' : 'Try as Guest'}
+        </button>
+        <p className="text-center text-xs text-gray-400 mt-2">
+          No registration needed. Pre-loaded with sample data.
+        </p>
+
+        <p className="text-center text-sm text-gray-500 mt-4">
           Don't have an account?{' '}
           <Link to="/onboard" className="text-primary-600 hover:text-primary-700 font-medium">
             Register your clinic

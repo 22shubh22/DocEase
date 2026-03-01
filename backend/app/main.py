@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.api import auth, patients, opd, visits, clinic, users, admin, chief_complaints, diagnosis_options, observation_options, test_options, medicine_options, dosage_options, duration_options, symptom_options, permissions, onboarding
+from app.services.guest_service import cleanup_expired_guests
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -25,6 +26,18 @@ async def lifespan(app: FastAPI):
         logger.info("Database tables created, connection pool initialized")
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
+
+    # Cleanup expired guest sessions from previous runs
+    try:
+        from app.core.database import SessionLocal
+        db = SessionLocal()
+        count = cleanup_expired_guests(db)
+        if count > 0:
+            logger.info(f"Cleaned up {count} expired guest session(s)")
+        db.close()
+    except Exception as e:
+        logger.error(f"Failed to cleanup expired guest sessions: {e}")
+
     yield
     # Shutdown: dispose all connections
     engine.dispose()
