@@ -401,7 +401,9 @@ export default function VisitDetails() {
           followUpDate: visit.follow_up_date,
           medicines: visit.medicines,
           prescriptionNotes: visit.prescription_notes,
-          doctor: visit.doctor
+          doctor: visit.doctor,
+          visitDate: visit.visit_date,
+          visitNumber: visit.visit_number
         }}
         printSettings={user?.printSettings || { top: 280, left: 40 }}
       />

@@ -71,7 +71,7 @@ export default function PatientForm() {
       } else {
         const response = await patientsAPI.create(patientData);
         const newPatient = response.data;
-        toast.success(`Patient added successfully! Code: ${newPatient.patient_code}`);
+        toast.success(`Patient added successfully! Code: ${newPatient.patient.patient_code}`);
       }
 
       navigate('/patients');

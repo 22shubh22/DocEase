@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import VisitPrintContent from './VisitPrintContent';
 
 export default function VisitPreviewModal({
@@ -136,6 +136,15 @@ export default function VisitPreviewModal({
     }, 250);
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
@@ -147,12 +156,21 @@ export default function VisitPreviewModal({
       />
 
       {/* Modal */}
-      <div className="relative min-h-screen flex items-center justify-center p-4">
-        <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+      <div className="relative min-h-screen flex items-center justify-center p-4" onClick={onClose}>
+        <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
           {/* Header */}
           <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center z-10">
             <h2 className="text-xl font-semibold text-gray-900">Visit Preview</h2>
-            <div className="flex gap-3">
+            <div className="flex gap-3 items-center">
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Close"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
               <button
                 onClick={handlePrint}
                 className="btn btn-primary flex items-center gap-2"
@@ -198,6 +216,8 @@ export default function VisitPreviewModal({
                 prescriptionNotes={data.prescriptionNotes}
                 printSettings={printSettings}
                 doctor={data.doctor}
+                visitDate={data.visitDate}
+                visitNumber={data.visitNumber}
               />
             </div>
           </div>
