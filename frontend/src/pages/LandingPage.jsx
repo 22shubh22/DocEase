@@ -1,4 +1,7 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
+import useAuthStore from '../store/authStore';
 
 const features = [
   {
@@ -84,6 +87,23 @@ const testimonials = [
 ];
 
 export default function LandingPage() {
+  const navigate = useNavigate();
+  const { guestLogin } = useAuthStore();
+  const [isGuestLoading, setIsGuestLoading] = useState(false);
+
+  const handleGuestLogin = async () => {
+    setIsGuestLoading(true);
+    const result = await guestLogin();
+    setIsGuestLoading(false);
+
+    if (result.success) {
+      toast.success('Welcome! Explore the demo with pre-loaded data.');
+      navigate('/');
+    } else {
+      toast.error(result.error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation */}
@@ -126,9 +146,13 @@ export default function LandingPage() {
             <Link to="/onboard" className="btn btn-primary px-8 py-3 text-lg">
               Register Your Clinic
             </Link>
-            <Link to="/login" className="btn btn-secondary px-8 py-3 text-lg">
-              Login
-            </Link>
+            <button
+              onClick={handleGuestLogin}
+              disabled={isGuestLoading}
+              className="btn btn-secondary px-8 py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isGuestLoading ? 'Setting up demo...' : 'Try Demo'}
+            </button>
           </div>
         </div>
       </section>
@@ -266,12 +290,13 @@ export default function LandingPage() {
             >
               Register Your Clinic
             </Link>
-            <Link
-              to="/login"
-              className="inline-block border border-white text-white font-medium px-8 py-3 rounded-lg hover:bg-primary-700 transition-colors"
+            <button
+              onClick={handleGuestLogin}
+              disabled={isGuestLoading}
+              className="inline-block border border-white text-white font-medium px-8 py-3 rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Login
-            </Link>
+              {isGuestLoading ? 'Setting up...' : 'Try Demo'}
+            </button>
           </div>
         </div>
       </section>

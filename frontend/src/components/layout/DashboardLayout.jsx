@@ -24,8 +24,8 @@ export default function DashboardLayout() {
     checkOwnerStatus();
   }, [user]);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 
@@ -146,6 +146,19 @@ export default function DashboardLayout() {
         {/* Main Content */}
         <main className="flex-1 md:ml-64 p-4 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto">
+            {user?.is_guest && (
+              <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <p className="text-sm text-amber-800">
+                  You're using a demo account. Data will be reset on logout.
+                </p>
+                <Link
+                  to="/onboard"
+                  className="text-sm font-medium text-primary-600 hover:text-primary-700 whitespace-nowrap"
+                >
+                  Register your clinic &rarr;
+                </Link>
+              </div>
+            )}
             <Outlet />
           </div>
         </main>
