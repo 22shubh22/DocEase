@@ -24,6 +24,23 @@ export default function DashboardLayout() {
     checkOwnerStatus();
   }, [user]);
 
+  // Clean up guest data when the tab/browser closes
+  useEffect(() => {
+    if (!user?.is_guest) return;
+
+    const handleUnload = () => {
+      const apiUrl = import.meta.env.VITE_API_URL || '/api';
+      const payload = JSON.stringify({ user_id: user.id });
+      navigator.sendBeacon(
+        `${apiUrl}/auth/guest-cleanup`,
+        new Blob([payload], { type: 'application/json' })
+      );
+    };
+
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
+  }, [user]);
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');

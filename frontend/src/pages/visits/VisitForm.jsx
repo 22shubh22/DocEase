@@ -7,6 +7,7 @@ import { patientsAPI, visitsAPI, diagnosisOptionsAPI, observationOptionsAPI, tes
 import PrescriptionEditor from '../../components/prescriptions/PrescriptionEditor';
 import PatientHistoryPanel from '../../components/patients/PatientHistoryPanel';
 import VisitPreviewModal from '../../components/visits/VisitPreviewModal';
+import { validateBP, validateTemperature } from '../../utils/vitalsValidation';
 
 const formatDateTime = (dateStr) => {
   if (!dateStr) return 'N/A';
@@ -678,8 +679,11 @@ export default function VisitForm() {
                 type="text"
                 className="input"
                 placeholder="e.g., 120/80"
-                {...register('bp')}
+                {...register('bp', { validate: validateBP })}
               />
+              {errors.bp && (
+                <p className="text-red-500 text-sm mt-1">{errors.bp.message}</p>
+              )}
             </div>
             <div>
               <label className="label">Temperature (°F)</label>
@@ -687,8 +691,11 @@ export default function VisitForm() {
                 type="text"
                 className="input"
                 placeholder="e.g., 98.6"
-                {...register('temperature')}
+                {...register('temperature', { validate: validateTemperature })}
               />
+              {errors.temperature && (
+                <p className="text-red-500 text-sm mt-1">{errors.temperature.message}</p>
+              )}
             </div>
             <div>
               <label className="label">Pulse (bpm)</label>
@@ -696,8 +703,16 @@ export default function VisitForm() {
                 type="number"
                 className="input"
                 placeholder="e.g., 72"
-                {...register('pulse')}
+                min="20"
+                max="300"
+                {...register('pulse', {
+                  min: { value: 20, message: 'Pulse must be at least 20 bpm' },
+                  max: { value: 300, message: 'Pulse must be at most 300 bpm' }
+                })}
               />
+              {errors.pulse && (
+                <p className="text-red-500 text-sm mt-1">{errors.pulse.message}</p>
+              )}
             </div>
             <div>
               <label className="label">Weight (kg)</label>
@@ -706,8 +721,16 @@ export default function VisitForm() {
                 step="0.1"
                 className="input"
                 placeholder="e.g., 70"
-                {...register('weight')}
+                min="0.5"
+                max="500"
+                {...register('weight', {
+                  min: { value: 0.5, message: 'Weight must be at least 0.5 kg' },
+                  max: { value: 500, message: 'Weight must be at most 500 kg' }
+                })}
               />
+              {errors.weight && (
+                <p className="text-red-500 text-sm mt-1">{errors.weight.message}</p>
+              )}
             </div>
             <div>
               <label className="label">Height (cm)</label>
@@ -715,8 +738,16 @@ export default function VisitForm() {
                 type="number"
                 className="input"
                 placeholder="e.g., 170"
-                {...register('height')}
+                min="10"
+                max="300"
+                {...register('height', {
+                  min: { value: 10, message: 'Height must be at least 10 cm' },
+                  max: { value: 300, message: 'Height must be at most 300 cm' }
+                })}
               />
+              {errors.height && (
+                <p className="text-red-500 text-sm mt-1">{errors.height.message}</p>
+              )}
             </div>
             <div>
               <label className="label">SpO2 (%)</label>
@@ -724,8 +755,16 @@ export default function VisitForm() {
                 type="number"
                 className="input"
                 placeholder="e.g., 98"
-                {...register('spo2')}
+                min="0"
+                max="100"
+                {...register('spo2', {
+                  min: { value: 0, message: 'SpO2 cannot be negative' },
+                  max: { value: 100, message: 'SpO2 cannot exceed 100%' }
+                })}
               />
+              {errors.spo2 && (
+                <p className="text-red-500 text-sm mt-1">{errors.spo2.message}</p>
+              )}
             </div>
           </div>
         </div>

@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     DEBUG: bool = True
-    KEEP_ALIVE_INTERVAL_HOURS: int = 4
+    KEEP_ALIVE_INTERVAL_HOURS: int = 1
     FRONTEND_URL: str = "http://localhost:3000"
 
     # CORS origins - comma-separated list for production

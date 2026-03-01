@@ -26,6 +26,18 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      // Attempt guest data cleanup before clearing local state
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          if (user.is_guest && user.id) {
+            axios.post(`${API_URL}/auth/guest-cleanup`, { user_id: user.id }).catch(() => {});
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
@@ -49,6 +61,7 @@ export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
   guestLogin: () => axios.post(`${API_URL}/auth/guest`),
   logout: () => api.post('/auth/logout'),
+  guestCleanup: (userId) => axios.post(`${API_URL}/auth/guest-cleanup`, { user_id: userId }),
   getProfile: () => api.get('/auth/me'),
   changePassword: (data) => api.post('/auth/change-password', data),
 };
