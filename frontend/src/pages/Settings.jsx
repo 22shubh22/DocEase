@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import { chiefComplaintsAPI, diagnosisOptionsAPI, observationOptionsAPI, testOptionsAPI, medicineOptionsAPI, dosageOptionsAPI, durationOptionsAPI, symptomOptionsAPI, clinicAPI } from '../services/api';
@@ -8,11 +9,13 @@ import PermissionsManager from '../components/settings/PermissionsManager';
 import SubUserManager from '../components/settings/SubUserManager';
 import OptionManager from '../components/settings/OptionManager';
 import PasswordSettings from '../components/settings/PasswordSettings';
-import PreferencesSettings from '../components/settings/PreferencesSettings';
+import TemplateDesigner from '../components/print/TemplateDesigner';
 
 export default function Settings() {
   const { user, updateUser } = useAuthStore();
-  const [activeTab, setActiveTab] = useState('password');
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'password';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [isOwner, setIsOwner] = useState(false);
   const [isCheckingOwner, setIsCheckingOwner] = useState(user?.role === 'DOCTOR');
 
@@ -48,6 +51,7 @@ export default function Settings() {
       { id: 'team', label: 'Team Members', icon: '👥' },
       { id: 'permissions', label: 'Edit Permissions', icon: '🔐' },
     ] : []),
+    { id: 'print-template', label: 'Print Template', icon: '🖨️' },
     ...(isDoctor ? [
       { id: 'complaints', label: 'Chief Complaints', icon: '📋' },
       { id: 'symptoms', label: 'Symptom Options', icon: '🤒' },
@@ -59,7 +63,6 @@ export default function Settings() {
       { id: 'durations', label: 'Duration Options', icon: '⏱️' },
     ] : []),
     { id: 'password', label: 'Profile', icon: '👤' },
-    { id: 'preferences', label: 'Print Preferences', icon: '⚙️' },
   ];
 
   // Option configurations for reusable OptionManager
@@ -176,11 +179,11 @@ export default function Settings() {
         }
         return null;
 
+      case 'print-template':
+        return <TemplateDesigner user={user} />;
+
       case 'password':
         return <PasswordSettings user={user} />;
-
-      case 'preferences':
-        return <PreferencesSettings user={user} updateUser={updateUser} />;
 
       default:
         return null;

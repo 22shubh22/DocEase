@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { visitsAPI } from '../../services/api';
+import { visitsAPI, clinicAPI } from '../../services/api';
 import useAuthStore from '../../store/authStore';
 import VisitPreviewModal from '../../components/visits/VisitPreviewModal';
 
@@ -12,9 +12,11 @@ export default function VisitDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [clinicData, setClinicData] = useState(null);
 
   useEffect(() => {
     fetchVisitData();
+    clinicAPI.getInfo().then(res => setClinicData(res.data.clinic || res.data)).catch(() => {});
   }, [id]);
 
   const fetchVisitData = async () => {
@@ -406,6 +408,7 @@ export default function VisitDetails() {
           visitNumber: visit.visit_number
         }}
         printSettings={user?.printSettings || { top: 280, left: 40 }}
+        clinic={clinicData}
       />
     </div>
   );

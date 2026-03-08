@@ -1,13 +1,19 @@
 import { useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import VisitPrintContent from './VisitPrintContent';
+import usePrintTemplateStore from '../../store/printTemplateStore';
 
 export default function VisitPreviewModal({
   isOpen,
   onClose,
   data,
-  printSettings
+  printSettings,
+  clinic
 }) {
   const printRef = useRef();
+  const navigate = useNavigate();
+  const { getEffectiveTemplate } = usePrintTemplateStore();
+  const printTemplate = getEffectiveTemplate();
 
   const handlePrint = () => {
     const printContent = printRef.current;
@@ -33,9 +39,62 @@ export default function VisitPreviewModal({
           padding: 0 !important;
           font-family: Arial, sans-serif;
         }
-        /* Padding is set via inline styles on the element - do NOT override here */
         .print-content {
           background-color: white;
+          min-height: 100vh;
+        }
+
+        /* Multi-page table structure — browser repeats thead/tfoot on every printed page */
+        .print-page-table {
+          width: 100%;
+          height: 100%;
+          border-collapse: collapse;
+          border-spacing: 0;
+          margin: 0;
+          padding: 0;
+        }
+        .print-page-table,
+        .print-page-table > thead,
+        .print-page-table > tfoot,
+        .print-page-table > tbody,
+        .print-page-table > thead > tr,
+        .print-page-table > tfoot > tr,
+        .print-page-table > tbody > tr,
+        .print-page-table > thead > tr > td,
+        .print-page-table > tfoot > tr > td,
+        .print-page-table > tbody > tr > td {
+          border: none !important;
+          padding: 0 !important;
+          margin: 0;
+          background: none !important;
+          overflow: visible;
+          vertical-align: top;
+        }
+        .print-page-table > thead {
+          display: table-header-group;
+        }
+        .print-page-table > tfoot {
+          display: table-footer-group;
+        }
+
+        /* Prevent content sections from breaking mid-section */
+        .print-section {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        .print-section h3 {
+          break-after: avoid;
+          page-break-after: avoid;
+        }
+
+        /* Watermark — fixed position repeats on every printed page */
+        .print-watermark {
+          position: fixed !important;
+          top: 50% !important;
+          left: 50% !important;
+          transform: translate(-50%, -50%) !important;
+          pointer-events: none;
+          z-index: 0;
         }
 
         /* Border utilities */
@@ -50,6 +109,7 @@ export default function VisitPreviewModal({
 
         /* Padding utilities */
         .pb-3 { padding-bottom: 0.75rem; }
+        .pb-2 { padding-bottom: 0.5rem; }
         .pb-1 { padding-bottom: 0.25rem; }
         .pt-4 { padding-top: 1rem; }
         .p-2 { padding: 0.5rem; }
@@ -65,12 +125,16 @@ export default function VisitPreviewModal({
 
         /* Typography */
         .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+        .text-base { font-size: 1rem; line-height: 1.5rem; }
         .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+        .text-xs { font-size: 0.75rem; line-height: 1rem; }
         .font-bold { font-weight: 700; }
+        .font-medium { font-weight: 500; }
         .text-gray-900 { color: #111827; }
         .text-gray-800 { color: #1f2937; }
         .text-gray-700 { color: #374151; }
         .text-gray-600 { color: #4b5563; }
+        .text-gray-500 { color: #6b7280; }
         .text-red-700 { color: #b91c1c; }
         .text-red-600 { color: #dc2626; }
         .text-left { text-align: left; }
@@ -88,13 +152,14 @@ export default function VisitPreviewModal({
         .flex-wrap { flex-wrap: wrap; }
         .gap-x-4 { column-gap: 1rem; }
         .gap-2 { gap: 0.5rem; }
+        .gap-1 { gap: 0.25rem; }
         .inline-block { display: inline-block; }
 
         /* Grid */
         .grid { display: grid; }
         .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
-        /* Table & sizing */
+        /* Table & sizing — scoped to body content so layout table is unaffected */
         .w-full { width: 100%; }
         .w-48 { width: 12rem; }
         .w-8 { width: 2rem; }
@@ -104,13 +169,18 @@ export default function VisitPreviewModal({
         /* Border radius */
         .rounded { border-radius: 0.25rem; }
 
-        /* Legacy element styles (keep for backward compatibility) */
-        h2 { font-size: 18px; font-weight: bold; margin: 0 0 8px 0; }
-        h3 { font-size: 14px; font-weight: bold; margin: 16px 0 8px 0; padding-bottom: 4px; border-bottom: 1px solid #ccc; }
-        p { margin: 0 0 8px 0; font-size: 13px; }
-        table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
-        th, td { border: 1px solid #666; padding: 4px 8px; text-align: left; }
-        th { background-color: #f0f0f0; font-weight: bold; }
+        /* Scoped element styles for prescription content */
+        .print-body-content h2 { font-size: 16px; font-weight: bold; margin: 0 0 4px 0; }
+        .print-body-content h3 { font-size: 13px; font-weight: bold; margin: 8px 0 4px 0; padding-bottom: 3px; border-bottom: 1px solid #ccc; }
+        .print-body-content p { margin: 0 0 4px 0; font-size: 13px; }
+        .print-body-content table { width: 100%; border-collapse: collapse; margin: 4px 0; font-size: 13px; }
+        .print-body-content th, .print-body-content td { border: 1px solid #666; padding: 4px 8px; text-align: left; }
+        .print-body-content th { background-color: #f0f0f0; font-weight: bold; }
+
+        /* Print header/footer images */
+        .print-header img, .print-footer img {
+          display: inline-block;
+        }
       </style>
     `;
 
@@ -147,6 +217,8 @@ export default function VisitPreviewModal({
 
   if (!isOpen) return null;
 
+  const isDigital = printTemplate?.print_mode === 'digital';
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
@@ -160,8 +232,26 @@ export default function VisitPreviewModal({
         <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
           {/* Header */}
           <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center z-10">
-            <h2 className="text-xl font-semibold text-gray-900">Visit Preview</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-semibold text-gray-900">Visit Preview</h2>
+              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                isDigital ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+              }`}>
+                {isDigital ? 'Digital Template' : 'Letterhead'}
+              </span>
+            </div>
             <div className="flex gap-3 items-center">
+              <button
+                onClick={() => { onClose(); navigate('/settings?tab=print-template'); }}
+                className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                title="Customize print template"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span className="hidden sm:inline">Customize</span>
+              </button>
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -215,6 +305,8 @@ export default function VisitPreviewModal({
                 medicines={data.medicines}
                 prescriptionNotes={data.prescriptionNotes}
                 printSettings={printSettings}
+                printTemplate={printTemplate}
+                clinic={clinic}
                 doctor={data.doctor}
                 visitDate={data.visitDate}
                 visitNumber={data.visitNumber}

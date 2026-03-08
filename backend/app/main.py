@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.api import auth, patients, opd, visits, clinic, users, admin, chief_complaints, diagnosis_options, observation_options, test_options, medicine_options, dosage_options, duration_options, symptom_options, permissions, onboarding
+from app.api import auth, patients, opd, visits, clinic, users, admin, chief_complaints, diagnosis_options, observation_options, test_options, medicine_options, dosage_options, duration_options, symptom_options, permissions, onboarding, print_template
 from app.services.guest_service import cleanup_expired_guests
 from app.core.keepalive import db_keep_alive
 
@@ -60,7 +60,7 @@ async def lifespan(app: FastAPI):
     engine.dispose()
     logger.info("Database connections disposed")
 
-limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+limiter = Limiter(key_func=get_remote_address, default_limits=["300/minute"])
 
 app = FastAPI(
     title="DocEase API",
@@ -81,7 +81,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Rate limiting middleware - 60 requests/minute per IP
+# Rate limiting middleware - 300 requests/minute per IP
 app.add_middleware(SlowAPIMiddleware)
 
 # Include routers
@@ -102,6 +102,7 @@ app.include_router(duration_options.router, prefix="/api/duration-options", tags
 app.include_router(symptom_options.router, prefix="/api/symptom-options", tags=["Symptom Options"])
 app.include_router(permissions.router, prefix="/api/permissions", tags=["Permissions"])
 app.include_router(onboarding.router, prefix="/api/onboarding", tags=["Onboarding"])
+app.include_router(print_template.router, prefix="/api/print-template", tags=["Print Template"])
 
 @app.get("/health")
 async def health_check():

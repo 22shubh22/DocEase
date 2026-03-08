@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, Date, ForeignKey, Enum, Numeric, ARRAY, JSON, Text
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, Date, ForeignKey, Enum, Numeric, ARRAY, JSON, Text, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -58,6 +58,8 @@ class Clinic(Base):
     opd_end_time = Column(String)
     specialty = Column(Enum(ClinicSpecialtyEnum, values_callable=lambda x: [e.value for e in x]), nullable=True, default=ClinicSpecialtyEnum.DENTAL)
     is_guest = Column(Boolean, default=False, nullable=False)
+    plugin_opd_queue = Column(Boolean, default=True, nullable=False, server_default=text('true'))
+    plugin_collections = Column(Boolean, default=True, nullable=False, server_default=text('true'))
     owner_doctor_id = Column(String, ForeignKey("doctors.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -78,6 +80,7 @@ class Clinic(Base):
     duration_options = relationship("DurationOption", back_populates="clinic", cascade="all, delete-orphan")
     symptom_options = relationship("SymptomOption", back_populates="clinic", cascade="all, delete-orphan")
     user_permissions = relationship("UserPermission", back_populates="clinic", cascade="all, delete-orphan")
+    print_template = relationship("PrintTemplate", back_populates="clinic", uselist=False, cascade="all, delete-orphan")
 
 
 class User(Base):
@@ -414,3 +417,29 @@ class OnboardingRequest(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     reviewer = relationship("User", foreign_keys=[reviewed_by])
+
+
+class PrintTemplate(Base):
+    __tablename__ = "print_templates"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False, unique=True)
+
+    # Core mode: "letterhead" (pre-printed paper) or "digital" (print header/footer digitally)
+    print_mode = Column(String, nullable=False, default="letterhead")
+
+    # Which preset layout is selected
+    preset_id = Column(String, nullable=False, default="classic")
+
+    # Content positioning (pixels)
+    content_top_px = Column(Integer, nullable=False, default=280)
+    content_left_px = Column(Integer, nullable=False, default=40)
+    content_right_px = Column(Integer, nullable=False, default=40)
+
+    # JSON blob for header/footer/watermark config
+    template_config = Column(JSON, nullable=False, default=dict)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    clinic = relationship("Clinic", back_populates="print_template")

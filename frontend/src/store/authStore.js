@@ -56,10 +56,10 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
-  guestLogin: async () => {
+  guestLogin: async (plugins) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await authAPI.guestLogin();
+      const response = await authAPI.guestLogin(plugins);
       const { token, user } = response.data;
 
       localStorage.setItem('token', token);

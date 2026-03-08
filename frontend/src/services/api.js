@@ -59,7 +59,7 @@ api.interceptors.response.use(
 // Auth API
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
-  guestLogin: () => axios.post(`${API_URL}/auth/guest`),
+  guestLogin: (plugins) => axios.post(`${API_URL}/auth/guest`, plugins),
   logout: () => api.post('/auth/logout'),
   guestCleanup: (userId) => axios.post(`${API_URL}/auth/guest-cleanup`, { user_id: userId }),
   getProfile: () => api.get('/auth/me'),
@@ -196,6 +196,10 @@ export const adminAPI = {
   removeDoctor: (clinicId, doctorId) => api.delete(`/admin/clinics/${clinicId}/doctors/${doctorId}`),
   setClinicOwner: (clinicId, doctorId) => api.put(`/admin/clinics/${clinicId}/owner`, { doctor_id: doctorId }),
   getAllDoctors: (params) => api.get('/admin/doctors', { params }),
+  getClinicPlugins: (clinicId) => api.get(`/admin/clinics/${clinicId}/plugins`),
+  updateClinicPlugins: (clinicId, data) => api.put(`/admin/clinics/${clinicId}/plugins`, data),
+  getAnalyticsOverview: (params) => api.get('/admin/analytics/overview', { params }),
+  getClinicAnalytics: (clinicId, params) => api.get(`/admin/analytics/clinics/${clinicId}`, { params }),
 };
 
 // Onboarding API (public - no auth needed)
@@ -208,6 +212,14 @@ export const onboardingAPI = {
   getRequest: (id) => api.get(`/onboarding/requests/${id}`),
   approveRequest: (id, data) => api.post(`/onboarding/requests/${id}/approve`, data),
   rejectRequest: (id, data) => api.post(`/onboarding/requests/${id}/reject`, data),
+};
+
+// Print Template API
+export const printTemplateAPI = {
+  get: () => api.get('/print-template/'),
+  update: (data) => api.put('/print-template/', data),
+  switchMode: (mode) => api.patch('/print-template/mode', { print_mode: mode }),
+  applyPreset: (presetId) => api.post('/print-template/apply-preset', { preset_id: presetId }),
 };
 
 // Permissions API

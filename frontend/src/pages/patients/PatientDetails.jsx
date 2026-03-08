@@ -2,6 +2,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { patientsAPI, opdAPI, chiefComplaintsAPI } from '../../services/api';
+import useAuthStore from '../../store/authStore';
 
 const formatDateTime = (dateString) => {
   if (!dateString) return '';
@@ -20,6 +21,8 @@ const formatDateTime = (dateString) => {
 export default function PatientDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
+  const plugins = user?.enabled_plugins;
   const [activeTab, setActiveTab] = useState('overview');
   const [patient, setPatient] = useState(null);
   const [visits, setVisits] = useState([]);
@@ -173,12 +176,20 @@ export default function PatientDetails() {
           <p className="text-gray-600 mt-1">Patient ID: {patient.patient_code}</p>
         </div>
         <div className="flex gap-3">
-          <button
-            onClick={openOPDModal}
+          {plugins?.opd_queue !== false && (
+            <button
+              onClick={openOPDModal}
+              className="btn btn-primary"
+            >
+              + Add to OPD
+            </button>
+          )}
+          <Link
+            to={`/visits/new?patientId=${patient.id}`}
             className="btn btn-primary"
           >
-            + Add to OPD
-          </button>
+            + Add Visit
+          </Link>
           <Link
             to={`/patients/${patient.id}/edit`}
             className="btn btn-secondary"

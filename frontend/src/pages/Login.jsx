@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
+import PluginSelectionModal from '../components/common/PluginSelectionModal';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm();
   const [showPassword, setShowPassword] = useState(false);
   const [isGuestLoading, setIsGuestLoading] = useState(false);
+  const [showPluginModal, setShowPluginModal] = useState(false);
 
   const onSubmit = async (data) => {
     const result = await login(data);
@@ -23,12 +25,17 @@ export default function Login() {
     }
   };
 
-  const handleGuestLogin = async () => {
+  const handleGuestLogin = () => {
+    setShowPluginModal(true);
+  };
+
+  const handleGuestConfirm = async (plugins) => {
     setIsGuestLoading(true);
-    const result = await guestLogin();
+    const result = await guestLogin(plugins);
     setIsGuestLoading(false);
 
     if (result.success) {
+      setShowPluginModal(false);
       toast.success('Welcome! Explore the demo with pre-loaded data.');
       navigate('/');
     } else {
@@ -125,6 +132,13 @@ export default function Login() {
           </Link>
         </p>
       </div>
+
+      <PluginSelectionModal
+        isOpen={showPluginModal}
+        onClose={() => setShowPluginModal(false)}
+        onConfirm={handleGuestConfirm}
+        isLoading={isGuestLoading}
+      />
     </div>
   );
 }

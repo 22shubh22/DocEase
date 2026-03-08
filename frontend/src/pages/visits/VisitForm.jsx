@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import useAuthStore from '../../store/authStore';
-import { patientsAPI, visitsAPI, diagnosisOptionsAPI, observationOptionsAPI, testOptionsAPI, chiefComplaintsAPI, opdAPI } from '../../services/api';
+import { patientsAPI, visitsAPI, diagnosisOptionsAPI, observationOptionsAPI, testOptionsAPI, chiefComplaintsAPI, opdAPI, clinicAPI } from '../../services/api';
 import PrescriptionEditor from '../../components/prescriptions/PrescriptionEditor';
 import PatientHistoryPanel from '../../components/patients/PatientHistoryPanel';
 import VisitPreviewModal from '../../components/visits/VisitPreviewModal';
@@ -64,6 +64,7 @@ export default function VisitForm() {
   // Print preview state (for OPD flow)
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [savedVisitData, setSavedVisitData] = useState(null);
+  const [clinicData, setClinicData] = useState(null);
 
   const { register, handleSubmit, formState: { errors, isDirty }, reset, watch, setValue } = useForm({
     defaultValues: {
@@ -95,12 +96,13 @@ export default function VisitForm() {
     const fetchData = async () => {
       try {
         setLoadingPatients(true);
-        const [patientsRes, chiefComplaintsRes, diagnosisRes, observationsRes, testsRes] = await Promise.all([
+        const [patientsRes, chiefComplaintsRes, diagnosisRes, observationsRes, testsRes, clinicRes] = await Promise.all([
           patientsAPI.getAll({ limit: 100 }),
           chiefComplaintsAPI.getAll(true),
           diagnosisOptionsAPI.getAll(true),
           observationOptionsAPI.getAll(true),
-          testOptionsAPI.getAll(true)
+          testOptionsAPI.getAll(true),
+          clinicAPI.getInfo().catch(() => null),
         ]);
 
         const patientsList = patientsRes.data.patients || [];
@@ -109,6 +111,7 @@ export default function VisitForm() {
         setDiagnosisOptions(diagnosisRes.data || []);
         setObservationOptions(observationsRes.data || []);
         setTestOptions(testsRes.data || []);
+        if (clinicRes?.data) setClinicData(clinicRes.data.clinic || clinicRes.data);
 
         if (patientIdFromUrl) {
           const patient = patientsList.find(p => p.id === patientIdFromUrl);
@@ -1094,6 +1097,7 @@ export default function VisitForm() {
         </div>
 
         {/* Billing Section */}
+        {user?.enabled_plugins?.collections !== false && (
         <div className="card">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">
             Billing
@@ -1117,6 +1121,7 @@ export default function VisitForm() {
             </p>
           </div>
         </div>
+        )}
 
         {/* Action Buttons */}
         <div className="card bg-gray-50">
@@ -1163,6 +1168,7 @@ export default function VisitForm() {
           }}
           data={savedVisitData}
           printSettings={user?.printSettings || { top: 280, left: 40 }}
+          clinic={clinicData}
         />
       )}
     </div>

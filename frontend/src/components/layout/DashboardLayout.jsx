@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
+import usePrintTemplateStore from '../../store/printTemplateStore';
 import { clinicAPI } from '../../services/api';
 
 export default function DashboardLayout() {
@@ -9,6 +10,7 @@ export default function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
+  const { initFromLogin, fetchTemplate } = usePrintTemplateStore();
 
   useEffect(() => {
     const checkOwnerStatus = async () => {
@@ -23,6 +25,16 @@ export default function DashboardLayout() {
     };
     checkOwnerStatus();
   }, [user]);
+
+  // Initialize print template store
+  useEffect(() => {
+    if (user?.print_template) {
+      initFromLogin(user.print_template);
+    }
+    if (user?.clinic_id) {
+      fetchTemplate();
+    }
+  }, [user?.clinic_id]);
 
   // Clean up guest data when the tab/browser closes
   useEffect(() => {
@@ -49,16 +61,20 @@ export default function DashboardLayout() {
   const isAdmin = user?.role === 'ADMIN';
   const isDoctor = user?.role === 'DOCTOR';
   
+  const plugins = user?.enabled_plugins;
+
   const baseNavigation = [
     { name: 'Dashboard', path: '/', icon: '📊' },
     { name: 'Patients', path: '/patients', icon: '👥' },
-    { name: 'OPD Queue', path: '/opd', icon: '🏥' },
-    { name: 'Collections', path: '/reports/collections', icon: '💰' },
+    { name: 'Visits', path: '/visits', icon: '📝' },
+    ...(plugins?.opd_queue !== false ? [{ name: 'OPD Queue', path: '/opd', icon: '🏥' }] : []),
+    ...(plugins?.collections !== false ? [{ name: 'Collections', path: '/reports/collections', icon: '💰' }] : []),
   ];
 
   const navigation = isAdmin ? [
     { name: 'Admin Dashboard', path: '/admin', icon: '🏢' },
     { name: 'Onboarding Requests', path: '/admin/onboarding', icon: '📋' },
+    { name: 'Analytics', path: '/admin/analytics', icon: '📈' },
   ] : [
     ...baseNavigation,
     { name: 'Settings', path: '/settings', icon: '⚙️' },

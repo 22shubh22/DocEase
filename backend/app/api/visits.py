@@ -5,7 +5,7 @@ from datetime import date, datetime
 from typing import Optional, Literal
 from collections import defaultdict
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_permission
+from app.core.deps import get_current_user, require_permission, require_plugin
 from app.models.models import User, Visit, Appointment, AppointmentStatusEnum, Doctor, Patient, VisitMedicine, User as UserModel
 from app.schemas.schemas import VisitCreate, VisitUpdate, CollectionSummaryResponse
 
@@ -19,6 +19,7 @@ async def get_collection_summary(
     group_by: Literal["day", "month"] = Query("day", description="Group collections by day or month"),
     doctor_id: Optional[str] = Query(None, description="Filter by specific doctor ID"),
     current_user: User = Depends(require_permission("can_view_visits")),
+    _plugin: User = Depends(require_plugin("collections")),
     db: Session = Depends(get_db)
 ):
     """

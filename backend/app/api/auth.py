@@ -5,8 +5,8 @@ from datetime import datetime
 from app.core.database import get_db
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.core.deps import get_current_user
-from app.models.models import User
-from app.schemas.schemas import LoginRequest, Token, ChangePasswordRequest, UserResponse, GuestCleanupRequest
+from app.models.models import User, UserPermission, PrintTemplate, Clinic
+from app.schemas.schemas import LoginRequest, Token, ChangePasswordRequest, UserResponse, GuestCleanupRequest, GuestSessionRequest
 from app.services.guest_service import create_guest_session, cleanup_guest_session
 
 logger = logging.getLogger(__name__)
@@ -41,6 +41,51 @@ async def login(
     # Create access token
     access_token = create_access_token(data={"sub": user.id, "role": user.role.value})
 
+    # Fetch user permissions
+    permissions_dict = None
+    permission = db.query(UserPermission).filter(
+        UserPermission.user_id == user.id
+    ).first()
+    if permission:
+        permissions_dict = {
+            "can_view_patients": permission.can_view_patients,
+            "can_create_patients": permission.can_create_patients,
+            "can_edit_patients": permission.can_edit_patients,
+            "can_delete_patients": permission.can_delete_patients,
+            "can_view_opd": permission.can_view_opd,
+            "can_manage_opd": permission.can_manage_opd,
+            "can_view_visits": permission.can_view_visits,
+            "can_create_visits": permission.can_create_visits,
+            "can_edit_visits": permission.can_edit_visits,
+            "can_manage_clinic_options": permission.can_manage_clinic_options,
+            "can_edit_print_settings": permission.can_edit_print_settings,
+        }
+
+    # Fetch clinic print template and plugin settings
+    print_template_dict = None
+    enabled_plugins = None
+    if user.clinic_id:
+        pt = db.query(PrintTemplate).filter(
+            PrintTemplate.clinic_id == user.clinic_id
+        ).first()
+        if pt:
+            print_template_dict = {
+                "id": pt.id,
+                "print_mode": pt.print_mode,
+                "preset_id": pt.preset_id,
+                "content_top_px": pt.content_top_px,
+                "content_left_px": pt.content_left_px,
+                "content_right_px": pt.content_right_px,
+                "template_config": pt.template_config,
+            }
+
+        clinic = db.query(Clinic).filter(Clinic.id == user.clinic_id).first()
+        if clinic:
+            enabled_plugins = {
+                "opd_queue": clinic.plugin_opd_queue,
+                "collections": clinic.plugin_collections,
+            }
+
     return {
         "message": "Login successful",
         "token": access_token,
@@ -52,15 +97,18 @@ async def login(
             "role": user.role.value,
             "clinic_id": user.clinic_id,
             "is_guest": user.is_guest,
+            "permissions": permissions_dict,
+            "print_template": print_template_dict,
+            "enabled_plugins": enabled_plugins,
         }
     }
 
 
 @router.post("/guest")
-async def guest_login(db: Session = Depends(get_db)):
+async def guest_login(request: GuestSessionRequest = GuestSessionRequest(), db: Session = Depends(get_db)):
     """Create a guest demo session with isolated clinic and pre-loaded data"""
     try:
-        return create_guest_session(db)
+        return create_guest_session(db, plugin_opd_queue=request.plugin_opd_queue, plugin_collections=request.plugin_collections)
     except Exception as e:
         logger.error(f"Failed to create guest session: {e}")
         raise HTTPException(
@@ -102,9 +150,40 @@ async def guest_cleanup(
 
 @router.get("/me", response_model=dict)
 async def get_profile(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Get current user profile"""
+    # Fetch permissions
+    permissions_dict = None
+    permission = db.query(UserPermission).filter(
+        UserPermission.user_id == current_user.id
+    ).first()
+    if permission:
+        permissions_dict = {
+            "can_view_patients": permission.can_view_patients,
+            "can_create_patients": permission.can_create_patients,
+            "can_edit_patients": permission.can_edit_patients,
+            "can_delete_patients": permission.can_delete_patients,
+            "can_view_opd": permission.can_view_opd,
+            "can_manage_opd": permission.can_manage_opd,
+            "can_view_visits": permission.can_view_visits,
+            "can_create_visits": permission.can_create_visits,
+            "can_edit_visits": permission.can_edit_visits,
+            "can_manage_clinic_options": permission.can_manage_clinic_options,
+            "can_edit_print_settings": permission.can_edit_print_settings,
+        }
+
+    # Fetch clinic plugin settings
+    enabled_plugins = None
+    if current_user.clinic_id:
+        clinic = db.query(Clinic).filter(Clinic.id == current_user.clinic_id).first()
+        if clinic:
+            enabled_plugins = {
+                "opd_queue": clinic.plugin_opd_queue,
+                "collections": clinic.plugin_collections,
+            }
+
     return {
         "user": {
             "id": current_user.id,
@@ -116,6 +195,8 @@ async def get_profile(
             "is_active": current_user.is_active,
             "is_guest": current_user.is_guest,
             "last_login": current_user.last_login,
+            "permissions": permissions_dict,
+            "enabled_plugins": enabled_plugins,
         }
     }
 

@@ -5,7 +5,8 @@ import useAuthStore from '../store/authStore';
 
 export default function Dashboard() {
   const user = useAuthStore((state) => state.user);
-  
+  const plugins = user?.enabled_plugins;
+
   if (user?.role === 'ADMIN') {
     return <Navigate to="/admin" replace />;
   }
@@ -49,9 +50,11 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
-        <Link to="/opd" className="btn btn-primary mt-4 sm:mt-0">
-          View OPD Queue
-        </Link>
+        {plugins?.opd_queue !== false && (
+          <Link to="/opd" className="btn btn-primary mt-4 sm:mt-0">
+            View OPD Queue
+          </Link>
+        )}
       </div>
 
       {/* Stats Grid */}
@@ -114,12 +117,14 @@ export default function Dashboard() {
             <h3 className="font-semibold text-gray-900">Add New Patient</h3>
           </div>
         </Link>
-        <Link to="/opd" className="card hover:shadow-md transition-shadow cursor-pointer">
-          <div className="text-center py-4">
-            <div className="text-4xl mb-2">🏥</div>
-            <h3 className="font-semibold text-gray-900">Manage OPD Queue</h3>
-          </div>
-        </Link>
+        {plugins?.opd_queue !== false && (
+          <Link to="/opd" className="card hover:shadow-md transition-shadow cursor-pointer">
+            <div className="text-center py-4">
+              <div className="text-4xl mb-2">🏥</div>
+              <h3 className="font-semibold text-gray-900">Manage OPD Queue</h3>
+            </div>
+          </Link>
+        )}
       </div>
     </div>
   );

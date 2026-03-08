@@ -17,6 +17,8 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import ClinicManagement from './pages/admin/ClinicManagement';
 import DoctorList from './pages/admin/DoctorList';
 import OnboardingRequests from './pages/admin/OnboardingRequests';
+import AdminAnalytics from './pages/admin/AdminAnalytics';
+import ClinicAnalytics from './pages/admin/ClinicAnalytics';
 import OnboardingRequest from './pages/OnboardingRequest';
 import CollectionReport from './pages/reports/CollectionReport';
 
@@ -30,6 +32,12 @@ function AdminRoute({ children }) {
   const user = useAuthStore((state) => state.user);
   if (!isAuthenticated) return <Navigate to="/login" />;
   if (user?.role !== 'ADMIN') return <Navigate to="/" />;
+  return children;
+}
+
+function PluginRoute({ plugin, children }) {
+  const user = useAuthStore((state) => state.user);
+  if (user?.enabled_plugins?.[plugin] === false) return <Navigate to="/" />;
   return children;
 }
 
@@ -75,7 +83,7 @@ function App() {
         <Route path="patients/:id/edit" element={<PatientForm />} />
 
         {/* OPD */}
-        <Route path="opd" element={<OPDQueue />} />
+        <Route path="opd" element={<PluginRoute plugin="opd_queue"><OPDQueue /></PluginRoute>} />
 
         {/* Visits */}
         <Route path="visits" element={<DoctorVisitsList />} />
@@ -84,7 +92,7 @@ function App() {
         <Route path="visits/:id/edit" element={<VisitForm />} />
 
         {/* Reports */}
-        <Route path="reports/collections" element={<CollectionReport />} />
+        <Route path="reports/collections" element={<PluginRoute plugin="collections"><CollectionReport /></PluginRoute>} />
         
         {/* Settings */}
         <Route 
@@ -98,6 +106,8 @@ function App() {
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="admin/doctors" element={<AdminRoute><DoctorList /></AdminRoute>} />
         <Route path="admin/onboarding" element={<AdminRoute><OnboardingRequests /></AdminRoute>} />
+        <Route path="admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
+        <Route path="admin/clinics/:clinicId/analytics" element={<AdminRoute><ClinicAnalytics /></AdminRoute>} />
         <Route path="admin/clinics/:clinicId" element={<AdminRoute><ClinicManagement /></AdminRoute>} />
       </Route>
     </Routes>

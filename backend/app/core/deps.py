@@ -134,3 +134,29 @@ def require_permission(permission_name: str):
         )
 
     return permission_checker
+
+
+def require_plugin(plugin_name: str):
+    """Factory function to check if a plugin is enabled for the user's clinic."""
+    def plugin_checker(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+    ) -> User:
+        if not current_user.clinic_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No clinic associated with this user"
+            )
+        clinic = db.query(Clinic).filter(Clinic.id == current_user.clinic_id).first()
+        if not clinic:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Clinic not found"
+            )
+        if not getattr(clinic, f"plugin_{plugin_name}", False):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"The '{plugin_name}' feature is not enabled for your clinic"
+            )
+        return current_user
+    return plugin_checker

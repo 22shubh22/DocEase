@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_, func
+from sqlalchemy import or_, and_, func, cast, Integer
 from typing import Optional
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_permission
@@ -151,21 +151,16 @@ async def create_patient(
     db: Session = Depends(get_db)
 ):
     """Create a new patient"""
-    # Generate patient code by finding the maximum numeric value
-    patients = db.query(Patient).filter(
-        Patient.clinic_id == current_user.clinic_id
-    ).all()
-    
-    max_num = 0
-    for p in patients:
-        if p.patient_code and '-' in p.patient_code:
-            try:
-                num = int(p.patient_code.split('-')[1])
-                if num > max_num:
-                    max_num = num
-            except (ValueError, IndexError):
-                continue
-    
+    # Generate patient code by finding the global maximum numeric value
+    max_num_result = db.query(
+        func.max(
+            cast(func.split_part(Patient.patient_code, '-', 2), Integer)
+        )
+    ).filter(
+        Patient.patient_code.like('PT-%')
+    ).scalar()
+
+    max_num = max_num_result or 0
     patient_code = f"PT-{str(max_num + 1).zfill(4)}"
 
     patient_dict = patient_data.model_dump()

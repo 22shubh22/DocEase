@@ -146,6 +146,7 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
@@ -175,7 +176,11 @@ export default function AdminDashboard() {
                     )}
                   </div>
                   <p className="text-sm text-gray-500">{clinic.address || 'No address'}</p>
-                  <p className="text-sm text-gray-400">{clinic.phone} | {clinic.email}</p>
+                  {(clinic.phone || clinic.email) && (
+                    <p className="text-sm text-gray-400">
+                      {[clinic.phone, clinic.email].filter(Boolean).join(' | ')}
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <Link
