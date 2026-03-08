@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from datetime import datetime
-from app.core.database import get_db
+from app.core.database import get_db, SessionLocal
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.core.deps import get_current_user, get_client_ip
 from app.models.models import User, UserPermission, PrintTemplate, Clinic, AuditActionEnum
@@ -13,6 +13,18 @@ from app.services.audit_service import create_audit_log
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _cleanup_guest_background(user_id: str):
+    """Run guest cleanup in background with its own DB session."""
+    db = SessionLocal()
+    try:
+        cleanup_guest_session(db, user_id)
+        logger.info(f"Cleaned up guest session for user {user_id}")
+    except Exception as e:
+        logger.error(f"Failed to cleanup guest session: {e}")
+    finally:
+        db.close()
 
 
 @router.post("/login", response_model=dict)
@@ -150,11 +162,7 @@ async def logout(
 ):
     """Logout user. For guest users, also cleans up all demo data."""
     if current_user.is_guest:
-        try:
-            cleanup_guest_session(db, current_user.id)
-            logger.info(f"Cleaned up guest session for user {current_user.id}")
-        except Exception as e:
-            logger.error(f"Failed to cleanup guest session: {e}")
+        background_tasks.add_task(_cleanup_guest_background, current_user.id)
 
     background_tasks.add_task(
         create_audit_log,

@@ -30,7 +30,7 @@ export default function PatientForm() {
             emergencyContact: patient.emergency_contact,
             address: patient.address,
             allergies: Array.isArray(patient.allergies) ? patient.allergies.join(', ') : (patient.allergies || ''),
-            medicalHistory: patient.medical_history,
+            medicalHistory: patient.medical_history?.notes || (typeof patient.medical_history === 'string' ? patient.medical_history : ''),
             patientSince: patient.created_at ? patient.created_at.split('T')[0] : '',
           });
         } catch (error) {

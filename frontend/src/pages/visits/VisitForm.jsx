@@ -7,7 +7,7 @@ import { patientsAPI, visitsAPI, diagnosisOptionsAPI, observationOptionsAPI, tes
 import PrescriptionEditor from '../../components/prescriptions/PrescriptionEditor';
 import PatientHistoryPanel from '../../components/patients/PatientHistoryPanel';
 import VisitPreviewModal from '../../components/visits/VisitPreviewModal';
-import { validateBP, validateTemperature } from '../../utils/vitalsValidation';
+import { validateBP, validateTemperature, validatePulse, validateWeight, validateHeight, validateSpO2 } from '../../utils/vitalsValidation';
 
 const formatDateTime = (dateStr) => {
   if (!dateStr) return 'N/A';
@@ -67,6 +67,7 @@ export default function VisitForm() {
   const [clinicData, setClinicData] = useState(null);
 
   const { register, handleSubmit, formState: { errors, isDirty }, reset, watch, setValue } = useForm({
+    mode: 'onBlur',
     defaultValues: {
       patientId: '',
     }
@@ -676,7 +677,7 @@ export default function VisitForm() {
               <label className="label">Blood Pressure (BP)</label>
               <input
                 type="text"
-                className="input"
+                className={`input ${errors.bp ? 'border-red-500' : ''}`}
                 placeholder="e.g., 120/80"
                 {...register('bp', { validate: validateBP })}
               />
@@ -688,7 +689,7 @@ export default function VisitForm() {
               <label className="label">Temperature (°F)</label>
               <input
                 type="text"
-                className="input"
+                className={`input ${errors.temperature ? 'border-red-500' : ''}`}
                 placeholder="e.g., 98.6"
                 {...register('temperature', { validate: validateTemperature })}
               />
@@ -700,14 +701,9 @@ export default function VisitForm() {
               <label className="label">Pulse (bpm)</label>
               <input
                 type="number"
-                className="input"
+                className={`input ${errors.pulse ? 'border-red-500' : ''}`}
                 placeholder="e.g., 72"
-                min="20"
-                max="300"
-                {...register('pulse', {
-                  min: { value: 20, message: 'Pulse must be at least 20 bpm' },
-                  max: { value: 300, message: 'Pulse must be at most 300 bpm' }
-                })}
+                {...register('pulse', { validate: validatePulse })}
               />
               {errors.pulse && (
                 <p className="text-red-500 text-sm mt-1">{errors.pulse.message}</p>
@@ -718,14 +714,9 @@ export default function VisitForm() {
               <input
                 type="number"
                 step="0.1"
-                className="input"
+                className={`input ${errors.weight ? 'border-red-500' : ''}`}
                 placeholder="e.g., 70"
-                min="0.5"
-                max="500"
-                {...register('weight', {
-                  min: { value: 0.5, message: 'Weight must be at least 0.5 kg' },
-                  max: { value: 500, message: 'Weight must be at most 500 kg' }
-                })}
+                {...register('weight', { validate: validateWeight })}
               />
               {errors.weight && (
                 <p className="text-red-500 text-sm mt-1">{errors.weight.message}</p>
@@ -735,14 +726,9 @@ export default function VisitForm() {
               <label className="label">Height (cm)</label>
               <input
                 type="number"
-                className="input"
+                className={`input ${errors.height ? 'border-red-500' : ''}`}
                 placeholder="e.g., 170"
-                min="10"
-                max="300"
-                {...register('height', {
-                  min: { value: 10, message: 'Height must be at least 10 cm' },
-                  max: { value: 300, message: 'Height must be at most 300 cm' }
-                })}
+                {...register('height', { validate: validateHeight })}
               />
               {errors.height && (
                 <p className="text-red-500 text-sm mt-1">{errors.height.message}</p>
@@ -752,14 +738,9 @@ export default function VisitForm() {
               <label className="label">SpO2 (%)</label>
               <input
                 type="number"
-                className="input"
+                className={`input ${errors.spo2 ? 'border-red-500' : ''}`}
                 placeholder="e.g., 98"
-                min="0"
-                max="100"
-                {...register('spo2', {
-                  min: { value: 0, message: 'SpO2 cannot be negative' },
-                  max: { value: 100, message: 'SpO2 cannot exceed 100%' }
-                })}
+                {...register('spo2', { validate: validateSpO2 })}
               />
               {errors.spo2 && (
                 <p className="text-red-500 text-sm mt-1">{errors.spo2.message}</p>

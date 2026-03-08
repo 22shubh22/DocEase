@@ -129,12 +129,6 @@ export default function VisitDetails() {
           >
             Edit Visit
           </Link>
-          <Link
-            to="/opd"
-            className="btn bg-green-600 hover:bg-green-700 text-white text-sm sm:text-base"
-          >
-            Next Patient →
-          </Link>
         </div>
       </div>
 
