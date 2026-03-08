@@ -828,6 +828,16 @@ class OnboardingRequestListItem(BaseModel):
 
 class OnboardingApproveRequest(BaseModel):
     admin_notes: Optional[str] = None
+    clinic_specialty: Optional[str] = None
+
+    @field_validator('clinic_specialty')
+    @classmethod
+    def validate_clinic_specialty(cls, v):
+        if v is not None:
+            valid = ['dental', 'dermatology', 'general_physician', 'pediatrics', 'orthopedics']
+            if v not in valid:
+                raise ValueError(f'Invalid specialty. Must be one of: {", ".join(valid)}')
+        return v
 
 
 class OnboardingRejectRequest(BaseModel):
@@ -1092,6 +1102,53 @@ class DataBreachReportResponse(BaseModel):
     reported_to_authority: bool
     reported_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Fixture Template Schemas
+VALID_SPECIALTIES = ['dental', 'dermatology', 'general_physician', 'pediatrics', 'orthopedics']
+VALID_CATEGORIES = ['chief_complaints', 'diagnoses', 'observations', 'tests', 'medicines', 'symptoms', 'dosages', 'durations']
+
+
+class FixtureTemplateCreate(BaseModel):
+    specialty: str
+    category: str
+    name: str
+    description: Optional[str] = None
+    display_order: int = 0
+
+    @field_validator('specialty')
+    @classmethod
+    def validate_specialty(cls, v):
+        if v not in VALID_SPECIALTIES:
+            raise ValueError(f'Invalid specialty. Must be one of: {", ".join(VALID_SPECIALTIES)}')
+        return v
+
+    @field_validator('category')
+    @classmethod
+    def validate_category(cls, v):
+        if v not in VALID_CATEGORIES:
+            raise ValueError(f'Invalid category. Must be one of: {", ".join(VALID_CATEGORIES)}')
+        return v
+
+
+class FixtureTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    display_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class FixtureTemplateResponse(BaseModel):
+    id: str
+    specialty: str
+    category: str
+    name: str
+    description: Optional[str] = None
+    display_order: int
+    is_active: bool
 
     class Config:
         from_attributes = True

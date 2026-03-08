@@ -171,6 +171,15 @@ export default function AdminDashboard() {
           </svg>
           <span className="text-sm font-medium text-gray-700">Analytics</span>
         </Link>
+        <Link
+          to="/admin/fixture-templates"
+          className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:shadow-sm transition-all"
+        >
+          <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+          </svg>
+          <span className="text-sm font-medium text-gray-700">Fixture Templates</span>
+        </Link>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">

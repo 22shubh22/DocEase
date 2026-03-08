@@ -7,7 +7,7 @@ from app.models.models import (
     ChiefComplaint, DiagnosisOption, ObservationOption, TestOption,
     MedicineOption, DosageOption, DurationOption, SymptomOption
 )
-from app.fixtures.template_registry import get_template
+from app.fixtures.template_registry import get_template, get_template_from_db
 
 _CATEGORY_MODEL_MAP = {
     "chief_complaints": ChiefComplaint,
@@ -30,7 +30,10 @@ def seed_fixtures_for_clinic(db: Session, clinic_id: str, specialty: str = "dent
         clinic_id: The ID of the clinic to seed fixtures for
         specialty: The clinic specialty (e.g., "dental", "dermatology", "general_physician")
     """
-    template = get_template(specialty)
+    # Try DB templates first, fall back to Python file templates
+    template = get_template_from_db(db, specialty)
+    if not template:
+        template = get_template(specialty)
 
     for category_key, items in template.items():
         model_class = _CATEGORY_MODEL_MAP.get(category_key)

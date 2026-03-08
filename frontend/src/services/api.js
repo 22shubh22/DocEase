@@ -204,6 +204,12 @@ export const adminAPI = {
   getClinicHealth: (params) => api.get('/admin/analytics/clinic-health', { params }),
   getClinicHealthDetail: (clinicId) => api.get(`/admin/analytics/clinics/${clinicId}/health`),
   recomputeStats: (data) => api.post('/admin/analytics/recompute', data),
+  // Fixture Templates
+  getFixtureTemplates: (specialty) => api.get('/admin/fixture-templates', { params: { specialty } }),
+  createFixtureTemplate: (data) => api.post('/admin/fixture-templates', data),
+  updateFixtureTemplate: (id, data) => api.put(`/admin/fixture-templates/${id}`, data),
+  deleteFixtureTemplate: (id) => api.delete(`/admin/fixture-templates/${id}`),
+  resetFixtureTemplates: (specialty) => api.post('/admin/fixture-templates/reset', { specialty }),
 };
 
 // Onboarding API (public - no auth needed)
