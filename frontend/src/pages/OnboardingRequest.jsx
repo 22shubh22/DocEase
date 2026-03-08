@@ -90,7 +90,7 @@ export default function OnboardingRequest() {
               placeholder="doctor@example.com"
               {...register('doctor_email', {
                 required: 'Email is required',
-                pattern: { value: /^\S+@\S+$/i, message: 'Invalid email address' }
+                pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/i, message: 'Invalid email address' }
               })}
             />
             {errors.doctor_email && <p className="text-red-500 text-sm mt-1">{errors.doctor_email.message}</p>}

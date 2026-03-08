@@ -547,14 +547,10 @@ export default function VisitForm() {
       } else if (id) {
         // Editing existing visit - navigate back to visit details
         toast.success(`Visit updated${hasPrescription ? ' with new prescription' : ''} successfully!`);
-        setTimeout(() => {
-          navigate(`/visits/${id}`);
-        }, 1500);
+        navigate(`/visits/${id}`);
       } else {
         toast.success(`Visit${hasPrescription ? ' and prescription' : ''} recorded successfully!`);
-        setTimeout(() => {
-          navigate(`/patients/${selectedPatient.id}`);
-        }, 1500);
+        navigate(`/patients/${selectedPatient.id}`);
       }
 
     } catch (error) {
