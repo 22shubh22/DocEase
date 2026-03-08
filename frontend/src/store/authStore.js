@@ -91,6 +91,17 @@ const useAuthStore = create((set, get) => ({
     localStorage.setItem('user', JSON.stringify(userData));
   },
 
+  refreshUser: async () => {
+    try {
+      const response = await authAPI.getProfile();
+      const userData = response.data.user;
+      set({ user: userData });
+      localStorage.setItem('user', JSON.stringify(userData));
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
+    }
+  },
+
   clearError: () => set({ error: null }),
 }));
 

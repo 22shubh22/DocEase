@@ -32,10 +32,10 @@ export default function TemplatePreview({ template, clinic, doctor, mode = 'prev
       <div
         className="mx-auto"
         style={{
-          width: `${A4_WIDTH_PX}px`,
+          width: `${A4_WIDTH_PX * scale}px`,
           height: `${A4_HEIGHT_PX * scale}px`,
           transform: `scale(${scale})`,
-          transformOrigin: 'top center',
+          transformOrigin: 'top left',
         }}
       >
         <div

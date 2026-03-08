@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user, get_current_doctor
 from app.models.models import User, Clinic, Doctor, RoleEnum
-from app.schemas.schemas import ClinicUpdate, DoctorUpdate
+from app.schemas.schemas import ClinicUpdate, DoctorUpdate, ClinicPluginsUpdate
 
 router = APIRouter()
 
@@ -86,6 +86,38 @@ async def update_clinic(
     db.refresh(clinic)
 
     return {"message": "Clinic updated successfully", "clinic": clinic_to_dict(clinic)}
+
+
+@router.put("/plugins", response_model=dict)
+async def update_clinic_plugins(
+    plugin_data: ClinicPluginsUpdate,
+    current_user: User = Depends(get_current_doctor),
+    db: Session = Depends(get_db)
+):
+    """Toggle plugins for the clinic (owner only)."""
+    clinic = db.query(Clinic).filter(Clinic.id == current_user.clinic_id).first()
+    if not clinic:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+
+    doctor = db.query(Doctor).filter(Doctor.user_id == current_user.id).first()
+    if not doctor or clinic.owner_doctor_id != doctor.id:
+        raise HTTPException(status_code=403, detail="Only the clinic owner can manage plugins")
+
+    if plugin_data.plugin_opd_queue is not None:
+        clinic.plugin_opd_queue = plugin_data.plugin_opd_queue
+    if plugin_data.plugin_collections is not None:
+        clinic.plugin_collections = plugin_data.plugin_collections
+
+    db.commit()
+    db.refresh(clinic)
+
+    return {
+        "message": "Plugins updated",
+        "plugins": {
+            "opd_queue": clinic.plugin_opd_queue,
+            "collections": clinic.plugin_collections,
+        }
+    }
 
 
 @router.get("/doctors", response_model=dict)

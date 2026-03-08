@@ -1,11 +1,25 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { opdAPI, patientsAPI } from '../services/api';
 import { Link, Navigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
+import PluginNudgeCard from '../components/common/PluginNudgeCard';
 
 export default function Dashboard() {
   const user = useAuthStore((state) => state.user);
   const plugins = user?.enabled_plugins;
+
+  const [dismissedNudges, setDismissedNudges] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('dismissedPluginNudges') || '{}');
+    } catch { return {}; }
+  });
+
+  const dismissNudge = (pluginKey) => {
+    const updated = { ...dismissedNudges, [pluginKey]: true };
+    setDismissedNudges(updated);
+    localStorage.setItem('dismissedPluginNudges', JSON.stringify(updated));
+  };
 
   if (user?.role === 'ADMIN') {
     return <Navigate to="/admin" replace />;
@@ -73,6 +87,22 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* Plugin Nudges */}
+      {plugins?.opd_queue === false && !dismissedNudges.opd_queue && (
+        <PluginNudgeCard
+          pluginKey="opd_queue"
+          contextMessage={`You have ${patientStats?.total_patients || 0} patients. Manage their appointments efficiently with OPD Queue.`}
+          onDismiss={() => dismissNudge('opd_queue')}
+        />
+      )}
+      {plugins?.collections === false && !dismissedNudges.collections && (
+        <PluginNudgeCard
+          pluginKey="collections"
+          contextMessage={`You completed ${stats?.stats?.completed || 0} visits today. Start tracking your collections.`}
+          onDismiss={() => dismissNudge('collections')}
+        />
+      )}
 
       {/* Recent Patients */}
       <div className="card">

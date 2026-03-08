@@ -170,6 +170,7 @@ export const clinicAPI = {
   getDoctors: () => api.get('/clinic/doctors'),
   getDoctorProfile: () => api.get('/clinic/doctor-profile'),
   updateDoctorProfile: (data) => api.put('/clinic/doctor-profile', data),
+  updatePlugins: (data) => api.put('/clinic/plugins', data),
 };
 
 // Users API
