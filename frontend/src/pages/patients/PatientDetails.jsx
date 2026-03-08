@@ -295,7 +295,38 @@ export default function PatientDetails() {
               </div>
               <div>
                 <span className="text-gray-600 block mb-2">Medical History</span>
-                <p className="text-gray-900">{patient.medical_history ? JSON.stringify(patient.medical_history) : 'No medical history recorded'}</p>
+                {patient.medical_history ? (
+                  <div className="space-y-2">
+                    {Array.isArray(patient.medical_history.conditions) && patient.medical_history.conditions.length > 0 && (
+                      <div>
+                        <span className="text-gray-500 text-sm block mb-1">Conditions</span>
+                        <div className="flex flex-wrap gap-2">
+                          {patient.medical_history.conditions.map((condition, index) => (
+                            <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {condition}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {patient.medical_history.notes && (
+                      <div>
+                        <span className="text-gray-500 text-sm block mb-1">Notes</span>
+                        <p className="text-gray-900">{patient.medical_history.notes}</p>
+                      </div>
+                    )}
+                    {Object.entries(patient.medical_history)
+                      .filter(([key]) => key !== 'conditions' && key !== 'notes')
+                      .map(([key, value]) => (
+                        <div key={key}>
+                          <span className="text-gray-500 text-sm block mb-1 capitalize">{key.replace(/_/g, ' ')}</span>
+                          <p className="text-gray-900">{typeof value === 'string' ? value : JSON.stringify(value)}</p>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <span className="text-gray-400">No medical history recorded</span>
+                )}
               </div>
             </div>
           </div>

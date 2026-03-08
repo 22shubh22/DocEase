@@ -88,6 +88,7 @@ export const opdAPI = {
   updatePosition: (id, newPosition) => api.put(`/opd/appointments/${id}/position`, { new_position: newPosition }),
   getVisitByAppointment: (appointmentId) => api.get(`/opd/appointments/${appointmentId}/visit`),
   getFollowUpsDue: (params) => api.get('/opd/follow-ups-due', { params }),
+  getFollowUps: (params) => api.get('/opd/follow-ups', { params }),
 };
 
 // Chief Complaints API

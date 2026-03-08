@@ -43,3 +43,47 @@ export function validateTemperature(value) {
 
   return true;
 }
+
+/**
+ * Validates pulse value. Range: 20-300 bpm.
+ */
+export function validatePulse(value) {
+  if (!value || value.toString().trim() === '') return true;
+  const num = parseFloat(value);
+  if (isNaN(num)) return 'Pulse must be a valid number';
+  if (num < 20 || num > 300) return 'Pulse must be between 20 and 300 bpm';
+  return true;
+}
+
+/**
+ * Validates weight value. Range: 0.5-500 kg.
+ */
+export function validateWeight(value) {
+  if (!value || value.toString().trim() === '') return true;
+  const num = parseFloat(value);
+  if (isNaN(num)) return 'Weight must be a valid number';
+  if (num < 0.5 || num > 500) return 'Weight must be between 0.5 and 500 kg';
+  return true;
+}
+
+/**
+ * Validates height value. Range: 10-300 cm.
+ */
+export function validateHeight(value) {
+  if (!value || value.toString().trim() === '') return true;
+  const num = parseFloat(value);
+  if (isNaN(num)) return 'Height must be a valid number';
+  if (num < 10 || num > 300) return 'Height must be between 10 and 300 cm';
+  return true;
+}
+
+/**
+ * Validates SpO2 value. Range: 0-100%.
+ */
+export function validateSpO2(value) {
+  if (!value || value.toString().trim() === '') return true;
+  const num = parseFloat(value);
+  if (isNaN(num)) return 'SpO2 must be a valid number';
+  if (num < 0 || num > 100) return 'SpO2 must be between 0 and 100%';
+  return true;
+}

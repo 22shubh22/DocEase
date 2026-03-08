@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func, cast, Date
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Optional, Literal
 from collections import defaultdict
 from app.core.database import get_db
@@ -260,7 +260,7 @@ async def create_visit(
         doctor_id=visit_data.doctor_id or doctor.id,
         appointment_id=visit_data.appointment_id,
         visit_number=visit_number,
-        visit_date=datetime.now(),
+        visit_date=datetime.now(timezone.utc),
         clinic_id=current_user.clinic_id
     )
 
