@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { patientsAPI, opdAPI, chiefComplaintsAPI } from '../../services/api';
+import useAuthStore from '../../store/authStore';
 
 export default function PatientsList() {
+  const user = useAuthStore((state) => state.user);
+  const plugins = user?.enabled_plugins;
   const [patients, setPatients] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -258,12 +261,20 @@ export default function PatientsList() {
                     </td>
                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => openOPDModal(patient)}
-                          className="text-green-600 hover:text-green-900"
+                        {plugins?.opd_queue !== false && (
+                          <button
+                            onClick={() => openOPDModal(patient)}
+                            className="text-green-600 hover:text-green-900"
+                          >
+                            Add to OPD
+                          </button>
+                        )}
+                        <Link
+                          to={`/visits/new?patientId=${patient.id}`}
+                          className="text-blue-600 hover:text-blue-900"
                         >
-                          Add to OPD
-                        </button>
+                          Add Visit
+                        </Link>
                         <Link
                           to={`/patients/${patient.id}`}
                           className="text-primary-600 hover:text-primary-900"

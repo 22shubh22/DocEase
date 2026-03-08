@@ -56,10 +56,10 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
-  guestLogin: async () => {
+  guestLogin: async (plugins) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await authAPI.guestLogin();
+      const response = await authAPI.guestLogin(plugins);
       const { token, user } = response.data;
 
       localStorage.setItem('token', token);
@@ -89,6 +89,17 @@ const useAuthStore = create((set, get) => ({
   updateUser: (userData) => {
     set({ user: userData });
     localStorage.setItem('user', JSON.stringify(userData));
+  },
+
+  refreshUser: async () => {
+    try {
+      const response = await authAPI.getProfile();
+      const userData = response.data.user;
+      set({ user: userData });
+      localStorage.setItem('user', JSON.stringify(userData));
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
+    }
   },
 
   clearError: () => set({ error: null }),

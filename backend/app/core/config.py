@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     KEEP_ALIVE_INTERVAL_HOURS: int = 1
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # Audit & DPDP
+    AUDIT_LOG_READ_EVENTS: bool = False
+    DEFAULT_RETENTION_MONTHS: int = 120
+
     # CORS origins - comma-separated list for production
     CORS_ORIGINS: str = "http://localhost:5000,http://localhost:3000"
 

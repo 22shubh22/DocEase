@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
+import PluginSelectionModal from '../components/common/PluginSelectionModal';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm();
   const [showPassword, setShowPassword] = useState(false);
   const [isGuestLoading, setIsGuestLoading] = useState(false);
+  const [showPluginModal, setShowPluginModal] = useState(false);
 
   const onSubmit = async (data) => {
     const result = await login(data);
@@ -23,12 +25,17 @@ export default function Login() {
     }
   };
 
-  const handleGuestLogin = async () => {
+  const handleGuestLogin = () => {
+    setShowPluginModal(true);
+  };
+
+  const handleGuestConfirm = async (plugins) => {
     setIsGuestLoading(true);
-    const result = await guestLogin();
+    const result = await guestLogin(plugins);
     setIsGuestLoading(false);
 
     if (result.success) {
+      setShowPluginModal(false);
       toast.success('Welcome! Explore the demo with pre-loaded data.');
       navigate('/');
     } else {
@@ -37,11 +44,27 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center p-4 relative">
+      <Link
+        to="/landing"
+        className="absolute top-6 left-6 text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1 transition-colors"
+      >
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Back to Home
+      </Link>
+
       <div className="card max-w-md w-full">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">DocEase</h1>
           <p className="text-gray-600">Clinic Management System</p>
+          <p className="text-xs text-gray-400 mt-1 flex items-center justify-center gap-1">
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+            </svg>
+            Your data is encrypted and protected under DPDP Act 2023
+          </p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -124,7 +147,22 @@ export default function Login() {
             Register your clinic
           </Link>
         </p>
+
+        <div className="mt-6 pt-4 border-t border-gray-100 flex justify-center gap-4 text-xs text-gray-400">
+          <Link to="/privacy" className="hover:text-gray-600 transition-colors">Privacy</Link>
+          <span>·</span>
+          <Link to="/terms" className="hover:text-gray-600 transition-colors">Terms</Link>
+          <span>·</span>
+          <a href="mailto:22shubh22@gmail.com" className="hover:text-gray-600 transition-colors">Contact</a>
+        </div>
       </div>
+
+      <PluginSelectionModal
+        isOpen={showPluginModal}
+        onClose={() => setShowPluginModal(false)}
+        onConfirm={handleGuestConfirm}
+        isLoading={isGuestLoading}
+      />
     </div>
   );
 }

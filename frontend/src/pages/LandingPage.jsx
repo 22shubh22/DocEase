@@ -59,6 +59,15 @@ const features = [
       </svg>
     ),
   },
+  {
+    title: 'Data Protection',
+    description: 'Built for DPDP Act 2023 compliance with audit logging, patient consent management, data erasure rights, and breach reporting.',
+    icon: (
+      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+      </svg>
+    ),
+  },
 ];
 
 const steps = [
@@ -304,12 +313,15 @@ export default function LandingPage() {
       {/* Footer */}
       <footer id="contact" className="bg-gray-900 text-gray-400 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <span className="text-xl font-bold text-white">DocEase</span>
               <p className="mt-3 text-sm leading-relaxed">
                 A complete clinic management platform built for outpatient departments.
                 Streamline operations, improve patient care, and grow your practice.
+              </p>
+              <p className="mt-2 text-sm text-gray-500">
+                Built for compliance with India's DPDP Act 2023.
               </p>
             </div>
             <div>
@@ -322,6 +334,14 @@ export default function LandingPage() {
               </ul>
             </div>
             <div>
+              <h4 className="text-white font-semibold mb-4">Legal</h4>
+              <ul className="space-y-2 text-sm">
+                <li><Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
+                <li><Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
+                <li><Link to="/subprocessors" className="hover:text-white transition-colors">Subprocessors</Link></li>
+              </ul>
+            </div>
+            <div>
               <h4 className="text-white font-semibold mb-4">Contact</h4>
               <ul className="space-y-2 text-sm">
                 <li><a href="mailto:22shubh22@gmail.com" className="hover:text-white transition-colors">22shubh22@gmail.com</a></li>
@@ -330,8 +350,15 @@ export default function LandingPage() {
               </ul>
             </div>
           </div>
-          <div className="mt-10 pt-8 border-t border-gray-800 text-center text-sm">
-            &copy; {new Date().getFullYear()} DocEase. All rights reserved.
+          <div className="mt-10 pt-8 border-t border-gray-800 text-center text-sm flex flex-col sm:flex-row items-center justify-between gap-2">
+            <span>&copy; {new Date().getFullYear()} DocEase. All rights reserved.</span>
+            <div className="flex gap-4">
+              <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+              <span>·</span>
+              <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+              <span>·</span>
+              <Link to="/subprocessors" className="hover:text-white transition-colors">Subprocessors</Link>
+            </div>
           </div>
         </div>
       </footer>

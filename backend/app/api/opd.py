@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from datetime import date, datetime
 from typing import Optional
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_permission
-from app.models.models import User, Appointment, Patient, AppointmentStatusEnum, Visit, Doctor
+from app.core.deps import get_current_user, require_permission, require_plugin, get_client_ip
+from app.models.models import User, Appointment, Patient, AppointmentStatusEnum, Visit, Doctor, AuditActionEnum
 from app.schemas.schemas import AppointmentCreate, AppointmentUpdate, AppointmentPositionUpdate
+from app.services.audit_service import create_audit_log
 
 router = APIRouter()
 
@@ -15,6 +16,7 @@ router = APIRouter()
 async def get_queue(
     queue_date: Optional[date] = Query(None, description="Date to filter queue (defaults to today)"),
     current_user: User = Depends(require_permission("can_view_opd")),
+    _plugin: User = Depends(require_plugin("opd_queue")),
     db: Session = Depends(get_db)
 ):
     """Get OPD queue for a specific date (defaults to today)"""
@@ -80,6 +82,7 @@ async def get_queue(
 async def get_daily_stats(
     stats_date: Optional[date] = Query(None, description="Date to get stats for (defaults to today)"),
     current_user: User = Depends(require_permission("can_view_opd")),
+    _plugin: User = Depends(require_plugin("opd_queue")),
     db: Session = Depends(get_db)
 ):
     """Get daily statistics for a specific date"""
@@ -122,7 +125,10 @@ async def get_daily_stats(
 @router.post("/appointments/", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def add_to_queue(
     appointment_data: AppointmentCreate,
+    request: Request,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_permission("can_manage_opd")),
+    _plugin: User = Depends(require_plugin("opd_queue")),
     db: Session = Depends(get_db)
 ):
     """Add patient to OPD queue"""
@@ -150,6 +156,18 @@ async def add_to_queue(
     db.commit()
     db.refresh(appointment)
 
+    background_tasks.add_task(
+        create_audit_log,
+        action=AuditActionEnum.CREATE,
+        resource_type="appointments",
+        resource_id=appointment.id,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        clinic_id=current_user.clinic_id,
+        description=f"Added patient to OPD queue (#{appointment.queue_number})",
+        ip_address=get_client_ip(request),
+    )
+
     return {"message": "Added to queue", "appointment": {"id": appointment.id, "queue_number": appointment.queue_number}}
 
 
@@ -157,7 +175,10 @@ async def add_to_queue(
 async def update_queue_status(
     appointment_id: str,
     status_data: AppointmentUpdate,
+    request: Request,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_permission("can_manage_opd")),
+    _plugin: User = Depends(require_plugin("opd_queue")),
     db: Session = Depends(get_db)
 ):
     """Update appointment status"""
@@ -169,11 +190,27 @@ async def update_queue_status(
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
 
+    old_status = appointment.status.value if appointment.status else None
+
     if status_data.status:
         appointment.status = status_data.status
-    
+
     db.commit()
     db.refresh(appointment)
+
+    background_tasks.add_task(
+        create_audit_log,
+        action=AuditActionEnum.UPDATE,
+        resource_type="appointments",
+        resource_id=appointment.id,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        clinic_id=current_user.clinic_id,
+        description=f"Appointment status: {old_status} → {appointment.status.value}",
+        old_values={"status": old_status},
+        new_values={"status": appointment.status.value},
+        ip_address=get_client_ip(request),
+    )
 
     return {"message": "Status updated", "appointment": {"id": appointment.id, "status": appointment.status.value}}
 
@@ -183,6 +220,7 @@ async def update_queue_position(
     appointment_id: str,
     position_data: AppointmentPositionUpdate,
     current_user: User = Depends(require_permission("can_manage_opd")),
+    _plugin: User = Depends(require_plugin("opd_queue")),
     db: Session = Depends(get_db)
 ):
     """Update appointment position in queue (reorder)"""
@@ -230,6 +268,7 @@ async def update_queue_position(
 async def get_follow_ups_due(
     target_date: Optional[date] = Query(None, description="Date to check follow-ups (defaults to today)"),
     current_user: User = Depends(require_permission("can_view_opd")),
+    _plugin: User = Depends(require_plugin("opd_queue")),
     db: Session = Depends(get_db)
 ):
     """Get patients with follow-ups due on a specific date (defaults to today)"""
@@ -263,6 +302,7 @@ async def get_follow_ups_due(
 async def get_visit_by_appointment(
     appointment_id: str,
     current_user: User = Depends(require_permission("can_view_visits")),
+    _plugin: User = Depends(require_plugin("opd_queue")),
     db: Session = Depends(get_db)
 ):
     """Get visit details linked to an appointment (for OPD reopen case)"""

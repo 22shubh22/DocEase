@@ -17,8 +17,14 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import ClinicManagement from './pages/admin/ClinicManagement';
 import DoctorList from './pages/admin/DoctorList';
 import OnboardingRequests from './pages/admin/OnboardingRequests';
+import AdminAnalytics from './pages/admin/AdminAnalytics';
+import ClinicAnalytics from './pages/admin/ClinicAnalytics';
+import ClinicHealth from './pages/admin/ClinicHealth';
 import OnboardingRequest from './pages/OnboardingRequest';
 import CollectionReport from './pages/reports/CollectionReport';
+import PrivacyPolicy from './pages/legal/PrivacyPolicy';
+import TermsOfService from './pages/legal/TermsOfService';
+import Subprocessors from './pages/legal/Subprocessors';
 
 function ProtectedRoute({ children }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -30,6 +36,12 @@ function AdminRoute({ children }) {
   const user = useAuthStore((state) => state.user);
   if (!isAuthenticated) return <Navigate to="/login" />;
   if (user?.role !== 'ADMIN') return <Navigate to="/" />;
+  return children;
+}
+
+function PluginRoute({ plugin, children }) {
+  const user = useAuthStore((state) => state.user);
+  if (user?.enabled_plugins?.[plugin] === false) return <Navigate to="/" />;
   return children;
 }
 
@@ -53,6 +65,9 @@ function App() {
         path="/onboard"
         element={isAuthenticated ? <Navigate to="/" /> : <OnboardingRequest />}
       />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/subprocessors" element={<Subprocessors />} />
 
       <Route
         path="/"
@@ -75,7 +90,7 @@ function App() {
         <Route path="patients/:id/edit" element={<PatientForm />} />
 
         {/* OPD */}
-        <Route path="opd" element={<OPDQueue />} />
+        <Route path="opd" element={<PluginRoute plugin="opd_queue"><OPDQueue /></PluginRoute>} />
 
         {/* Visits */}
         <Route path="visits" element={<DoctorVisitsList />} />
@@ -84,7 +99,7 @@ function App() {
         <Route path="visits/:id/edit" element={<VisitForm />} />
 
         {/* Reports */}
-        <Route path="reports/collections" element={<CollectionReport />} />
+        <Route path="reports/collections" element={<PluginRoute plugin="collections"><CollectionReport /></PluginRoute>} />
         
         {/* Settings */}
         <Route 
@@ -98,6 +113,9 @@ function App() {
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="admin/doctors" element={<AdminRoute><DoctorList /></AdminRoute>} />
         <Route path="admin/onboarding" element={<AdminRoute><OnboardingRequests /></AdminRoute>} />
+        <Route path="admin/clinic-health" element={<AdminRoute><ClinicHealth /></AdminRoute>} />
+        <Route path="admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
+        <Route path="admin/clinics/:clinicId/analytics" element={<AdminRoute><ClinicAnalytics /></AdminRoute>} />
         <Route path="admin/clinics/:clinicId" element={<AdminRoute><ClinicManagement /></AdminRoute>} />
       </Route>
     </Routes>

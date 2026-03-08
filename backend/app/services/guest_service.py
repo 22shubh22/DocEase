@@ -229,7 +229,7 @@ DEMO_HISTORICAL_VISITS = [
 ]
 
 
-def create_guest_session(db: Session) -> dict:
+def create_guest_session(db: Session, plugin_opd_queue: bool = True, plugin_collections: bool = True) -> dict:
     """
     Create a fully isolated guest clinic with demo data.
     Returns the same response format as login endpoint.
@@ -248,6 +248,8 @@ def create_guest_session(db: Session) -> dict:
         opd_end_time="18:00",
         specialty=ClinicSpecialtyEnum.GENERAL_PHYSICIAN,
         is_guest=True,
+        plugin_opd_queue=plugin_opd_queue,
+        plugin_collections=plugin_collections,
     )
     db.add(clinic)
     db.flush()
@@ -448,6 +450,11 @@ def create_guest_session(db: Session) -> dict:
             "role": user.role.value,
             "clinic_id": user.clinic_id,
             "is_guest": True,
+            "enabled_plugins": {
+                "opd_queue": plugin_opd_queue,
+                "collections": plugin_collections,
+                "dpdp_compliance": False,
+            },
         },
     }
 

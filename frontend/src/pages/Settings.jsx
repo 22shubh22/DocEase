@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import { chiefComplaintsAPI, diagnosisOptionsAPI, observationOptionsAPI, testOptionsAPI, medicineOptionsAPI, dosageOptionsAPI, durationOptionsAPI, symptomOptionsAPI, clinicAPI } from '../services/api';
@@ -8,11 +9,17 @@ import PermissionsManager from '../components/settings/PermissionsManager';
 import SubUserManager from '../components/settings/SubUserManager';
 import OptionManager from '../components/settings/OptionManager';
 import PasswordSettings from '../components/settings/PasswordSettings';
-import PreferencesSettings from '../components/settings/PreferencesSettings';
+import TemplateDesigner from '../components/print/TemplateDesigner';
+import SettingsSidebar from '../components/settings/SettingsSidebar';
+import PluginManager from '../components/settings/PluginManager';
+import AuditLogViewer from '../components/settings/AuditLogViewer';
+import DpdpSettings from '../components/settings/DpdpSettings';
 
 export default function Settings() {
   const { user, updateUser } = useAuthStore();
-  const [activeTab, setActiveTab] = useState('password');
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'password';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [isOwner, setIsOwner] = useState(false);
   const [isCheckingOwner, setIsCheckingOwner] = useState(user?.role === 'DOCTOR');
 
@@ -43,23 +50,52 @@ export default function Settings() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const tabs = [
-    ...(isDoctor && isOwner ? [
-      { id: 'team', label: 'Team Members', icon: '👥' },
-      { id: 'permissions', label: 'Edit Permissions', icon: '🔐' },
-    ] : []),
-    ...(isDoctor ? [
-      { id: 'complaints', label: 'Chief Complaints', icon: '📋' },
-      { id: 'symptoms', label: 'Symptom Options', icon: '🤒' },
-      { id: 'diagnosis', label: 'Diagnosis Options', icon: '🩺' },
-      { id: 'observations', label: 'Observations', icon: '👁️' },
-      { id: 'tests', label: 'Test Options', icon: '🧪' },
-      { id: 'medicines', label: 'Medicines', icon: '💊' },
-      { id: 'dosages', label: 'Dosage Options', icon: '📏' },
-      { id: 'durations', label: 'Duration Options', icon: '⏱️' },
-    ] : []),
-    { id: 'password', label: 'Profile', icon: '👤' },
-    { id: 'preferences', label: 'Print Preferences', icon: '⚙️' },
+  const sections = [
+    {
+      label: 'Account',
+      items: [
+        { id: 'password', label: 'Profile & Password', icon: '👤' },
+      ],
+    },
+    ...(isDoctor && isOwner ? [{
+      label: 'Team',
+      items: [
+        { id: 'team', label: 'Team Members', icon: '👥' },
+        { id: 'permissions', label: 'Permissions', icon: '🔐' },
+      ],
+    }] : []),
+    {
+      label: 'Plugins',
+      items: [
+        { id: 'plugins', label: 'Manage Plugins', icon: '🧩' },
+      ],
+    },
+    ...(isDoctor && isOwner && user?.enabled_plugins?.dpdp_compliance ? [{
+      label: 'Compliance',
+      items: [
+        { id: 'audit-logs', label: 'Audit Logs', icon: '📜' },
+        { id: 'dpdp', label: 'DPDP Compliance', icon: '🛡️' },
+      ],
+    }] : []),
+    {
+      label: 'Print',
+      items: [
+        { id: 'print-template', label: 'Print Template', icon: '🖨️' },
+      ],
+    },
+    ...(isDoctor ? [{
+      label: 'Clinical Options',
+      items: [
+        { id: 'complaints', label: 'Chief Complaints', icon: '📋' },
+        { id: 'symptoms', label: 'Symptoms', icon: '🤒' },
+        { id: 'diagnosis', label: 'Diagnosis', icon: '🩺' },
+        { id: 'observations', label: 'Observations', icon: '👁️' },
+        { id: 'tests', label: 'Tests', icon: '🧪' },
+        { id: 'medicines', label: 'Medicines', icon: '💊', highlight: true },
+        { id: 'dosages', label: 'Dosages', icon: '📏' },
+        { id: 'durations', label: 'Durations', icon: '⏱️' },
+      ],
+    }] : []),
   ];
 
   // Option configurations for reusable OptionManager
@@ -176,11 +212,26 @@ export default function Settings() {
         }
         return null;
 
+      case 'plugins':
+        return <PluginManager isOwner={isOwner} />;
+
+      case 'audit-logs':
+        if (isDoctor && isOwner) {
+          return <AuditLogViewer />;
+        }
+        return null;
+
+      case 'dpdp':
+        if (isDoctor && isOwner) {
+          return <DpdpSettings />;
+        }
+        return null;
+
+      case 'print-template':
+        return <TemplateDesigner user={user} />;
+
       case 'password':
         return <PasswordSettings user={user} />;
-
-      case 'preferences':
-        return <PreferencesSettings user={user} updateUser={updateUser} />;
 
       default:
         return null;
@@ -188,42 +239,33 @@ export default function Settings() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Settings</h1>
         <p className="text-gray-600 mt-1">Manage your account and clinic preferences</p>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <div className="flex space-x-1 sm:space-x-4 overflow-x-auto">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabChange(tab.id)}
-              title={tab.label}
-              className={`px-2 sm:px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <span className="sm:mr-1">{tab.icon}</span>
-              <span className="hidden sm:inline">{tab.label}</span>
-            </button>
-          ))}
-          {/* Loading skeleton for Team Permissions tab */}
-          {isCheckingOwner && isDoctor && (
-            <div className="px-4 py-2 animate-pulse">
-              <div className="h-4 w-28 bg-gray-200 rounded"></div>
+      {/* Sidebar + Content layout */}
+      <div className="md:flex md:gap-8">
+        <SettingsSidebar
+          sections={sections}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+        />
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          {isCheckingOwner && isDoctor ? (
+            <div className="animate-pulse space-y-4">
+              <div className="h-8 w-48 bg-gray-200 rounded"></div>
+              <div className="h-32 bg-gray-100 rounded-lg"></div>
             </div>
+          ) : (
+            renderTabContent()
           )}
         </div>
       </div>
-
-      {/* Tab Content */}
-      {renderTabContent()}
     </div>
   );
 }

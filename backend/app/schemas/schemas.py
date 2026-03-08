@@ -3,7 +3,11 @@ from typing import Optional, List
 from datetime import datetime, date
 from decimal import Decimal
 import re
-from app.models.models import RoleEnum, GenderEnum, AppointmentStatusEnum, ClinicSpecialtyEnum, OnboardingRequestStatusEnum
+from app.models.models import (
+    RoleEnum, GenderEnum, AppointmentStatusEnum, ClinicSpecialtyEnum,
+    OnboardingRequestStatusEnum, AuditActionEnum, ConsentPurposeEnum,
+    ConsentStatusEnum, ErasureStatusEnum,
+)
 
 
 def validate_phone_number(phone: str, field_name: str = "Phone number") -> str:
@@ -90,6 +94,11 @@ class GuestCleanupRequest(BaseModel):
     user_id: str
 
 
+class GuestSessionRequest(BaseModel):
+    plugin_opd_queue: bool = True
+    plugin_collections: bool = True
+
+
 # User Schemas
 class UserBase(BaseModel):
     email: EmailStr
@@ -126,7 +135,7 @@ class UserResponse(UserBase):
     id: str
     is_active: bool
     clinic_id: Optional[str] = None
-    created_at: datetime
+    created_at: Optional[datetime] = None
     last_login: Optional[datetime] = None
 
     class Config:
@@ -178,7 +187,14 @@ class ClinicBase(BaseModel):
 
 
 class ClinicUpdate(ClinicBase):
-    pass
+    name: Optional[str] = None
+    logo_url: Optional[str] = None
+
+
+class ClinicPluginsUpdate(BaseModel):
+    plugin_opd_queue: Optional[bool] = None
+    plugin_collections: Optional[bool] = None
+    plugin_dpdp_compliance: Optional[bool] = None
 
 
 class ClinicResponse(ClinicBase):
@@ -201,7 +217,7 @@ class DoctorBase(BaseModel):
 
 
 class DoctorUpdate(DoctorBase):
-    pass
+    signature_url: Optional[str] = None
 
 
 class DoctorResponse(DoctorBase):
@@ -816,3 +832,266 @@ class OnboardingApproveRequest(BaseModel):
 
 class OnboardingRejectRequest(BaseModel):
     admin_notes: str
+
+
+# Print Template Schemas
+class PrintTemplateUpdate(BaseModel):
+    print_mode: Optional[str] = None
+    preset_id: Optional[str] = None
+    content_top_px: Optional[int] = None
+    content_left_px: Optional[int] = None
+    content_right_px: Optional[int] = None
+    template_config: Optional[dict] = None
+
+    @field_validator('print_mode')
+    @classmethod
+    def validate_print_mode(cls, v):
+        if v is not None and v not in ('letterhead', 'digital'):
+            raise ValueError('print_mode must be "letterhead" or "digital"')
+        return v
+
+    @field_validator('preset_id')
+    @classmethod
+    def validate_preset_id(cls, v):
+        if v is not None and v not in ('classic', 'modern', 'minimal', 'bold'):
+            raise ValueError('preset_id must be one of: classic, modern, minimal, bold')
+        return v
+
+    @field_validator('content_top_px')
+    @classmethod
+    def validate_top(cls, v):
+        if v is not None and not (0 <= v <= 400):
+            raise ValueError('content_top_px must be between 0 and 400')
+        return v
+
+    @field_validator('content_left_px', 'content_right_px')
+    @classmethod
+    def validate_horizontal(cls, v):
+        if v is not None and not (0 <= v <= 200):
+            raise ValueError('Horizontal padding must be between 0 and 200')
+        return v
+
+
+class PrintTemplateResponse(BaseModel):
+    id: str
+    clinic_id: str
+    print_mode: str
+    preset_id: str
+    content_top_px: int
+    content_left_px: int
+    content_right_px: int
+    template_config: dict
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class PrintModeSwitchRequest(BaseModel):
+    print_mode: str
+
+    @field_validator('print_mode')
+    @classmethod
+    def validate_print_mode(cls, v):
+        if v not in ('letterhead', 'digital'):
+            raise ValueError('print_mode must be "letterhead" or "digital"')
+        return v
+
+
+class ApplyPresetRequest(BaseModel):
+    preset_id: str
+
+    @field_validator('preset_id')
+    @classmethod
+    def validate_preset_id(cls, v):
+        if v not in ('classic', 'modern', 'minimal', 'bold'):
+            raise ValueError('preset_id must be one of: classic, modern, minimal, bold')
+        return v
+
+
+# ── Analytics Schemas ──
+
+class MonthlyDataPoint(BaseModel):
+    month: str
+    count: int
+
+class MonthlyAmountPoint(BaseModel):
+    month: str
+    amount: float
+
+class ClinicAnalyticsSummary(BaseModel):
+    clinic_id: str
+    clinic_name: str
+    clinic_code: Optional[str] = None
+    specialty: Optional[str] = None
+    created_at: Optional[datetime] = None
+    total_patients: int
+    total_visits: int
+    total_prescriptions: int
+    total_appointments: int
+    active_doctors: int
+    total_collections: float
+    plugin_opd_queue: bool
+    plugin_collections: bool
+
+class DoctorActivity(BaseModel):
+    name: Optional[str] = None
+    last_login: Optional[datetime] = None
+    visit_count: int
+
+class ClinicDetailAnalytics(ClinicAnalyticsSummary):
+    patients_by_month: List[MonthlyDataPoint]
+    visits_by_month: List[MonthlyDataPoint]
+    appointments_by_status: dict
+    collections_by_month: List[MonthlyAmountPoint]
+    doctors: List[DoctorActivity]
+
+class PlatformAnalyticsOverview(BaseModel):
+    total_clinics: int
+    total_patients: int
+    total_visits: int
+    total_prescriptions: int
+    total_collections: float
+    total_active_doctors: int
+    patients_by_month: List[MonthlyDataPoint]
+    visits_by_month: List[MonthlyDataPoint]
+    top_clinics: List[ClinicAnalyticsSummary]
+    plugin_adoption: dict
+
+
+# ── Audit Log Schemas ──
+
+class AuditLogResponse(BaseModel):
+    id: str
+    clinic_id: Optional[str] = None
+    user_id: Optional[str] = None
+    user_email: Optional[str] = None
+    action: str
+    resource_type: str
+    resource_id: Optional[str] = None
+    description: Optional[str] = None
+    old_values: Optional[dict] = None
+    new_values: Optional[dict] = None
+    ip_address: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AuditLogListResponse(BaseModel):
+    logs: List[AuditLogResponse]
+    pagination: dict
+
+
+# ── DPDP Consent Schemas ──
+
+class PatientConsentCreate(BaseModel):
+    patient_id: str
+    purpose: ConsentPurposeEnum
+    consent_text: str
+    consent_version: str = "1.0"
+
+
+class PatientConsentResponse(BaseModel):
+    id: str
+    patient_id: str
+    clinic_id: str
+    purpose: str
+    status: str
+    consent_text: str
+    consent_version: str
+    given_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
+    collected_by: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── DPDP Data Retention Schemas ──
+
+class DataRetentionPolicyUpdate(BaseModel):
+    patient_data_retention_months: Optional[int] = None
+    audit_log_retention_months: Optional[int] = None
+    inactive_patient_archive_months: Optional[int] = None
+
+    @field_validator('patient_data_retention_months', 'audit_log_retention_months', 'inactive_patient_archive_months')
+    @classmethod
+    def validate_months(cls, v):
+        if v is not None and v < 1:
+            raise ValueError('Retention period must be at least 1 month')
+        return v
+
+
+class DataRetentionPolicyResponse(BaseModel):
+    id: str
+    clinic_id: str
+    patient_data_retention_months: int
+    audit_log_retention_months: int
+    inactive_patient_archive_months: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── DPDP Erasure Schemas ──
+
+class DataErasureRequestCreate(BaseModel):
+    patient_id: str
+    reason: Optional[str] = None
+
+
+class DataErasureRequestResponse(BaseModel):
+    id: str
+    patient_id: Optional[str] = None
+    clinic_id: str
+    requested_by: Optional[str] = None
+    reason: Optional[str] = None
+    status: str
+    approved_by: Optional[str] = None
+    completed_at: Optional[datetime] = None
+    anonymized_fields: Optional[List[str]] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class DataErasureRejectRequest(BaseModel):
+    reason: str
+
+
+# ── DPDP Breach Schemas ──
+
+class DataBreachReportCreate(BaseModel):
+    description: str
+    severity: str = "LOW"
+    affected_records_count: Optional[int] = None
+    containment_actions: Optional[str] = None
+
+    @field_validator('severity')
+    @classmethod
+    def validate_severity(cls, v):
+        if v not in ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL'):
+            raise ValueError('severity must be one of: LOW, MEDIUM, HIGH, CRITICAL')
+        return v
+
+
+class DataBreachReportResponse(BaseModel):
+    id: str
+    clinic_id: str
+    reported_by: Optional[str] = None
+    description: str
+    severity: str
+    affected_records_count: Optional[int] = None
+    containment_actions: Optional[str] = None
+    reported_to_authority: bool
+    reported_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

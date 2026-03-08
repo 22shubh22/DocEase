@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func, cast, Date
 from datetime import date, datetime
 from typing import Optional, Literal
 from collections import defaultdict
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_permission
-from app.models.models import User, Visit, Appointment, AppointmentStatusEnum, Doctor, Patient, VisitMedicine, User as UserModel
+from app.core.deps import get_current_user, require_permission, require_plugin, get_client_ip
+from app.models.models import User, Visit, Appointment, AppointmentStatusEnum, Doctor, Patient, VisitMedicine, User as UserModel, AuditActionEnum
 from app.schemas.schemas import VisitCreate, VisitUpdate, CollectionSummaryResponse
+from app.services.audit_service import create_audit_log, get_model_dict, compute_changes
 
 router = APIRouter()
 
@@ -19,6 +20,7 @@ async def get_collection_summary(
     group_by: Literal["day", "month"] = Query("day", description="Group collections by day or month"),
     doctor_id: Optional[str] = Query(None, description="Filter by specific doctor ID"),
     current_user: User = Depends(require_permission("can_view_visits")),
+    _plugin: User = Depends(require_plugin("collections")),
     db: Session = Depends(get_db)
 ):
     """
@@ -179,6 +181,8 @@ async def get_doctor_visits(
 @router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def create_visit(
     visit_data: VisitCreate,
+    request: Request,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_permission("can_create_visits")),
     db: Session = Depends(get_db)
 ):
@@ -226,6 +230,19 @@ async def create_visit(
 
         db.commit()
         db.refresh(existing_visit)
+
+        background_tasks.add_task(
+            create_audit_log,
+            action=AuditActionEnum.UPDATE,
+            resource_type="visits",
+            resource_id=existing_visit.id,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            clinic_id=current_user.clinic_id,
+            description=f"Updated visit via appointment reopen",
+            ip_address=get_client_ip(request),
+        )
+
         return {"message": "Visit updated successfully", "visit_id": existing_visit.id}
 
     # Create new visit
@@ -271,6 +288,18 @@ async def create_visit(
 
     db.commit()
     db.refresh(visit)
+
+    background_tasks.add_task(
+        create_audit_log,
+        action=AuditActionEnum.CREATE,
+        resource_type="visits",
+        resource_id=visit.id,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        clinic_id=current_user.clinic_id,
+        description=f"Created visit #{visit.visit_number} for patient {visit.patient_id}",
+        ip_address=get_client_ip(request),
+    )
 
     return {"message": "Visit created successfully", "visit_id": visit.id}
 
@@ -349,6 +378,8 @@ async def get_visit_by_id(
 async def update_visit(
     visit_id: str,
     visit_data: VisitUpdate,
+    request: Request,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_permission("can_edit_visits")),
     db: Session = Depends(get_db)
 ):
@@ -360,6 +391,8 @@ async def update_visit(
 
     if not visit:
         raise HTTPException(status_code=404, detail="Visit not found")
+
+    old_snapshot = get_model_dict(visit, exclude_fields=['patient', 'appointment', 'doctor', 'clinic', 'medicines'])
 
     update_data = visit_data.model_dump(exclude_unset=True)
 
@@ -388,6 +421,23 @@ async def update_visit(
 
     # Get updated medicines
     medicines = db.query(VisitMedicine).filter(VisitMedicine.visit_id == visit_id).all()
+
+    new_snapshot = get_model_dict(visit, exclude_fields=['patient', 'appointment', 'doctor', 'clinic', 'medicines'])
+    old_changes, new_changes = compute_changes(old_snapshot, new_snapshot)
+    if old_changes:
+        background_tasks.add_task(
+            create_audit_log,
+            action=AuditActionEnum.UPDATE,
+            resource_type="visits",
+            resource_id=visit.id,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            clinic_id=current_user.clinic_id,
+            description=f"Updated visit #{visit.visit_number}",
+            old_values=old_changes,
+            new_values=new_changes,
+            ip_address=get_client_ip(request),
+        )
 
     return {
         "message": "Visit updated successfully",

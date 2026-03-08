@@ -146,6 +146,31 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+
+      </div>
+
+      {/* Quick Links */}
+      <div className="flex gap-3 mb-6">
+        <Link
+          to="/admin/clinic-health"
+          className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:shadow-sm transition-all"
+        >
+          <div className="flex gap-1">
+            <div className="w-2 h-2 rounded-full bg-green-500" />
+            <div className="w-2 h-2 rounded-full bg-yellow-500" />
+            <div className="w-2 h-2 rounded-full bg-red-500" />
+          </div>
+          <span className="text-sm font-medium text-gray-700">Clinic Health</span>
+        </Link>
+        <Link
+          to="/admin/analytics"
+          className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:shadow-sm transition-all"
+        >
+          <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          <span className="text-sm font-medium text-gray-700">Analytics</span>
+        </Link>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
@@ -175,7 +200,11 @@ export default function AdminDashboard() {
                     )}
                   </div>
                   <p className="text-sm text-gray-500">{clinic.address || 'No address'}</p>
-                  <p className="text-sm text-gray-400">{clinic.phone} | {clinic.email}</p>
+                  {(clinic.phone || clinic.email) && (
+                    <p className="text-sm text-gray-400">
+                      {[clinic.phone, clinic.email].filter(Boolean).join(' | ')}
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <Link

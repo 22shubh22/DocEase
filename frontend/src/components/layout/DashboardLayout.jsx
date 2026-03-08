@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
+import usePrintTemplateStore from '../../store/printTemplateStore';
 import { clinicAPI } from '../../services/api';
+import PluginTeaserModal from '../common/PluginTeaserModal';
 
 export default function DashboardLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [teaserPlugin, setTeaserPlugin] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
+  const { initFromLogin, fetchTemplate } = usePrintTemplateStore();
 
   useEffect(() => {
     const checkOwnerStatus = async () => {
@@ -23,6 +27,16 @@ export default function DashboardLayout() {
     };
     checkOwnerStatus();
   }, [user]);
+
+  // Initialize print template store
+  useEffect(() => {
+    if (user?.print_template) {
+      initFromLogin(user.print_template);
+    }
+    if (user?.clinic_id) {
+      fetchTemplate();
+    }
+  }, [user?.clinic_id]);
 
   // Clean up guest data when the tab/browser closes
   useEffect(() => {
@@ -49,16 +63,21 @@ export default function DashboardLayout() {
   const isAdmin = user?.role === 'ADMIN';
   const isDoctor = user?.role === 'DOCTOR';
   
+  const plugins = user?.enabled_plugins;
+
   const baseNavigation = [
     { name: 'Dashboard', path: '/', icon: '📊' },
     { name: 'Patients', path: '/patients', icon: '👥' },
-    { name: 'OPD Queue', path: '/opd', icon: '🏥' },
-    { name: 'Collections', path: '/reports/collections', icon: '💰' },
+    { name: 'Visits', path: '/visits', icon: '📝' },
+    { name: 'OPD Queue', path: '/opd', icon: '🏥', plugin: 'opd_queue', disabled: plugins?.opd_queue === false },
+    { name: 'Collections', path: '/reports/collections', icon: '💰', plugin: 'collections', disabled: plugins?.collections === false },
   ];
 
   const navigation = isAdmin ? [
     { name: 'Admin Dashboard', path: '/admin', icon: '🏢' },
+    { name: 'Clinic Health', path: '/admin/clinic-health', icon: '💊' },
     { name: 'Onboarding Requests', path: '/admin/onboarding', icon: '📋' },
+    { name: 'Analytics', path: '/admin/analytics', icon: '📈' },
   ] : [
     ...baseNavigation,
     { name: 'Settings', path: '/settings', icon: '⚙️' },
@@ -112,20 +131,34 @@ export default function DashboardLayout() {
         {/* Sidebar - Desktop */}
         <aside className="hidden md:flex md:flex-col md:w-64 bg-white shadow-sm fixed h-full">
           <nav className="flex-1 px-4 py-6 space-y-2">
-            {navigation.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive(item.path)
-                    ? 'bg-primary-50 text-primary-700 font-medium'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <span className="text-xl">{item.icon}</span>
-                <span>{item.name}</span>
-              </Link>
-            ))}
+            {navigation.map((item) =>
+              item.disabled ? (
+                <button
+                  key={item.path}
+                  onClick={() => setTeaserPlugin(item.plugin)}
+                  className="flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-gray-400 hover:bg-gray-50 w-full text-left opacity-60"
+                >
+                  <span className="text-xl">{item.icon}</span>
+                  <span>{item.name}</span>
+                  <svg className="w-3.5 h-3.5 ml-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </button>
+              ) : (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                    isActive(item.path)
+                      ? 'bg-primary-50 text-primary-700 font-medium'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <span className="text-xl">{item.icon}</span>
+                  <span>{item.name}</span>
+                </Link>
+              )
+            )}
           </nav>
         </aside>
 
@@ -139,21 +172,35 @@ export default function DashboardLayout() {
                   <p className="text-sm text-gray-500 capitalize">{user?.role?.toLowerCase()}</p>
                 </div>
                 <nav className="space-y-2">
-                  {navigation.map((item) => (
-                    <Link
-                      key={item.path}
-                      to={item.path}
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                        isActive(item.path)
-                          ? 'bg-primary-50 text-primary-700 font-medium'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      <span className="text-xl">{item.icon}</span>
-                      <span>{item.name}</span>
-                    </Link>
-                  ))}
+                  {navigation.map((item) =>
+                    item.disabled ? (
+                      <button
+                        key={item.path}
+                        onClick={() => { setIsMobileMenuOpen(false); setTeaserPlugin(item.plugin); }}
+                        className="flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-gray-400 hover:bg-gray-50 w-full text-left opacity-60"
+                      >
+                        <span className="text-xl">{item.icon}</span>
+                        <span>{item.name}</span>
+                        <svg className="w-3.5 h-3.5 ml-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                          isActive(item.path)
+                            ? 'bg-primary-50 text-primary-700 font-medium'
+                            : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        <span className="text-xl">{item.icon}</span>
+                        <span>{item.name}</span>
+                      </Link>
+                    )
+                  )}
                 </nav>
               </div>
             </div>
@@ -180,6 +227,13 @@ export default function DashboardLayout() {
           </div>
         </main>
       </div>
+
+      <PluginTeaserModal
+        plugin={teaserPlugin}
+        isOpen={!!teaserPlugin}
+        onClose={() => setTeaserPlugin(null)}
+        isOwner={isOwner}
+      />
     </div>
   );
 }

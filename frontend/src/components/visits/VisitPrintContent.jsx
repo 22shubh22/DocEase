@@ -1,4 +1,7 @@
 import { forwardRef } from 'react';
+import PrintHeader from '../print/PrintHeader';
+import PrintFooter from '../print/PrintFooter';
+import PrintWatermark from '../print/PrintWatermark';
 
 const VisitPrintContent = forwardRef(({
   patient,
@@ -11,6 +14,8 @@ const VisitPrintContent = forwardRef(({
   medicines,
   prescriptionNotes,
   printSettings,
+  printTemplate,
+  clinic,
   doctor,
   visitDate,
   visitNumber
@@ -35,148 +40,203 @@ const VisitPrintContent = forwardRef(({
   const hasVitals = vitals && Object.values(vitals).some(v => v);
   const hasMedicines = medicines && medicines.length > 0;
 
+  // Determine positioning based on template or legacy printSettings
+  const isDigital = printTemplate?.print_mode === 'digital';
+  const topPx = printTemplate ? printTemplate.content_top_px : (printSettings?.top || 280);
+  const leftPx = printTemplate ? printTemplate.content_left_px : (printSettings?.left || 40);
+  const rightPx = printTemplate ? (printTemplate.content_right_px || 40) : 40;
+
   return (
     <div
       ref={ref}
       className="print-content bg-white"
       style={{
-        paddingTop: `${printSettings?.top || 280}px`,
-        paddingLeft: `${printSettings?.left || 40}px`,
-        paddingRight: '40px',
+        paddingLeft: `${leftPx}px`,
+        paddingRight: `${rightPx}px`,
         fontFamily: 'Arial, sans-serif',
+        position: 'relative',
       }}
     >
-      {/* Patient Header */}
-      <div className="border-b-2 border-gray-800 pb-3 mb-4">
-        <h2 className="text-xl font-bold text-gray-900">
-          Patient: {patient?.full_name || 'Unknown'}
-        </h2>
-        <div className="flex flex-wrap gap-x-4 text-sm text-gray-700 mt-1">
-          <span>ID: {patient?.patient_code || '-'}</span>
-          {visitNumber && <span>Visit #: {visitNumber}</span>}
-          <span>Age: {patient?.age || '-'} yrs</span>
-          <span>Gender: {patient?.gender || '-'}</span>
-          {patient?.blood_group && <span>Blood Group: {patient.blood_group}</span>}
-        </div>
-        <div className="text-sm text-gray-600 mt-1">Date: {displayDate}</div>
-      </div>
-
-      {/* Allergies Warning */}
-      {patient?.allergies && (
-        <div className="bg-red-50 border border-red-300 rounded p-2 mb-4">
-          <span className="font-bold text-red-700">Allergies: </span>
-          <span className="text-red-600">{patient.allergies}</span>
-        </div>
+      {/* Watermark (digital mode only) — outside table so it repeats on every page via position:fixed */}
+      {isDigital && printTemplate?.template_config?.watermark?.enabled && (
+        <PrintWatermark config={printTemplate.template_config.watermark} clinic={clinic} />
       )}
 
-      {/* Vitals Section */}
-      {hasVitals && (
-        <div className="mb-4">
-          <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-1 mb-2">VITALS</h3>
-          <div className="grid grid-cols-3 gap-2 text-sm">
-            {vitals.blood_pressure && <span>BP: {vitals.blood_pressure}</span>}
-            {vitals.temperature && <span>Temp: {vitals.temperature}°F</span>}
-            {vitals.pulse && <span>Pulse: {vitals.pulse} bpm</span>}
-            {vitals.weight && <span>Weight: {vitals.weight} kg</span>}
-            {vitals.height && <span>Height: {vitals.height} cm</span>}
-            {vitals.spo2 && <span>SpO2: {vitals.spo2}%</span>}
-          </div>
-        </div>
-      )}
+      <table className="print-page-table">
+        {/* Header — repeated on every printed page by the browser */}
+        <thead>
+          <tr><td>
+            <div className="print-header-space">
+              {isDigital ? (
+                <div style={{ paddingTop: '12px' }}>
+                  <PrintHeader
+                    clinic={clinic}
+                    doctor={doctor}
+                    templateConfig={printTemplate?.template_config}
+                    presetId={printTemplate?.preset_id || 'classic'}
+                  />
+                </div>
+              ) : (
+                <div style={{ height: `${topPx}px` }} />
+              )}
+            </div>
+          </td></tr>
+        </thead>
 
-      {/* Chief Complaints */}
-      {symptoms && symptoms.length > 0 && (
-        <div className="mb-4">
-          <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-1 mb-2">CHIEF COMPLAINTS</h3>
-          <p className="text-sm">{symptoms.join(', ')}</p>
-        </div>
-      )}
+        {/* Footer — repeated on every printed page by the browser */}
+        <tfoot>
+          <tr><td>
+            <div className="print-footer-space">
+              {isDigital ? (
+                <PrintFooter
+                  doctor={doctor}
+                  clinic={clinic}
+                  templateConfig={printTemplate?.template_config}
+                  presetId={printTemplate?.preset_id || 'classic'}
+                />
+              ) : (
+                <div style={{ marginTop: '16px', paddingTop: '8px', borderTop: '1px solid #d1d5db' }}>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ display: 'inline-block', textAlign: 'center' }}>
+                      <div className="border-b border-gray-400" style={{ width: '12rem', marginBottom: '0.25rem' }}></div>
+                      {doctor ? (
+                        <div>
+                          <div className="text-sm font-medium">Dr. {doctor.name}</div>
+                          {doctor.registration_number && (
+                            <div className="text-xs text-gray-500">Reg. No: {doctor.registration_number}</div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-600">Doctor's Signature</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </td></tr>
+        </tfoot>
 
-      {/* Diagnosis */}
-      {diagnoses && diagnoses.length > 0 && (
-        <div className="mb-4">
-          <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-1 mb-2">DIAGNOSIS</h3>
-          <p className="text-sm">{diagnoses.join(', ')}</p>
-        </div>
-      )}
-
-      {/* Clinical Observations */}
-      {observations && observations.length > 0 && (
-        <div className="mb-4">
-          <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-1 mb-2">CLINICAL OBSERVATIONS</h3>
-          <p className="text-sm">{observations.join(', ')}</p>
-        </div>
-      )}
-
-      {/* Recommended Tests */}
-      {tests && tests.length > 0 && (
-        <div className="mb-4">
-          <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-1 mb-2">RECOMMENDED TESTS</h3>
-          <p className="text-sm">{tests.join(', ')}</p>
-        </div>
-      )}
-
-      {/* Follow-up Date */}
-      {followUpDate && (
-        <div className="mb-4">
-          <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-1 mb-2">FOLLOW-UP</h3>
-          <p className="text-sm">{formatDate(followUpDate)}</p>
-        </div>
-      )}
-
-      {/* Prescription/Medicines */}
-      {hasMedicines && (
-        <div className="mb-4">
-          <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-1 mb-2">PRESCRIPTION</h3>
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border border-gray-400 px-2 py-1 text-left w-8">#</th>
-                <th className="border border-gray-400 px-2 py-1 text-left">Medicine</th>
-                <th className="border border-gray-400 px-2 py-1 text-left w-24">Dosage</th>
-                <th className="border border-gray-400 px-2 py-1 text-left w-24">Duration</th>
-              </tr>
-            </thead>
-            <tbody>
-              {medicines.map((med, index) => (
-                <tr key={med.id || index}>
-                  <td className="border border-gray-400 px-2 py-1">{index + 1}</td>
-                  <td className="border border-gray-400 px-2 py-1">{med.medicine_name}</td>
-                  <td className="border border-gray-400 px-2 py-1">{med.dosage || '-'}</td>
-                  <td className="border border-gray-400 px-2 py-1">{med.duration || '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Prescription Notes */}
-      {prescriptionNotes && (
-        <div className="mb-4">
-          <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-1 mb-2">NOTES</h3>
-          <p className="text-sm whitespace-pre-wrap">{prescriptionNotes}</p>
-        </div>
-      )}
-
-      {/* Signature Line */}
-      <div className="mt-8 pt-4 border-t border-gray-300">
-        <div className="text-right">
-          <div className="inline-block text-center">
-            <div className="border-b border-gray-400 w-48 mb-1"></div>
-            {doctor ? (
-              <div>
-                <div className="text-sm font-medium">Dr. {doctor.name}</div>
-                {doctor.registration_number && (
-                  <div className="text-xs text-gray-500">Reg. No: {doctor.registration_number}</div>
-                )}
+        {/* Body content */}
+        <tbody>
+          <tr><td>
+            <div className="print-body-content">
+              {/* Patient Header */}
+              <div className="print-section border-b-2 border-gray-800 pb-2 mb-2" style={{ position: 'relative', zIndex: 1 }}>
+                <h2 className="font-bold text-gray-900" style={{ fontSize: '16px' }}>
+                  Patient: {patient?.full_name || 'Unknown'}
+                </h2>
+                <div className="flex flex-wrap gap-x-4 text-sm text-gray-700 mt-1">
+                  <span>ID: {patient?.patient_code || '-'}</span>
+                  {visitNumber && <span>Visit #: {visitNumber}</span>}
+                  <span>Age: {patient?.age || '-'} yrs</span>
+                  <span>Gender: {patient?.gender || '-'}</span>
+                  {patient?.blood_group && <span>Blood Group: {patient.blood_group}</span>}
+                </div>
+                <div className="text-sm text-gray-600 mt-1">Date: {displayDate}</div>
               </div>
-            ) : (
-              <div className="text-sm text-gray-600">Doctor's Signature</div>
-            )}
-          </div>
-        </div>
-      </div>
+
+              {/* Allergies Warning */}
+              {patient?.allergies && (
+                <div className="print-section bg-red-50 border border-red-300 rounded mb-2" style={{ padding: '4px 8px' }}>
+                  <span className="font-bold text-red-700">Allergies: </span>
+                  <span className="text-red-600">{patient.allergies}</span>
+                </div>
+              )}
+
+              {/* Vitals Section */}
+              {hasVitals && (
+                <div className="print-section mb-2">
+                  <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-1 mb-1">VITALS</h3>
+                  <div className="grid grid-cols-3 gap-1 text-sm">
+                    {vitals.blood_pressure && <span>BP: {vitals.blood_pressure}</span>}
+                    {vitals.temperature && <span>Temp: {vitals.temperature}&deg;F</span>}
+                    {vitals.pulse && <span>Pulse: {vitals.pulse} bpm</span>}
+                    {vitals.weight && <span>Weight: {vitals.weight} kg</span>}
+                    {vitals.height && <span>Height: {vitals.height} cm</span>}
+                    {vitals.spo2 && <span>SpO2: {vitals.spo2}%</span>}
+                  </div>
+                </div>
+              )}
+
+              {/* Chief Complaints */}
+              {symptoms && symptoms.length > 0 && (
+                <div className="print-section mb-2">
+                  <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-1 mb-1">CHIEF COMPLAINTS</h3>
+                  <p className="text-sm">{symptoms.join(', ')}</p>
+                </div>
+              )}
+
+              {/* Diagnosis */}
+              {diagnoses && diagnoses.length > 0 && (
+                <div className="print-section mb-2">
+                  <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-1 mb-1">DIAGNOSIS</h3>
+                  <p className="text-sm">{diagnoses.join(', ')}</p>
+                </div>
+              )}
+
+              {/* Clinical Observations */}
+              {observations && observations.length > 0 && (
+                <div className="print-section mb-2">
+                  <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-1 mb-1">CLINICAL OBSERVATIONS</h3>
+                  <p className="text-sm">{observations.join(', ')}</p>
+                </div>
+              )}
+
+              {/* Recommended Tests */}
+              {tests && tests.length > 0 && (
+                <div className="print-section mb-2">
+                  <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-1 mb-1">RECOMMENDED TESTS</h3>
+                  <p className="text-sm">{tests.join(', ')}</p>
+                </div>
+              )}
+
+              {/* Follow-up Date */}
+              {followUpDate && (
+                <div className="print-section mb-2">
+                  <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-1 mb-1">FOLLOW-UP</h3>
+                  <p className="text-sm">{formatDate(followUpDate)}</p>
+                </div>
+              )}
+
+              {/* Prescription/Medicines */}
+              {hasMedicines && (
+                <div className="print-section mb-2">
+                  <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-1 mb-1">PRESCRIPTION</h3>
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="border border-gray-400 px-2 py-1 text-left w-8">#</th>
+                        <th className="border border-gray-400 px-2 py-1 text-left">Medicine</th>
+                        <th className="border border-gray-400 px-2 py-1 text-left w-24">Dosage</th>
+                        <th className="border border-gray-400 px-2 py-1 text-left w-24">Duration</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {medicines.map((med, index) => (
+                        <tr key={med.id || index}>
+                          <td className="border border-gray-400 px-2 py-1">{index + 1}</td>
+                          <td className="border border-gray-400 px-2 py-1">{med.medicine_name}</td>
+                          <td className="border border-gray-400 px-2 py-1">{med.dosage || '-'}</td>
+                          <td className="border border-gray-400 px-2 py-1">{med.duration || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Prescription Notes */}
+              {prescriptionNotes && (
+                <div className="print-section mb-2">
+                  <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-1 mb-1">NOTES</h3>
+                  <p className="text-sm whitespace-pre-wrap">{prescriptionNotes}</p>
+                </div>
+              )}
+            </div>
+          </td></tr>
+        </tbody>
+      </table>
     </div>
   );
 });

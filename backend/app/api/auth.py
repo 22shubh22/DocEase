@@ -1,13 +1,14 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from datetime import datetime
 from app.core.database import get_db
 from app.core.security import verify_password, get_password_hash, create_access_token
-from app.core.deps import get_current_user
-from app.models.models import User
-from app.schemas.schemas import LoginRequest, Token, ChangePasswordRequest, UserResponse, GuestCleanupRequest
+from app.core.deps import get_current_user, get_client_ip
+from app.models.models import User, UserPermission, PrintTemplate, Clinic, AuditActionEnum
+from app.schemas.schemas import LoginRequest, Token, ChangePasswordRequest, UserResponse, GuestCleanupRequest, GuestSessionRequest
 from app.services.guest_service import create_guest_session, cleanup_guest_session
+from app.services.audit_service import create_audit_log
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +18,23 @@ router = APIRouter()
 @router.post("/login", response_model=dict)
 async def login(
     login_data: LoginRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
     """Authenticate user and return access token"""
     user = db.query(User).filter(User.email == login_data.email).first()
+    client_ip = get_client_ip(request)
 
     if not user or not verify_password(login_data.password, user.password_hash):
+        background_tasks.add_task(
+            create_audit_log,
+            action=AuditActionEnum.LOGIN_FAILED,
+            resource_type="auth",
+            user_email=login_data.email,
+            description=f"Failed login attempt for {login_data.email}",
+            ip_address=client_ip,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
@@ -41,6 +53,63 @@ async def login(
     # Create access token
     access_token = create_access_token(data={"sub": user.id, "role": user.role.value})
 
+    # Fetch user permissions
+    permissions_dict = None
+    permission = db.query(UserPermission).filter(
+        UserPermission.user_id == user.id
+    ).first()
+    if permission:
+        permissions_dict = {
+            "can_view_patients": permission.can_view_patients,
+            "can_create_patients": permission.can_create_patients,
+            "can_edit_patients": permission.can_edit_patients,
+            "can_delete_patients": permission.can_delete_patients,
+            "can_view_opd": permission.can_view_opd,
+            "can_manage_opd": permission.can_manage_opd,
+            "can_view_visits": permission.can_view_visits,
+            "can_create_visits": permission.can_create_visits,
+            "can_edit_visits": permission.can_edit_visits,
+            "can_manage_clinic_options": permission.can_manage_clinic_options,
+            "can_edit_print_settings": permission.can_edit_print_settings,
+        }
+
+    # Fetch clinic print template and plugin settings
+    print_template_dict = None
+    enabled_plugins = None
+    if user.clinic_id:
+        pt = db.query(PrintTemplate).filter(
+            PrintTemplate.clinic_id == user.clinic_id
+        ).first()
+        if pt:
+            print_template_dict = {
+                "id": pt.id,
+                "print_mode": pt.print_mode,
+                "preset_id": pt.preset_id,
+                "content_top_px": pt.content_top_px,
+                "content_left_px": pt.content_left_px,
+                "content_right_px": pt.content_right_px,
+                "template_config": pt.template_config,
+            }
+
+        clinic = db.query(Clinic).filter(Clinic.id == user.clinic_id).first()
+        if clinic:
+            enabled_plugins = {
+                "opd_queue": clinic.plugin_opd_queue,
+                "collections": clinic.plugin_collections,
+                "dpdp_compliance": clinic.plugin_dpdp_compliance,
+            }
+
+    background_tasks.add_task(
+        create_audit_log,
+        action=AuditActionEnum.LOGIN,
+        resource_type="auth",
+        user_id=user.id,
+        user_email=user.email,
+        clinic_id=user.clinic_id,
+        description=f"User {user.email} logged in",
+        ip_address=client_ip,
+    )
+
     return {
         "message": "Login successful",
         "token": access_token,
@@ -52,15 +121,18 @@ async def login(
             "role": user.role.value,
             "clinic_id": user.clinic_id,
             "is_guest": user.is_guest,
+            "permissions": permissions_dict,
+            "print_template": print_template_dict,
+            "enabled_plugins": enabled_plugins,
         }
     }
 
 
 @router.post("/guest")
-async def guest_login(db: Session = Depends(get_db)):
+async def guest_login(request: GuestSessionRequest = GuestSessionRequest(), db: Session = Depends(get_db)):
     """Create a guest demo session with isolated clinic and pre-loaded data"""
     try:
-        return create_guest_session(db)
+        return create_guest_session(db, plugin_opd_queue=request.plugin_opd_queue, plugin_collections=request.plugin_collections)
     except Exception as e:
         logger.error(f"Failed to create guest session: {e}")
         raise HTTPException(
@@ -71,6 +143,8 @@ async def guest_login(db: Session = Depends(get_db)):
 
 @router.post("/logout")
 async def logout(
+    request: Request,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -81,6 +155,17 @@ async def logout(
             logger.info(f"Cleaned up guest session for user {current_user.id}")
         except Exception as e:
             logger.error(f"Failed to cleanup guest session: {e}")
+
+    background_tasks.add_task(
+        create_audit_log,
+        action=AuditActionEnum.LOGOUT,
+        resource_type="auth",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        clinic_id=current_user.clinic_id,
+        description=f"User {current_user.email} logged out",
+        ip_address=get_client_ip(request),
+    )
 
     return {"message": "Logout successful"}
 
@@ -102,9 +187,41 @@ async def guest_cleanup(
 
 @router.get("/me", response_model=dict)
 async def get_profile(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Get current user profile"""
+    # Fetch permissions
+    permissions_dict = None
+    permission = db.query(UserPermission).filter(
+        UserPermission.user_id == current_user.id
+    ).first()
+    if permission:
+        permissions_dict = {
+            "can_view_patients": permission.can_view_patients,
+            "can_create_patients": permission.can_create_patients,
+            "can_edit_patients": permission.can_edit_patients,
+            "can_delete_patients": permission.can_delete_patients,
+            "can_view_opd": permission.can_view_opd,
+            "can_manage_opd": permission.can_manage_opd,
+            "can_view_visits": permission.can_view_visits,
+            "can_create_visits": permission.can_create_visits,
+            "can_edit_visits": permission.can_edit_visits,
+            "can_manage_clinic_options": permission.can_manage_clinic_options,
+            "can_edit_print_settings": permission.can_edit_print_settings,
+        }
+
+    # Fetch clinic plugin settings
+    enabled_plugins = None
+    if current_user.clinic_id:
+        clinic = db.query(Clinic).filter(Clinic.id == current_user.clinic_id).first()
+        if clinic:
+            enabled_plugins = {
+                "opd_queue": clinic.plugin_opd_queue,
+                "collections": clinic.plugin_collections,
+                "dpdp_compliance": clinic.plugin_dpdp_compliance,
+            }
+
     return {
         "user": {
             "id": current_user.id,
@@ -116,6 +233,8 @@ async def get_profile(
             "is_active": current_user.is_active,
             "is_guest": current_user.is_guest,
             "last_login": current_user.last_login,
+            "permissions": permissions_dict,
+            "enabled_plugins": enabled_plugins,
         }
     }
 
@@ -123,6 +242,8 @@ async def get_profile(
 @router.post("/change-password")
 async def change_password(
     password_data: ChangePasswordRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -141,5 +262,16 @@ async def change_password(
 
     current_user.password_hash = get_password_hash(password_data.new_password)
     db.commit()
+
+    background_tasks.add_task(
+        create_audit_log,
+        action=AuditActionEnum.PASSWORD_CHANGE,
+        resource_type="auth",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        clinic_id=current_user.clinic_id,
+        description=f"User {current_user.email} changed password",
+        ip_address=get_client_ip(request),
+    )
 
     return {"message": "Password changed successfully"}

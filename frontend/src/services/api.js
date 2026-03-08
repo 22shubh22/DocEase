@@ -59,7 +59,7 @@ api.interceptors.response.use(
 // Auth API
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
-  guestLogin: () => axios.post(`${API_URL}/auth/guest`),
+  guestLogin: (plugins) => axios.post(`${API_URL}/auth/guest`, plugins),
   logout: () => api.post('/auth/logout'),
   guestCleanup: (userId) => axios.post(`${API_URL}/auth/guest-cleanup`, { user_id: userId }),
   getProfile: () => api.get('/auth/me'),
@@ -170,6 +170,7 @@ export const clinicAPI = {
   getDoctors: () => api.get('/clinic/doctors'),
   getDoctorProfile: () => api.get('/clinic/doctor-profile'),
   updateDoctorProfile: (data) => api.put('/clinic/doctor-profile', data),
+  updatePlugins: (data) => api.put('/clinic/plugins', data),
 };
 
 // Users API
@@ -196,6 +197,13 @@ export const adminAPI = {
   removeDoctor: (clinicId, doctorId) => api.delete(`/admin/clinics/${clinicId}/doctors/${doctorId}`),
   setClinicOwner: (clinicId, doctorId) => api.put(`/admin/clinics/${clinicId}/owner`, { doctor_id: doctorId }),
   getAllDoctors: (params) => api.get('/admin/doctors', { params }),
+  getClinicPlugins: (clinicId) => api.get(`/admin/clinics/${clinicId}/plugins`),
+  updateClinicPlugins: (clinicId, data) => api.put(`/admin/clinics/${clinicId}/plugins`, data),
+  getAnalyticsOverview: (params) => api.get('/admin/analytics/overview', { params }),
+  getClinicAnalytics: (clinicId, params) => api.get(`/admin/analytics/clinics/${clinicId}`, { params }),
+  getClinicHealth: (params) => api.get('/admin/analytics/clinic-health', { params }),
+  getClinicHealthDetail: (clinicId) => api.get(`/admin/analytics/clinics/${clinicId}/health`),
+  recomputeStats: (data) => api.post('/admin/analytics/recompute', data),
 };
 
 // Onboarding API (public - no auth needed)
@@ -210,12 +218,47 @@ export const onboardingAPI = {
   rejectRequest: (id, data) => api.post(`/onboarding/requests/${id}/reject`, data),
 };
 
+// Print Template API
+export const printTemplateAPI = {
+  get: () => api.get('/print-template/'),
+  update: (data) => api.put('/print-template/', data),
+  switchMode: (mode) => api.patch('/print-template/mode', { print_mode: mode }),
+  applyPreset: (presetId) => api.post('/print-template/apply-preset', { preset_id: presetId }),
+};
+
 // Permissions API
 export const permissionsAPI = {
   getClinicUsers: () => api.get('/permissions/clinic-users'),
   getUserPermissions: (userId) => api.get(`/permissions/${userId}`),
   updateUserPermissions: (userId, data) => api.put(`/permissions/${userId}`, data),
   resetToDefaults: (userId) => api.post(`/permissions/${userId}/reset`),
+};
+
+// Audit API
+export const auditAPI = {
+  getLogs: (params) => api.get('/audit/logs', { params }),
+  getLog: (id) => api.get(`/audit/logs/${id}`),
+};
+
+// DPDP Compliance API
+export const dpdpAPI = {
+  // Consent
+  createConsent: (data) => api.post('/dpdp/consent', data),
+  getPatientConsents: (patientId) => api.get(`/dpdp/consent/${patientId}`),
+  revokeConsent: (consentId) => api.put(`/dpdp/consent/${consentId}/revoke`),
+  // Erasure
+  createErasureRequest: (data) => api.post('/dpdp/erasure-request', data),
+  getErasureRequests: () => api.get('/dpdp/erasure-requests'),
+  approveErasure: (id) => api.put(`/dpdp/erasure-requests/${id}/approve`),
+  rejectErasure: (id, data) => api.put(`/dpdp/erasure-requests/${id}/reject`, data),
+  // Export
+  exportPatientData: (patientId) => api.get(`/dpdp/export/${patientId}`),
+  // Retention
+  getRetentionPolicy: () => api.get('/dpdp/retention-policy'),
+  updateRetentionPolicy: (data) => api.put('/dpdp/retention-policy', data),
+  // Breach
+  reportBreach: (data) => api.post('/dpdp/breach-report', data),
+  getBreachReports: () => api.get('/dpdp/breach-reports'),
 };
 
 export default api;

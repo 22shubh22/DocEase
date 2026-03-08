@@ -27,6 +27,7 @@ export default function ClinicManagement() {
     phone: ''
   });
   const [phoneErrors, setPhoneErrors] = useState({});
+  const [plugins, setPlugins] = useState({ opd_queue: true, collections: true });
   const [showEditClinic, setShowEditClinic] = useState(false);
   const [editClinic, setEditClinic] = useState({
     name: '',
@@ -43,12 +44,14 @@ export default function ClinicManagement() {
 
   const fetchData = async () => {
     try {
-      const [clinicRes, doctorsRes] = await Promise.all([
+      const [clinicRes, doctorsRes, pluginsRes] = await Promise.all([
         adminAPI.getClinic(clinicId),
-        adminAPI.getClinicDoctors(clinicId)
+        adminAPI.getClinicDoctors(clinicId),
+        adminAPI.getClinicPlugins(clinicId)
       ]);
       setClinic(clinicRes.data);
       setDoctors(doctorsRes.data);
+      setPlugins(pluginsRes.data.plugins);
     } catch (error) {
       console.error('Failed to fetch clinic data:', error);
     } finally {
@@ -189,6 +192,18 @@ export default function ClinicManagement() {
     }
   };
 
+  const handleTogglePlugin = async (pluginKey) => {
+    try {
+      const newValue = !plugins[pluginKey];
+      const res = await adminAPI.updateClinicPlugins(clinicId, { [`plugin_${pluginKey}`]: newValue });
+      setPlugins(res.data.plugins);
+    } catch (error) {
+      console.error('Failed to update plugin:', error);
+      const errorMessage = error.response?.data?.detail || 'Failed to update plugin';
+      alert(errorMessage);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -244,6 +259,48 @@ export default function ClinicManagement() {
                 <p className="font-medium">
                   {clinic.opd_start_time || '09:00'} - {clinic.opd_end_time || '17:00'}
                 </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mt-6">
+            <h2 className="font-semibold text-gray-800 mb-4">Features</h2>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-800">OPD Queue</p>
+                  <p className="text-xs text-gray-500">Patient queue management</p>
+                </div>
+                <button
+                  onClick={() => handleTogglePlugin('opd_queue')}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    plugins.opd_queue ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      plugins.opd_queue ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-800">Collections</p>
+                  <p className="text-xs text-gray-500">Monthly collection reports</p>
+                </div>
+                <button
+                  onClick={() => handleTogglePlugin('collections')}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    plugins.collections ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      plugins.collections ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
               </div>
             </div>
           </div>

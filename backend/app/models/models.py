@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, Date, ForeignKey, Enum, Numeric, ARRAY, JSON, Text
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, Date, ForeignKey, Enum, Numeric, ARRAY, JSON, Text, text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -44,6 +44,39 @@ class OnboardingRequestStatusEnum(str, enum.Enum):
     REJECTED = "REJECTED"
 
 
+class AuditActionEnum(str, enum.Enum):
+    CREATE = "CREATE"
+    READ = "READ"
+    UPDATE = "UPDATE"
+    DELETE = "DELETE"
+    LOGIN = "LOGIN"
+    LOGIN_FAILED = "LOGIN_FAILED"
+    LOGOUT = "LOGOUT"
+    PASSWORD_CHANGE = "PASSWORD_CHANGE"
+    DATA_EXPORT = "DATA_EXPORT"
+    DATA_ERASURE = "DATA_ERASURE"
+    CONSENT_GIVEN = "CONSENT_GIVEN"
+    CONSENT_REVOKED = "CONSENT_REVOKED"
+
+
+class ConsentPurposeEnum(str, enum.Enum):
+    TREATMENT = "TREATMENT"
+    DATA_STORAGE = "DATA_STORAGE"
+    COMMUNICATION = "COMMUNICATION"
+
+
+class ConsentStatusEnum(str, enum.Enum):
+    GIVEN = "GIVEN"
+    REVOKED = "REVOKED"
+
+
+class ErasureStatusEnum(str, enum.Enum):
+    REQUESTED = "REQUESTED"
+    APPROVED = "APPROVED"
+    COMPLETED = "COMPLETED"
+    REJECTED = "REJECTED"
+
+
 class Clinic(Base):
     __tablename__ = "clinics"
 
@@ -58,6 +91,9 @@ class Clinic(Base):
     opd_end_time = Column(String)
     specialty = Column(Enum(ClinicSpecialtyEnum, values_callable=lambda x: [e.value for e in x]), nullable=True, default=ClinicSpecialtyEnum.DENTAL)
     is_guest = Column(Boolean, default=False, nullable=False)
+    plugin_opd_queue = Column(Boolean, default=True, nullable=False, server_default=text('true'))
+    plugin_collections = Column(Boolean, default=True, nullable=False, server_default=text('true'))
+    plugin_dpdp_compliance = Column(Boolean, default=False, nullable=False, server_default=text('false'))
     owner_doctor_id = Column(String, ForeignKey("doctors.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -78,6 +114,7 @@ class Clinic(Base):
     duration_options = relationship("DurationOption", back_populates="clinic", cascade="all, delete-orphan")
     symptom_options = relationship("SymptomOption", back_populates="clinic", cascade="all, delete-orphan")
     user_permissions = relationship("UserPermission", back_populates="clinic", cascade="all, delete-orphan")
+    print_template = relationship("PrintTemplate", back_populates="clinic", uselist=False, cascade="all, delete-orphan")
 
 
 class User(Base):
@@ -138,6 +175,7 @@ class Patient(Base):
     blood_group = Column(String)
     allergies = Column(ARRAY(String), default=[])
     medical_history = Column(JSON)
+    is_anonymized = Column(Boolean, default=False, nullable=False, server_default=text('false'))
     clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
     created_by = Column(String, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -414,3 +452,145 @@ class OnboardingRequest(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     reviewer = relationship("User", foreign_keys=[reviewed_by])
+
+
+class PrintTemplate(Base):
+    __tablename__ = "print_templates"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False, unique=True)
+
+    # Core mode: "letterhead" (pre-printed paper) or "digital" (print header/footer digitally)
+    print_mode = Column(String, nullable=False, default="letterhead")
+
+    # Which preset layout is selected
+    preset_id = Column(String, nullable=False, default="classic")
+
+    # Content positioning (pixels)
+    content_top_px = Column(Integer, nullable=False, default=280)
+    content_left_px = Column(Integer, nullable=False, default=40)
+    content_right_px = Column(Integer, nullable=False, default=40)
+
+    # JSON blob for header/footer/watermark config
+    template_config = Column(JSON, nullable=False, default=dict)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    clinic = relationship("Clinic", back_populates="print_template")
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    clinic_id = Column(String, nullable=True, index=True)
+    user_id = Column(String, nullable=True, index=True)
+    user_email = Column(String, nullable=True)
+    action = Column(Enum(AuditActionEnum), nullable=False, index=True)
+    resource_type = Column(String, nullable=False, index=True)
+    resource_id = Column(String, nullable=True, index=True)
+    description = Column(String, nullable=True)
+    old_values = Column(JSON, nullable=True)
+    new_values = Column(JSON, nullable=True)
+    ip_address = Column(String, nullable=True)
+    user_agent = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class PatientConsent(Base):
+    __tablename__ = "patient_consents"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    patient_id = Column(String, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    purpose = Column(Enum(ConsentPurposeEnum), nullable=False)
+    status = Column(Enum(ConsentStatusEnum), nullable=False, default=ConsentStatusEnum.GIVEN)
+    consent_text = Column(Text, nullable=False)
+    consent_version = Column(String, nullable=False, default="1.0")
+    given_at = Column(DateTime(timezone=True), server_default=func.now())
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    collected_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    ip_address = Column(String, nullable=True)
+
+    patient = relationship("Patient")
+    collector = relationship("User")
+
+
+class DataRetentionPolicy(Base):
+    __tablename__ = "data_retention_policies"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False, unique=True)
+    patient_data_retention_months = Column(Integer, nullable=False, default=120)
+    audit_log_retention_months = Column(Integer, nullable=False, default=60)
+    inactive_patient_archive_months = Column(Integer, nullable=False, default=36)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    clinic = relationship("Clinic")
+
+
+class DataErasureRequest(Base):
+    __tablename__ = "data_erasure_requests"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    patient_id = Column(String, ForeignKey("patients.id", ondelete="SET NULL"), nullable=True)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    requested_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reason = Column(Text, nullable=True)
+    status = Column(Enum(ErasureStatusEnum), nullable=False, default=ErasureStatusEnum.REQUESTED)
+    approved_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    anonymized_fields = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    patient = relationship("Patient")
+    requester = relationship("User", foreign_keys=[requested_by])
+    approver = relationship("User", foreign_keys=[approved_by])
+
+
+class DataBreachLog(Base):
+    __tablename__ = "data_breach_logs"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    reported_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    description = Column(Text, nullable=False)
+    severity = Column(String, nullable=False, default="LOW")
+    affected_records_count = Column(Integer, nullable=True)
+    containment_actions = Column(Text, nullable=True)
+    reported_to_authority = Column(Boolean, default=False)
+    reported_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    reporter = relationship("User")
+
+
+class ClinicDailyStats(Base):
+    __tablename__ = "clinic_daily_stats"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False, index=True)
+    stat_date = Column(Date, nullable=False, index=True)
+
+    # Activity metrics (from audit_logs LOGIN events)
+    unique_logins = Column(Integer, default=0)
+    total_logins = Column(Integer, default=0)
+
+    # Business metrics (from patients, visits, appointments)
+    patients_created = Column(Integer, default=0)
+    appointments_created = Column(Integer, default=0)
+    visits_completed = Column(Integer, default=0)
+    prescriptions_written = Column(Integer, default=0)
+
+    # Collections (from visits.amount)
+    total_collections = Column(Numeric(10, 2), default=0)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('clinic_id', 'stat_date', name='uq_clinic_daily_stats'),
+    )

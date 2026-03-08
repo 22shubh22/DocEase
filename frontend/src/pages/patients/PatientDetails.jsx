@@ -2,6 +2,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { patientsAPI, opdAPI, chiefComplaintsAPI } from '../../services/api';
+import useAuthStore from '../../store/authStore';
+import PatientDpdp from '../../components/patients/PatientDpdp';
 
 const formatDateTime = (dateString) => {
   if (!dateString) return '';
@@ -20,6 +22,8 @@ const formatDateTime = (dateString) => {
 export default function PatientDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
+  const plugins = user?.enabled_plugins;
   const [activeTab, setActiveTab] = useState('overview');
   const [patient, setPatient] = useState(null);
   const [visits, setVisits] = useState([]);
@@ -155,6 +159,7 @@ export default function PatientDetails() {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '👤' },
     { id: 'visits', label: 'Visit History', icon: '📋' },
+    ...(plugins?.dpdp_compliance ? [{ id: 'dpdp', label: 'Data Protection', icon: '🛡️' }] : []),
   ];
 
   return (
@@ -173,12 +178,20 @@ export default function PatientDetails() {
           <p className="text-gray-600 mt-1">Patient ID: {patient.patient_code}</p>
         </div>
         <div className="flex gap-3">
-          <button
-            onClick={openOPDModal}
+          {plugins?.opd_queue !== false && (
+            <button
+              onClick={openOPDModal}
+              className="btn btn-primary"
+            >
+              + Add to OPD
+            </button>
+          )}
+          <Link
+            to={`/visits/new?patientId=${patient.id}`}
             className="btn btn-primary"
           >
-            + Add to OPD
-          </button>
+            + Add Visit
+          </Link>
           <Link
             to={`/patients/${patient.id}/edit`}
             className="btn btn-secondary"
@@ -365,6 +378,14 @@ export default function PatientDetails() {
             )}
           </div>
         </div>
+      )}
+
+      {activeTab === 'dpdp' && plugins?.dpdp_compliance && (
+        <PatientDpdp
+          patientId={patient.id}
+          patientCode={patient.patient_code}
+          isAnonymized={patient.is_anonymized}
+        />
       )}
 
       {/* Add to OPD Modal */}

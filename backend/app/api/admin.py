@@ -1,13 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_
+from sqlalchemy import or_, func, case, cast, Float
 from typing import List, Optional
+from datetime import date
+from pydantic import BaseModel
 from app.core.deps import get_db, get_current_user
-from app.models.models import User, Clinic, Doctor, Patient, ClinicAdmin, RoleEnum, OnboardingRequest, OnboardingRequestStatusEnum
+from app.models.models import (
+    User, Clinic, Doctor, Patient, ClinicAdmin, RoleEnum,
+    OnboardingRequest, OnboardingRequestStatusEnum,
+    Visit, VisitMedicine, Appointment
+)
 from app.schemas.schemas import (
     ClinicCreate, ClinicResponse, ClinicUpdate, ClinicWithDoctors,
     DoctorAssignment, AdminDashboardStats, UserCreate, UserResponse,
-    UserResponseWithPassword, UserUpdateByAdmin, SetClinicOwner
+    UserResponseWithPassword, UserUpdateByAdmin, SetClinicOwner,
+    ClinicPluginsUpdate
 )
 from app.core.security import get_password_hash
 from app.services.clinic_fixtures import seed_fixtures_for_clinic
@@ -140,6 +147,62 @@ async def update_clinic(
     db.commit()
     db.refresh(clinic)
     return clinic
+
+
+@router.get("/clinics/{clinic_id}/plugins")
+async def get_clinic_plugins(
+    clinic_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Get plugin settings for a clinic."""
+    admin_clinic_ids = [ca.clinic_id for ca in current_user.managed_clinics]
+    if clinic_id not in admin_clinic_ids:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    if not clinic:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+
+    return {
+        "plugins": {
+            "opd_queue": clinic.plugin_opd_queue,
+            "collections": clinic.plugin_collections,
+        }
+    }
+
+
+@router.put("/clinics/{clinic_id}/plugins")
+async def update_clinic_plugins(
+    clinic_id: str,
+    plugin_data: ClinicPluginsUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Toggle plugins for a clinic (admin only)."""
+    admin_clinic_ids = [ca.clinic_id for ca in current_user.managed_clinics]
+    if clinic_id not in admin_clinic_ids:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    if not clinic:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+
+    if plugin_data.plugin_opd_queue is not None:
+        clinic.plugin_opd_queue = plugin_data.plugin_opd_queue
+    if plugin_data.plugin_collections is not None:
+        clinic.plugin_collections = plugin_data.plugin_collections
+
+    db.commit()
+    db.refresh(clinic)
+
+    return {
+        "message": "Plugins updated",
+        "plugins": {
+            "opd_queue": clinic.plugin_opd_queue,
+            "collections": clinic.plugin_collections,
+        }
+    }
 
 
 @router.delete("/clinics/{clinic_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -455,4 +518,287 @@ async def get_all_doctors(
             "limit": limit,
             "totalPages": (total + limit - 1) // limit if limit > 0 else 0
         }
+    }
+
+
+def _monthly_series(db: Session, model, date_col, clinic_ids, date_from=None, date_to=None, sum_col=None):
+    """Helper to build monthly time-series from a table."""
+    month_expr = func.date_trunc('month', date_col)
+    value_expr = func.coalesce(func.sum(cast(sum_col, Float)), 0) if sum_col else func.count()
+    q = db.query(month_expr.label('month'), value_expr.label('val'))
+    if hasattr(model, 'clinic_id'):
+        q = q.filter(model.clinic_id.in_(clinic_ids))
+    if date_from:
+        q = q.filter(date_col >= date_from)
+    if date_to:
+        q = q.filter(date_col <= date_to)
+    q = q.filter(date_col.isnot(None))
+    q = q.group_by('month').order_by('month')
+    return [{"month": row.month.strftime('%Y-%m'), "count" if not sum_col else "amount": row.val} for row in q.all() if row.month is not None]
+
+
+def _clinic_summary(db: Session, clinic, clinic_ids, date_from=None, date_to=None):
+    """Build analytics summary for a single clinic."""
+    cid = clinic.id
+
+    def date_filter(model, col):
+        f = [col >= date_from] if date_from else []
+        if date_to:
+            f.append(col <= date_to)
+        return f
+
+    patient_q = db.query(func.count(Patient.id)).filter(Patient.clinic_id == cid)
+    for f in date_filter(Patient, Patient.created_at):
+        patient_q = patient_q.filter(f)
+
+    visit_q = db.query(func.count(Visit.id), func.coalesce(func.sum(cast(Visit.amount, Float)), 0)).filter(Visit.clinic_id == cid)
+    for f in date_filter(Visit, Visit.visit_date):
+        visit_q = visit_q.filter(f)
+    visit_row = visit_q.one()
+
+    prescription_q = db.query(func.count(VisitMedicine.id)).join(Visit, VisitMedicine.visit_id == Visit.id).filter(Visit.clinic_id == cid)
+    for f in date_filter(Visit, Visit.visit_date):
+        prescription_q = prescription_q.filter(f)
+
+    appt_q = db.query(func.count(Appointment.id)).filter(Appointment.clinic_id == cid)
+    for f in date_filter(Appointment, Appointment.created_at):
+        appt_q = appt_q.filter(f)
+
+    doctor_count = db.query(func.count(Doctor.id)).filter(Doctor.clinic_id == cid).scalar()
+
+    return {
+        "clinic_id": cid,
+        "clinic_name": clinic.name,
+        "clinic_code": clinic.clinic_code,
+        "specialty": clinic.specialty.value if clinic.specialty else None,
+        "created_at": clinic.created_at,
+        "total_patients": patient_q.scalar(),
+        "total_visits": visit_row[0],
+        "total_prescriptions": prescription_q.scalar(),
+        "total_appointments": appt_q.scalar(),
+        "active_doctors": doctor_count,
+        "total_collections": float(visit_row[1]),
+        "plugin_opd_queue": clinic.plugin_opd_queue,
+        "plugin_collections": clinic.plugin_collections,
+    }
+
+
+@router.get("/analytics/overview")
+async def get_analytics_overview(
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    admin_clinic_ids = [ca.clinic_id for ca in current_user.managed_clinics]
+    if not admin_clinic_ids:
+        return {
+            "total_clinics": 0, "total_patients": 0, "total_visits": 0,
+            "total_prescriptions": 0, "total_collections": 0.0,
+            "total_active_doctors": 0, "patients_by_month": [],
+            "visits_by_month": [], "top_clinics": [], "plugin_adoption": {}
+        }
+
+    clinics = db.query(Clinic).filter(Clinic.id.in_(admin_clinic_ids), Clinic.is_guest == False).all()
+    clinic_ids = [c.id for c in clinics]
+
+    # Per-clinic summaries
+    summaries = []
+    for clinic in clinics:
+        summaries.append(_clinic_summary(db, clinic, clinic_ids, date_from, date_to))
+
+    # Totals
+    total_patients = sum(s["total_patients"] for s in summaries)
+    total_visits = sum(s["total_visits"] for s in summaries)
+    total_prescriptions = sum(s["total_prescriptions"] for s in summaries)
+    total_collections = sum(s["total_collections"] for s in summaries)
+    total_doctors = sum(s["active_doctors"] for s in summaries)
+
+    # Monthly series
+    patients_by_month = _monthly_series(db, Patient, Patient.created_at, clinic_ids, date_from, date_to)
+    visits_by_month = _monthly_series(db, Visit, Visit.visit_date, clinic_ids, date_from, date_to)
+
+    # Top clinics by visits
+    top_clinics = sorted(summaries, key=lambda s: s["total_visits"], reverse=True)[:10]
+
+    # Plugin adoption
+    opd_count = sum(1 for c in clinics if c.plugin_opd_queue)
+    collections_count = sum(1 for c in clinics if c.plugin_collections)
+
+    return {
+        "total_clinics": len(clinics),
+        "total_patients": total_patients,
+        "total_visits": total_visits,
+        "total_prescriptions": total_prescriptions,
+        "total_collections": total_collections,
+        "total_active_doctors": total_doctors,
+        "patients_by_month": patients_by_month,
+        "visits_by_month": visits_by_month,
+        "top_clinics": top_clinics,
+        "plugin_adoption": {
+            "opd_queue": opd_count,
+            "collections": collections_count,
+            "total_clinics": len(clinics),
+        }
+    }
+
+
+@router.get("/analytics/clinics/{clinic_id}")
+async def get_clinic_analytics(
+    clinic_id: str,
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    admin_clinic_ids = [ca.clinic_id for ca in current_user.managed_clinics]
+    if clinic_id not in admin_clinic_ids:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    if not clinic:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+
+    summary = _clinic_summary(db, clinic, [clinic_id], date_from, date_to)
+
+    # Monthly breakdowns
+    patients_by_month = _monthly_series(db, Patient, Patient.created_at, [clinic_id], date_from, date_to)
+    visits_by_month = _monthly_series(db, Visit, Visit.visit_date, [clinic_id], date_from, date_to)
+    collections_by_month = _monthly_series(db, Visit, Visit.visit_date, [clinic_id], date_from, date_to, sum_col=Visit.amount)
+
+    # Appointments by status
+    status_q = db.query(Appointment.status, func.count(Appointment.id)).filter(
+        Appointment.clinic_id == clinic_id
+    ).group_by(Appointment.status)
+    if date_from:
+        status_q = status_q.filter(Appointment.created_at >= date_from)
+    if date_to:
+        status_q = status_q.filter(Appointment.created_at <= date_to)
+    appointments_by_status = {row.status.value if hasattr(row.status, 'value') else row.status: row[1] for row in status_q.all()}
+
+    # Doctor activity
+    doctor_q = db.query(
+        User.full_name,
+        User.last_login,
+        func.count(Visit.id).label('visit_count')
+    ).join(Doctor, Doctor.user_id == User.id).outerjoin(
+        Visit, Visit.doctor_id == Doctor.id
+    ).filter(Doctor.clinic_id == clinic_id)
+    if date_from:
+        doctor_q = doctor_q.filter(or_(Visit.visit_date >= date_from, Visit.visit_date.is_(None)))
+    if date_to:
+        doctor_q = doctor_q.filter(or_(Visit.visit_date <= date_to, Visit.visit_date.is_(None)))
+    doctor_q = doctor_q.group_by(User.id, User.full_name, User.last_login)
+    doctors = [{"name": row.full_name, "last_login": row.last_login, "visit_count": row.visit_count} for row in doctor_q.all()]
+
+    return {
+        **summary,
+        "patients_by_month": patients_by_month,
+        "visits_by_month": visits_by_month,
+        "collections_by_month": collections_by_month,
+        "appointments_by_status": appointments_by_status,
+        "doctors": doctors,
+    }
+
+
+# --- Clinic Health / Usage Analytics ---
+
+@router.get("/analytics/clinic-health")
+async def get_clinic_health(
+    status_filter: Optional[str] = Query(None, alias="status"),
+    sort_by: Optional[str] = Query("days_since_active"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Get health overview for all managed clinics."""
+    from app.services.analytics_service import get_all_clinics_health
+
+    admin_clinic_ids = [ca.clinic_id for ca in current_user.managed_clinics]
+    if not admin_clinic_ids:
+        return {"clinics": [], "summary": {"total_clinics": 0, "active": 0, "at_risk": 0, "inactive": 0, "churned": 0}}
+
+    result = get_all_clinics_health(db, admin_clinic_ids)
+
+    # Filter by status
+    if status_filter:
+        result["clinics"] = [c for c in result["clinics"] if c["status"] == status_filter]
+
+    # Sort
+    if sort_by == "days_since_active":
+        result["clinics"].sort(key=lambda c: c.get("days_since_active") or 999)
+    elif sort_by == "visits_last_7d":
+        result["clinics"].sort(key=lambda c: c.get("visits_last_7d", 0), reverse=True)
+    elif sort_by == "dau_avg_7d":
+        result["clinics"].sort(key=lambda c: c.get("dau_avg_7d", 0), reverse=True)
+
+    return result
+
+
+@router.get("/analytics/clinics/{clinic_id}/health")
+async def get_clinic_health_detail(
+    clinic_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Get detailed health for a single clinic with sparkline data."""
+    from app.services.analytics_service import compute_clinic_health, get_clinic_sparkline
+
+    admin_clinic_ids = [ca.clinic_id for ca in current_user.managed_clinics]
+    if clinic_id not in admin_clinic_ids:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    if not clinic:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+
+    health = compute_clinic_health(db, clinic_id)
+    sparkline = get_clinic_sparkline(db, clinic_id, days=30)
+
+    return {
+        "clinic_id": clinic.id,
+        "clinic_name": clinic.name,
+        "clinic_code": clinic.clinic_code,
+        "specialty": clinic.specialty.value if clinic.specialty else None,
+        **health,
+        "daily_activity": sparkline,
+    }
+
+
+class RecomputeRequest(BaseModel):
+    date_from: date
+    date_to: date
+
+
+@router.post("/analytics/recompute")
+async def recompute_stats(
+    req: RecomputeRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Trigger backfill of daily stats for a date range (runs in background)."""
+    from app.services.analytics_service import backfill_stats
+    from app.core.database import SessionLocal
+
+    if (req.date_to - req.date_from).days > 365:
+        raise HTTPException(status_code=400, detail="Date range cannot exceed 365 days")
+
+    def _run_backfill():
+        bg_db = SessionLocal()
+        try:
+            total = backfill_stats(bg_db, req.date_from, req.date_to)
+            logger.info(f"Backfill completed: {total} stat rows computed")
+        except Exception:
+            logger.exception("Backfill failed")
+        finally:
+            bg_db.close()
+
+    import logging
+    logger = logging.getLogger(__name__)
+
+    background_tasks.add_task(_run_backfill)
+
+    return {
+        "message": f"Backfill started for {req.date_from} to {req.date_to}",
+        "status": "processing",
     }
