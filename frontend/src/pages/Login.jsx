@@ -44,7 +44,17 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center p-4 relative">
+      <Link
+        to="/landing"
+        className="absolute top-6 left-6 text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1 transition-colors"
+      >
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Back to Home
+      </Link>
+
       <div className="card max-w-md w-full">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">DocEase</h1>
@@ -131,6 +141,14 @@ export default function Login() {
             Register your clinic
           </Link>
         </p>
+
+        <div className="mt-6 pt-4 border-t border-gray-100 flex justify-center gap-4 text-xs text-gray-400">
+          <Link to="/privacy" className="hover:text-gray-600 transition-colors">Privacy</Link>
+          <span>·</span>
+          <Link to="/terms" className="hover:text-gray-600 transition-colors">Terms</Link>
+          <span>·</span>
+          <a href="mailto:22shubh22@gmail.com" className="hover:text-gray-600 transition-colors">Contact</a>
+        </div>
       </div>
 
       <PluginSelectionModal

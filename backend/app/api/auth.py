@@ -1,13 +1,14 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from datetime import datetime
 from app.core.database import get_db
 from app.core.security import verify_password, get_password_hash, create_access_token
-from app.core.deps import get_current_user
-from app.models.models import User, UserPermission, PrintTemplate, Clinic
+from app.core.deps import get_current_user, get_client_ip
+from app.models.models import User, UserPermission, PrintTemplate, Clinic, AuditActionEnum
 from app.schemas.schemas import LoginRequest, Token, ChangePasswordRequest, UserResponse, GuestCleanupRequest, GuestSessionRequest
 from app.services.guest_service import create_guest_session, cleanup_guest_session
+from app.services.audit_service import create_audit_log
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +18,23 @@ router = APIRouter()
 @router.post("/login", response_model=dict)
 async def login(
     login_data: LoginRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
     """Authenticate user and return access token"""
     user = db.query(User).filter(User.email == login_data.email).first()
+    client_ip = get_client_ip(request)
 
     if not user or not verify_password(login_data.password, user.password_hash):
+        background_tasks.add_task(
+            create_audit_log,
+            action=AuditActionEnum.LOGIN_FAILED,
+            resource_type="auth",
+            user_email=login_data.email,
+            description=f"Failed login attempt for {login_data.email}",
+            ip_address=client_ip,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
@@ -84,7 +96,19 @@ async def login(
             enabled_plugins = {
                 "opd_queue": clinic.plugin_opd_queue,
                 "collections": clinic.plugin_collections,
+                "dpdp_compliance": clinic.plugin_dpdp_compliance,
             }
+
+    background_tasks.add_task(
+        create_audit_log,
+        action=AuditActionEnum.LOGIN,
+        resource_type="auth",
+        user_id=user.id,
+        user_email=user.email,
+        clinic_id=user.clinic_id,
+        description=f"User {user.email} logged in",
+        ip_address=client_ip,
+    )
 
     return {
         "message": "Login successful",
@@ -119,6 +143,8 @@ async def guest_login(request: GuestSessionRequest = GuestSessionRequest(), db: 
 
 @router.post("/logout")
 async def logout(
+    request: Request,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -129,6 +155,17 @@ async def logout(
             logger.info(f"Cleaned up guest session for user {current_user.id}")
         except Exception as e:
             logger.error(f"Failed to cleanup guest session: {e}")
+
+    background_tasks.add_task(
+        create_audit_log,
+        action=AuditActionEnum.LOGOUT,
+        resource_type="auth",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        clinic_id=current_user.clinic_id,
+        description=f"User {current_user.email} logged out",
+        ip_address=get_client_ip(request),
+    )
 
     return {"message": "Logout successful"}
 
@@ -182,6 +219,7 @@ async def get_profile(
             enabled_plugins = {
                 "opd_queue": clinic.plugin_opd_queue,
                 "collections": clinic.plugin_collections,
+                "dpdp_compliance": clinic.plugin_dpdp_compliance,
             }
 
     return {
@@ -204,6 +242,8 @@ async def get_profile(
 @router.post("/change-password")
 async def change_password(
     password_data: ChangePasswordRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -222,5 +262,16 @@ async def change_password(
 
     current_user.password_hash = get_password_hash(password_data.new_password)
     db.commit()
+
+    background_tasks.add_task(
+        create_audit_log,
+        action=AuditActionEnum.PASSWORD_CHANGE,
+        resource_type="auth",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        clinic_id=current_user.clinic_id,
+        description=f"User {current_user.email} changed password",
+        ip_address=get_client_ip(request),
+    )
 
     return {"message": "Password changed successfully"}

@@ -3,7 +3,11 @@ from typing import Optional, List
 from datetime import datetime, date
 from decimal import Decimal
 import re
-from app.models.models import RoleEnum, GenderEnum, AppointmentStatusEnum, ClinicSpecialtyEnum, OnboardingRequestStatusEnum
+from app.models.models import (
+    RoleEnum, GenderEnum, AppointmentStatusEnum, ClinicSpecialtyEnum,
+    OnboardingRequestStatusEnum, AuditActionEnum, ConsentPurposeEnum,
+    ConsentStatusEnum, ErasureStatusEnum,
+)
 
 
 def validate_phone_number(phone: str, field_name: str = "Phone number") -> str:
@@ -190,6 +194,7 @@ class ClinicUpdate(ClinicBase):
 class ClinicPluginsUpdate(BaseModel):
     plugin_opd_queue: Optional[bool] = None
     plugin_collections: Optional[bool] = None
+    plugin_dpdp_compliance: Optional[bool] = None
 
 
 class ClinicResponse(ClinicBase):
@@ -953,3 +958,140 @@ class PlatformAnalyticsOverview(BaseModel):
     visits_by_month: List[MonthlyDataPoint]
     top_clinics: List[ClinicAnalyticsSummary]
     plugin_adoption: dict
+
+
+# ── Audit Log Schemas ──
+
+class AuditLogResponse(BaseModel):
+    id: str
+    clinic_id: Optional[str] = None
+    user_id: Optional[str] = None
+    user_email: Optional[str] = None
+    action: str
+    resource_type: str
+    resource_id: Optional[str] = None
+    description: Optional[str] = None
+    old_values: Optional[dict] = None
+    new_values: Optional[dict] = None
+    ip_address: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AuditLogListResponse(BaseModel):
+    logs: List[AuditLogResponse]
+    pagination: dict
+
+
+# ── DPDP Consent Schemas ──
+
+class PatientConsentCreate(BaseModel):
+    patient_id: str
+    purpose: ConsentPurposeEnum
+    consent_text: str
+    consent_version: str = "1.0"
+
+
+class PatientConsentResponse(BaseModel):
+    id: str
+    patient_id: str
+    clinic_id: str
+    purpose: str
+    status: str
+    consent_text: str
+    consent_version: str
+    given_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
+    collected_by: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── DPDP Data Retention Schemas ──
+
+class DataRetentionPolicyUpdate(BaseModel):
+    patient_data_retention_months: Optional[int] = None
+    audit_log_retention_months: Optional[int] = None
+    inactive_patient_archive_months: Optional[int] = None
+
+    @field_validator('patient_data_retention_months', 'audit_log_retention_months', 'inactive_patient_archive_months')
+    @classmethod
+    def validate_months(cls, v):
+        if v is not None and v < 1:
+            raise ValueError('Retention period must be at least 1 month')
+        return v
+
+
+class DataRetentionPolicyResponse(BaseModel):
+    id: str
+    clinic_id: str
+    patient_data_retention_months: int
+    audit_log_retention_months: int
+    inactive_patient_archive_months: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── DPDP Erasure Schemas ──
+
+class DataErasureRequestCreate(BaseModel):
+    patient_id: str
+    reason: Optional[str] = None
+
+
+class DataErasureRequestResponse(BaseModel):
+    id: str
+    patient_id: Optional[str] = None
+    clinic_id: str
+    requested_by: Optional[str] = None
+    reason: Optional[str] = None
+    status: str
+    approved_by: Optional[str] = None
+    completed_at: Optional[datetime] = None
+    anonymized_fields: Optional[List[str]] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class DataErasureRejectRequest(BaseModel):
+    reason: str
+
+
+# ── DPDP Breach Schemas ──
+
+class DataBreachReportCreate(BaseModel):
+    description: str
+    severity: str = "LOW"
+    affected_records_count: Optional[int] = None
+    containment_actions: Optional[str] = None
+
+    @field_validator('severity')
+    @classmethod
+    def validate_severity(cls, v):
+        if v not in ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL'):
+            raise ValueError('severity must be one of: LOW, MEDIUM, HIGH, CRITICAL')
+        return v
+
+
+class DataBreachReportResponse(BaseModel):
+    id: str
+    clinic_id: str
+    reported_by: Optional[str] = None
+    description: str
+    severity: str
+    affected_records_count: Optional[int] = None
+    containment_actions: Optional[str] = None
+    reported_to_authority: bool
+    reported_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

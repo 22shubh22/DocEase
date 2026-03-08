@@ -304,7 +304,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer id="contact" className="bg-gray-900 text-gray-400 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <span className="text-xl font-bold text-white">DocEase</span>
               <p className="mt-3 text-sm leading-relaxed">
@@ -322,6 +322,14 @@ export default function LandingPage() {
               </ul>
             </div>
             <div>
+              <h4 className="text-white font-semibold mb-4">Legal</h4>
+              <ul className="space-y-2 text-sm">
+                <li><Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
+                <li><Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
+                <li><Link to="/subprocessors" className="hover:text-white transition-colors">Subprocessors</Link></li>
+              </ul>
+            </div>
+            <div>
               <h4 className="text-white font-semibold mb-4">Contact</h4>
               <ul className="space-y-2 text-sm">
                 <li><a href="mailto:22shubh22@gmail.com" className="hover:text-white transition-colors">22shubh22@gmail.com</a></li>
@@ -330,8 +338,15 @@ export default function LandingPage() {
               </ul>
             </div>
           </div>
-          <div className="mt-10 pt-8 border-t border-gray-800 text-center text-sm">
-            &copy; {new Date().getFullYear()} DocEase. All rights reserved.
+          <div className="mt-10 pt-8 border-t border-gray-800 text-center text-sm flex flex-col sm:flex-row items-center justify-between gap-2">
+            <span>&copy; {new Date().getFullYear()} DocEase. All rights reserved.</span>
+            <div className="flex gap-4">
+              <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+              <span>·</span>
+              <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+              <span>·</span>
+              <Link to="/subprocessors" className="hover:text-white transition-colors">Subprocessors</Link>
+            </div>
           </div>
         </div>
       </footer>

@@ -21,6 +21,9 @@ import AdminAnalytics from './pages/admin/AdminAnalytics';
 import ClinicAnalytics from './pages/admin/ClinicAnalytics';
 import OnboardingRequest from './pages/OnboardingRequest';
 import CollectionReport from './pages/reports/CollectionReport';
+import PrivacyPolicy from './pages/legal/PrivacyPolicy';
+import TermsOfService from './pages/legal/TermsOfService';
+import Subprocessors from './pages/legal/Subprocessors';
 
 function ProtectedRoute({ children }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -61,6 +64,9 @@ function App() {
         path="/onboard"
         element={isAuthenticated ? <Navigate to="/" /> : <OnboardingRequest />}
       />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/subprocessors" element={<Subprocessors />} />
 
       <Route
         path="/"

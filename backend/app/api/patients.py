@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func, cast, Integer
 from typing import Optional
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_permission
-from app.models.models import User, Patient, Visit, VisitMedicine
+from app.core.deps import get_current_user, require_permission, get_client_ip
+from app.models.models import User, Patient, Visit, VisitMedicine, AuditActionEnum
 from app.schemas.schemas import PatientCreate, PatientUpdate, PatientResponse
+from app.services.audit_service import create_audit_log, get_model_dict, compute_changes
 
 router = APIRouter()
 
@@ -110,6 +111,8 @@ async def search_patients(
 @router.get("/{patient_id}", response_model=dict)
 async def get_patient_by_id(
     patient_id: str,
+    request: Request,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_permission("can_view_patients")),
     db: Session = Depends(get_db)
 ):
@@ -121,6 +124,18 @@ async def get_patient_by_id(
 
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
+
+    background_tasks.add_task(
+        create_audit_log,
+        action=AuditActionEnum.READ,
+        resource_type="patients",
+        resource_id=patient.id,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        clinic_id=current_user.clinic_id,
+        description=f"Viewed patient {patient.patient_code}",
+        ip_address=get_client_ip(request),
+    )
 
     patient_dict = {
         "id": patient.id,
@@ -147,6 +162,8 @@ async def get_patient_by_id(
 @router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def create_patient(
     patient_data: PatientCreate,
+    request: Request,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_permission("can_create_patients")),
     db: Session = Depends(get_db)
 ):
@@ -180,6 +197,19 @@ async def create_patient(
     db.commit()
     db.refresh(patient)
 
+    background_tasks.add_task(
+        create_audit_log,
+        action=AuditActionEnum.CREATE,
+        resource_type="patients",
+        resource_id=patient.id,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        clinic_id=current_user.clinic_id,
+        description=f"Created patient {patient.patient_code}",
+        new_values=get_model_dict(patient, exclude_fields=['clinic', 'creator', 'appointments', 'visits']),
+        ip_address=get_client_ip(request),
+    )
+
     return {"message": "Patient created successfully", "patient": patient_to_dict(patient)}
 
 
@@ -187,6 +217,8 @@ async def create_patient(
 async def update_patient(
     patient_id: str,
     patient_data: PatientUpdate,
+    request: Request,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_permission("can_edit_patients")),
     db: Session = Depends(get_db)
 ):
@@ -199,17 +231,37 @@ async def update_patient(
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
 
+    old_snapshot = get_model_dict(patient, exclude_fields=['clinic', 'creator', 'appointments', 'visits'])
+
     update_data = patient_data.model_dump(exclude_unset=True)
     patient_since = update_data.pop('patient_since', None)
-    
+
     for field, value in update_data.items():
         setattr(patient, field, value)
-    
+
     if patient_since:
         patient.created_at = patient_since
 
     db.commit()
     db.refresh(patient)
+
+    new_snapshot = get_model_dict(patient, exclude_fields=['clinic', 'creator', 'appointments', 'visits'])
+    old_changes, new_changes = compute_changes(old_snapshot, new_snapshot)
+
+    if old_changes:
+        background_tasks.add_task(
+            create_audit_log,
+            action=AuditActionEnum.UPDATE,
+            resource_type="patients",
+            resource_id=patient.id,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            clinic_id=current_user.clinic_id,
+            description=f"Updated patient {patient.patient_code}",
+            old_values=old_changes,
+            new_values=new_changes,
+            ip_address=get_client_ip(request),
+        )
 
     return {"message": "Patient updated successfully", "patient": patient_to_dict(patient)}
 
@@ -217,6 +269,8 @@ async def update_patient(
 @router.delete("/{patient_id}")
 async def delete_patient(
     patient_id: str,
+    request: Request,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_permission("can_delete_patients")),
     db: Session = Depends(get_db)
 ):
@@ -229,8 +283,24 @@ async def delete_patient(
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
 
+    old_snapshot = get_model_dict(patient, exclude_fields=['clinic', 'creator', 'appointments', 'visits'])
+    patient_code = patient.patient_code
+
     db.delete(patient)
     db.commit()
+
+    background_tasks.add_task(
+        create_audit_log,
+        action=AuditActionEnum.DELETE,
+        resource_type="patients",
+        resource_id=patient_id,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        clinic_id=current_user.clinic_id,
+        description=f"Deleted patient {patient_code}",
+        old_values=old_snapshot,
+        ip_address=get_client_ip(request),
+    )
 
     return {"message": "Patient deleted successfully"}
 
