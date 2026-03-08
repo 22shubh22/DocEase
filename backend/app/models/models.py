@@ -412,6 +412,20 @@ class UserPermission(Base):
     clinic = relationship("Clinic", back_populates="user_permissions")
 
 
+class FixtureTemplate(Base):
+    __tablename__ = "fixture_templates"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    specialty = Column(Enum(ClinicSpecialtyEnum, values_callable=lambda x: [e.value for e in x]), nullable=False, index=True)
+    category = Column(String, nullable=False, index=True)  # e.g., "chief_complaints", "diagnoses", etc.
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    display_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
 class OnboardingRequest(Base):
     __tablename__ = "onboarding_requests"
 

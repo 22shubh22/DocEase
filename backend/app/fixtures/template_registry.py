@@ -49,7 +49,7 @@ SPECIALTY_TEMPLATES = {
 
 def get_template(specialty: str) -> dict:
     """
-    Get the fixture template for a given specialty.
+    Get the fixture template for a given specialty from Python files.
     Returns specialty-specific data plus common dosages/durations.
     Falls back to empty lists for unknown specialties.
     """
@@ -67,3 +67,31 @@ def get_template(specialty: str) -> dict:
         "dosages": COMMON_DOSAGES,
         "durations": COMMON_DURATIONS,
     }
+
+
+def get_template_from_db(db, specialty: str) -> dict:
+    """
+    Get the fixture template from the database.
+    Returns data grouped by category in the same format as get_template().
+    Returns None if no DB templates exist for this specialty.
+    """
+    from app.models.models import FixtureTemplate
+    from collections import defaultdict
+
+    templates = db.query(FixtureTemplate).filter(
+        FixtureTemplate.specialty == specialty,
+        FixtureTemplate.is_active == True
+    ).order_by(FixtureTemplate.display_order).all()
+
+    if not templates:
+        return None
+
+    result = defaultdict(list)
+    for t in templates:
+        result[t.category].append({
+            "name": t.name,
+            "description": t.description,
+            "display_order": t.display_order,
+        })
+
+    return dict(result)

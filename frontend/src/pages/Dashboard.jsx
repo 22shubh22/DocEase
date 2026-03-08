@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { opdAPI, patientsAPI } from '../services/api';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import PluginNudgeCard from '../components/common/PluginNudgeCard';
 
 export default function Dashboard() {
   const user = useAuthStore((state) => state.user);
   const plugins = user?.enabled_plugins;
+  const navigate = useNavigate();
+  const isAdmin = user?.role === 'ADMIN';
 
   const [dismissedNudges, setDismissedNudges] = useState(() => {
     try {
@@ -21,23 +23,29 @@ export default function Dashboard() {
     localStorage.setItem('dismissedPluginNudges', JSON.stringify(updated));
   };
 
-  if (user?.role === 'ADMIN') {
-    return <Navigate to="/admin" replace />;
-  }
-  const { data: stats } = useQuery({
+  const { data: stats, isLoading: loadingStats } = useQuery({
     queryKey: ['opdStats'],
     queryFn: () => opdAPI.getStats().then(res => res.data),
+    enabled: !isAdmin,
   });
 
-  const { data: patientStats } = useQuery({
+  const { data: patientStats, isLoading: loadingPatientStats } = useQuery({
     queryKey: ['patientStats'],
     queryFn: () => patientsAPI.getStats().then(res => res.data),
+    enabled: !isAdmin,
   });
 
   const { data: patientsData } = useQuery({
     queryKey: ['patients', { page: 1, limit: 5 }],
     queryFn: () => patientsAPI.getAll({ page: 1, limit: 5 }).then(res => res.data),
+    enabled: !isAdmin,
   });
+
+  if (isAdmin) {
+    return <Navigate to="/admin" replace />;
+  }
+
+  const isLoadingStats = loadingStats || loadingPatientStats;
 
   const statsCards = [
     {
@@ -78,7 +86,11 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">{stat.title}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                {isLoadingStats ? (
+                  <div className="animate-pulse bg-gray-200 h-8 w-16 rounded mt-1"></div>
+                ) : (
+                  <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                )}
               </div>
               <div className={`text-4xl ${stat.color} p-3 rounded-lg`}>
                 {stat.icon}
@@ -124,7 +136,7 @@ export default function Dashboard() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {patientsData?.patients?.map((patient) => (
-                <tr key={patient.id} className="hover:bg-gray-50">
+                <tr key={patient.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/patients/${patient.id}`)}>
                   <td className="px-3 sm:px-4 py-3 text-sm font-medium text-gray-900">{patient.patient_code || patient.patientCode}</td>
                   <td className="px-3 sm:px-4 py-3 text-sm text-gray-900">
                     <div>{patient.full_name || patient.fullName}</div>

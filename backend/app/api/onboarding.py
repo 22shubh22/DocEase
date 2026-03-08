@@ -7,7 +7,8 @@ from datetime import datetime, timezone
 from app.core.deps import get_db, get_current_user
 from app.models.models import (
     User, Clinic, Doctor, ClinicAdmin, UserPermission,
-    RoleEnum, OnboardingRequest, OnboardingRequestStatusEnum
+    RoleEnum, OnboardingRequest, OnboardingRequestStatusEnum,
+    ClinicSpecialtyEnum
 )
 from app.schemas.schemas import (
     OnboardingRequestCreate, OnboardingRequestResponse,
@@ -179,20 +180,27 @@ async def approve_onboarding_request(
         if onboarding_req.clinic_pincode:
             full_address = f"{full_address} - {onboarding_req.clinic_pincode}" if full_address else ""
         clinic_code = generate_clinic_code(db)
+        # Resolve specialty: admin override → onboarding request → default dental
+        if approve_data.clinic_specialty:
+            resolved_specialty = ClinicSpecialtyEnum(approve_data.clinic_specialty)
+        elif onboarding_req.clinic_specialty:
+            resolved_specialty = onboarding_req.clinic_specialty
+        else:
+            resolved_specialty = ClinicSpecialtyEnum.DENTAL
+
         clinic = Clinic(
             name=onboarding_req.clinic_name,
             address=full_address or None,
             phone=onboarding_req.clinic_phone,
             email=onboarding_req.clinic_email,
-            specialty=onboarding_req.clinic_specialty,
+            specialty=resolved_specialty,
             clinic_code=clinic_code
         )
         db.add(clinic)
         db.flush()
 
-        # 2. Seed fixtures (default to dental if specialty not yet specified)
-        specialty = onboarding_req.clinic_specialty.value if onboarding_req.clinic_specialty else "dental"
-        seed_fixtures_for_clinic(db, clinic.id, specialty=specialty)
+        # 2. Seed fixtures based on resolved specialty
+        seed_fixtures_for_clinic(db, clinic.id, specialty=resolved_specialty.value)
 
         # 3. Create ClinicAdmin link
         clinic_admin = ClinicAdmin(admin_id=current_user.id, clinic_id=clinic.id)
