@@ -17,98 +17,132 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Use raw SQL with IF NOT EXISTS since Base.metadata.create_all()
+    # in main.py lifespan may have already created these objects.
+
     # Create enum types
-    audit_action_enum = sa.Enum(
-        'CREATE', 'READ', 'UPDATE', 'DELETE', 'LOGIN', 'LOGIN_FAILED',
-        'LOGOUT', 'PASSWORD_CHANGE', 'DATA_EXPORT', 'DATA_ERASURE',
-        'CONSENT_GIVEN', 'CONSENT_REVOKED',
-        name='auditactionenum'
-    )
-    consent_purpose_enum = sa.Enum('TREATMENT', 'DATA_STORAGE', 'COMMUNICATION', name='consentpurposeenum')
-    consent_status_enum = sa.Enum('GIVEN', 'REVOKED', name='consentstatusenum')
-    erasure_status_enum = sa.Enum('REQUESTED', 'APPROVED', 'COMPLETED', 'REJECTED', name='erasurestatusenum')
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE auditactionenum AS ENUM (
+                'CREATE', 'READ', 'UPDATE', 'DELETE', 'LOGIN', 'LOGIN_FAILED',
+                'LOGOUT', 'PASSWORD_CHANGE', 'DATA_EXPORT', 'DATA_ERASURE',
+                'CONSENT_GIVEN', 'CONSENT_REVOKED'
+            );
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE consentpurposeenum AS ENUM ('TREATMENT', 'DATA_STORAGE', 'COMMUNICATION');
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE consentstatusenum AS ENUM ('GIVEN', 'REVOKED');
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE erasurestatusenum AS ENUM ('REQUESTED', 'APPROVED', 'COMPLETED', 'REJECTED');
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$;
+    """)
 
     # audit_logs table
-    op.create_table(
-        'audit_logs',
-        sa.Column('id', sa.String(), primary_key=True),
-        sa.Column('clinic_id', sa.String(), nullable=True, index=True),
-        sa.Column('user_id', sa.String(), nullable=True, index=True),
-        sa.Column('user_email', sa.String(), nullable=True),
-        sa.Column('action', audit_action_enum, nullable=False, index=True),
-        sa.Column('resource_type', sa.String(), nullable=False, index=True),
-        sa.Column('resource_id', sa.String(), nullable=True, index=True),
-        sa.Column('description', sa.String(), nullable=True),
-        sa.Column('old_values', sa.JSON(), nullable=True),
-        sa.Column('new_values', sa.JSON(), nullable=True),
-        sa.Column('ip_address', sa.String(), nullable=True),
-        sa.Column('user_agent', sa.String(), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now(), index=True),
-    )
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS audit_logs (
+            id VARCHAR PRIMARY KEY,
+            clinic_id VARCHAR,
+            user_id VARCHAR,
+            user_email VARCHAR,
+            action auditactionenum NOT NULL,
+            resource_type VARCHAR NOT NULL,
+            resource_id VARCHAR,
+            description VARCHAR,
+            old_values JSON,
+            new_values JSON,
+            ip_address VARCHAR,
+            user_agent VARCHAR,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+        );
+    """)
+    op.execute("CREATE INDEX IF NOT EXISTS ix_audit_logs_clinic_id ON audit_logs (clinic_id);")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_audit_logs_user_id ON audit_logs (user_id);")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_audit_logs_action ON audit_logs (action);")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_audit_logs_resource_type ON audit_logs (resource_type);")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_audit_logs_resource_id ON audit_logs (resource_id);")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_audit_logs_created_at ON audit_logs (created_at);")
 
     # patient_consents table
-    op.create_table(
-        'patient_consents',
-        sa.Column('id', sa.String(), primary_key=True),
-        sa.Column('patient_id', sa.String(), sa.ForeignKey('patients.id', ondelete='CASCADE'), nullable=False, index=True),
-        sa.Column('clinic_id', sa.String(), sa.ForeignKey('clinics.id', ondelete='CASCADE'), nullable=False),
-        sa.Column('purpose', consent_purpose_enum, nullable=False),
-        sa.Column('status', consent_status_enum, nullable=False),
-        sa.Column('consent_text', sa.Text(), nullable=False),
-        sa.Column('consent_version', sa.String(), nullable=False, server_default='1.0'),
-        sa.Column('given_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column('revoked_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('collected_by', sa.String(), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
-        sa.Column('ip_address', sa.String(), nullable=True),
-    )
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS patient_consents (
+            id VARCHAR PRIMARY KEY,
+            patient_id VARCHAR NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+            clinic_id VARCHAR NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+            purpose consentpurposeenum NOT NULL,
+            status consentstatusenum NOT NULL,
+            consent_text TEXT NOT NULL,
+            consent_version VARCHAR NOT NULL DEFAULT '1.0',
+            given_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+            revoked_at TIMESTAMP WITH TIME ZONE,
+            collected_by VARCHAR REFERENCES users(id) ON DELETE SET NULL,
+            ip_address VARCHAR
+        );
+    """)
+    op.execute("CREATE INDEX IF NOT EXISTS ix_patient_consents_patient_id ON patient_consents (patient_id);")
 
     # data_retention_policies table
-    op.create_table(
-        'data_retention_policies',
-        sa.Column('id', sa.String(), primary_key=True),
-        sa.Column('clinic_id', sa.String(), sa.ForeignKey('clinics.id', ondelete='CASCADE'), nullable=False, unique=True),
-        sa.Column('patient_data_retention_months', sa.Integer(), nullable=False, server_default='120'),
-        sa.Column('audit_log_retention_months', sa.Integer(), nullable=False, server_default='60'),
-        sa.Column('inactive_patient_archive_months', sa.Integer(), nullable=False, server_default='36'),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
-    )
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS data_retention_policies (
+            id VARCHAR PRIMARY KEY,
+            clinic_id VARCHAR NOT NULL UNIQUE REFERENCES clinics(id) ON DELETE CASCADE,
+            patient_data_retention_months INTEGER NOT NULL DEFAULT 120,
+            audit_log_retention_months INTEGER NOT NULL DEFAULT 60,
+            inactive_patient_archive_months INTEGER NOT NULL DEFAULT 36,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+            updated_at TIMESTAMP WITH TIME ZONE
+        );
+    """)
 
     # data_erasure_requests table
-    op.create_table(
-        'data_erasure_requests',
-        sa.Column('id', sa.String(), primary_key=True),
-        sa.Column('patient_id', sa.String(), sa.ForeignKey('patients.id', ondelete='SET NULL'), nullable=True),
-        sa.Column('clinic_id', sa.String(), sa.ForeignKey('clinics.id', ondelete='CASCADE'), nullable=False),
-        sa.Column('requested_by', sa.String(), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
-        sa.Column('reason', sa.Text(), nullable=True),
-        sa.Column('status', erasure_status_enum, nullable=False),
-        sa.Column('approved_by', sa.String(), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
-        sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('anonymized_fields', sa.JSON(), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
-    )
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS data_erasure_requests (
+            id VARCHAR PRIMARY KEY,
+            patient_id VARCHAR REFERENCES patients(id) ON DELETE SET NULL,
+            clinic_id VARCHAR NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+            requested_by VARCHAR REFERENCES users(id) ON DELETE SET NULL,
+            reason TEXT,
+            status erasurestatusenum NOT NULL,
+            approved_by VARCHAR REFERENCES users(id) ON DELETE SET NULL,
+            completed_at TIMESTAMP WITH TIME ZONE,
+            anonymized_fields JSON,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+            updated_at TIMESTAMP WITH TIME ZONE
+        );
+    """)
 
     # data_breach_logs table
-    op.create_table(
-        'data_breach_logs',
-        sa.Column('id', sa.String(), primary_key=True),
-        sa.Column('clinic_id', sa.String(), sa.ForeignKey('clinics.id', ondelete='CASCADE'), nullable=False),
-        sa.Column('reported_by', sa.String(), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
-        sa.Column('description', sa.Text(), nullable=False),
-        sa.Column('severity', sa.String(), nullable=False, server_default='LOW'),
-        sa.Column('affected_records_count', sa.Integer(), nullable=True),
-        sa.Column('containment_actions', sa.Text(), nullable=True),
-        sa.Column('reported_to_authority', sa.Boolean(), server_default='false'),
-        sa.Column('reported_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
-    )
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS data_breach_logs (
+            id VARCHAR PRIMARY KEY,
+            clinic_id VARCHAR NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+            reported_by VARCHAR REFERENCES users(id) ON DELETE SET NULL,
+            description TEXT NOT NULL,
+            severity VARCHAR NOT NULL DEFAULT 'LOW',
+            affected_records_count INTEGER,
+            containment_actions TEXT,
+            reported_to_authority BOOLEAN DEFAULT false,
+            reported_at TIMESTAMP WITH TIME ZONE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+            updated_at TIMESTAMP WITH TIME ZONE
+        );
+    """)
 
     # Add columns to existing tables
-    op.add_column('patients', sa.Column('is_anonymized', sa.Boolean(), nullable=False, server_default='false'))
-    op.add_column('clinics', sa.Column('plugin_dpdp_compliance', sa.Boolean(), nullable=False, server_default='false'))
+    op.execute("ALTER TABLE patients ADD COLUMN IF NOT EXISTS is_anonymized BOOLEAN NOT NULL DEFAULT false;")
+    op.execute("ALTER TABLE clinics ADD COLUMN IF NOT EXISTS plugin_dpdp_compliance BOOLEAN NOT NULL DEFAULT false;")
 
 
 def downgrade() -> None:

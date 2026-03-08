@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { patientsAPI, opdAPI, chiefComplaintsAPI } from '../../services/api';
 import useAuthStore from '../../store/authStore';
+import PatientDpdp from '../../components/patients/PatientDpdp';
 
 const formatDateTime = (dateString) => {
   if (!dateString) return '';
@@ -158,6 +159,7 @@ export default function PatientDetails() {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '👤' },
     { id: 'visits', label: 'Visit History', icon: '📋' },
+    ...(plugins?.dpdp_compliance ? [{ id: 'dpdp', label: 'Data Protection', icon: '🛡️' }] : []),
   ];
 
   return (
@@ -376,6 +378,14 @@ export default function PatientDetails() {
             )}
           </div>
         </div>
+      )}
+
+      {activeTab === 'dpdp' && plugins?.dpdp_compliance && (
+        <PatientDpdp
+          patientId={patient.id}
+          patientCode={patient.patient_code}
+          isAnonymized={patient.is_anonymized}
+        />
       )}
 
       {/* Add to OPD Modal */}

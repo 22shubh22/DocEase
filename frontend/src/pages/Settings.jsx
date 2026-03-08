@@ -12,6 +12,8 @@ import PasswordSettings from '../components/settings/PasswordSettings';
 import TemplateDesigner from '../components/print/TemplateDesigner';
 import SettingsSidebar from '../components/settings/SettingsSidebar';
 import PluginManager from '../components/settings/PluginManager';
+import AuditLogViewer from '../components/settings/AuditLogViewer';
+import DpdpSettings from '../components/settings/DpdpSettings';
 
 export default function Settings() {
   const { user, updateUser } = useAuthStore();
@@ -68,6 +70,13 @@ export default function Settings() {
         { id: 'plugins', label: 'Manage Plugins', icon: '🧩' },
       ],
     },
+    ...(isDoctor && isOwner && user?.enabled_plugins?.dpdp_compliance ? [{
+      label: 'Compliance',
+      items: [
+        { id: 'audit-logs', label: 'Audit Logs', icon: '📜' },
+        { id: 'dpdp', label: 'DPDP Compliance', icon: '🛡️' },
+      ],
+    }] : []),
     {
       label: 'Print',
       items: [
@@ -205,6 +214,18 @@ export default function Settings() {
 
       case 'plugins':
         return <PluginManager isOwner={isOwner} />;
+
+      case 'audit-logs':
+        if (isDoctor && isOwner) {
+          return <AuditLogViewer />;
+        }
+        return null;
+
+      case 'dpdp':
+        if (isDoctor && isOwner) {
+          return <DpdpSettings />;
+        }
+        return null;
 
       case 'print-template':
         return <TemplateDesigner user={user} />;

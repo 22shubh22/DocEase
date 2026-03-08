@@ -231,4 +231,31 @@ export const permissionsAPI = {
   resetToDefaults: (userId) => api.post(`/permissions/${userId}/reset`),
 };
 
+// Audit API
+export const auditAPI = {
+  getLogs: (params) => api.get('/audit/logs', { params }),
+  getLog: (id) => api.get(`/audit/logs/${id}`),
+};
+
+// DPDP Compliance API
+export const dpdpAPI = {
+  // Consent
+  createConsent: (data) => api.post('/dpdp/consent', data),
+  getPatientConsents: (patientId) => api.get(`/dpdp/consent/${patientId}`),
+  revokeConsent: (consentId) => api.put(`/dpdp/consent/${consentId}/revoke`),
+  // Erasure
+  createErasureRequest: (data) => api.post('/dpdp/erasure-request', data),
+  getErasureRequests: () => api.get('/dpdp/erasure-requests'),
+  approveErasure: (id) => api.put(`/dpdp/erasure-requests/${id}/approve`),
+  rejectErasure: (id, data) => api.put(`/dpdp/erasure-requests/${id}/reject`, data),
+  // Export
+  exportPatientData: (patientId) => api.get(`/dpdp/export/${patientId}`),
+  // Retention
+  getRetentionPolicy: () => api.get('/dpdp/retention-policy'),
+  updateRetentionPolicy: (data) => api.put('/dpdp/retention-policy', data),
+  // Breach
+  reportBreach: (data) => api.post('/dpdp/breach-report', data),
+  getBreachReports: () => api.get('/dpdp/breach-reports'),
+};
+
 export default api;

@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.api import auth, patients, opd, visits, clinic, users, admin, chief_complaints, diagnosis_options, observation_options, test_options, medicine_options, dosage_options, duration_options, symptom_options, permissions, onboarding, print_template
+from app.api import auth, patients, opd, visits, clinic, users, admin, chief_complaints, diagnosis_options, observation_options, test_options, medicine_options, dosage_options, duration_options, symptom_options, permissions, onboarding, print_template, audit, dpdp
 from app.services.guest_service import cleanup_expired_guests
 from app.core.keepalive import db_keep_alive
 
@@ -103,6 +103,8 @@ app.include_router(symptom_options.router, prefix="/api/symptom-options", tags=[
 app.include_router(permissions.router, prefix="/api/permissions", tags=["Permissions"])
 app.include_router(onboarding.router, prefix="/api/onboarding", tags=["Onboarding"])
 app.include_router(print_template.router, prefix="/api/print-template", tags=["Print Template"])
+app.include_router(audit.router, prefix="/api/audit", tags=["Audit"])
+app.include_router(dpdp.router, prefix="/api/dpdp", tags=["DPDP Compliance"])
 
 @app.get("/health")
 async def health_check():
