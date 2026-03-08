@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, Date, ForeignKey, Enum, Numeric, ARRAY, JSON, Text, text
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, Date, ForeignKey, Enum, Numeric, ARRAY, JSON, Text, text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -567,3 +567,30 @@ class DataBreachLog(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     reporter = relationship("User")
+
+
+class ClinicDailyStats(Base):
+    __tablename__ = "clinic_daily_stats"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False, index=True)
+    stat_date = Column(Date, nullable=False, index=True)
+
+    # Activity metrics (from audit_logs LOGIN events)
+    unique_logins = Column(Integer, default=0)
+    total_logins = Column(Integer, default=0)
+
+    # Business metrics (from patients, visits, appointments)
+    patients_created = Column(Integer, default=0)
+    appointments_created = Column(Integer, default=0)
+    visits_completed = Column(Integer, default=0)
+    prescriptions_written = Column(Integer, default=0)
+
+    # Collections (from visits.amount)
+    total_collections = Column(Numeric(10, 2), default=0)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('clinic_id', 'stat_date', name='uq_clinic_daily_stats'),
+    )

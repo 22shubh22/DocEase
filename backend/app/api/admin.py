@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, func, case, cast, Float
 from typing import List, Optional
 from datetime import date
+from pydantic import BaseModel
 from app.core.deps import get_db, get_current_user
 from app.models.models import (
     User, Clinic, Doctor, Patient, ClinicAdmin, RoleEnum,
@@ -697,4 +698,107 @@ async def get_clinic_analytics(
         "collections_by_month": collections_by_month,
         "appointments_by_status": appointments_by_status,
         "doctors": doctors,
+    }
+
+
+# --- Clinic Health / Usage Analytics ---
+
+@router.get("/analytics/clinic-health")
+async def get_clinic_health(
+    status_filter: Optional[str] = Query(None, alias="status"),
+    sort_by: Optional[str] = Query("days_since_active"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Get health overview for all managed clinics."""
+    from app.services.analytics_service import get_all_clinics_health
+
+    admin_clinic_ids = [ca.clinic_id for ca in current_user.managed_clinics]
+    if not admin_clinic_ids:
+        return {"clinics": [], "summary": {"total_clinics": 0, "active": 0, "at_risk": 0, "inactive": 0, "churned": 0}}
+
+    result = get_all_clinics_health(db, admin_clinic_ids)
+
+    # Filter by status
+    if status_filter:
+        result["clinics"] = [c for c in result["clinics"] if c["status"] == status_filter]
+
+    # Sort
+    if sort_by == "days_since_active":
+        result["clinics"].sort(key=lambda c: c.get("days_since_active") or 999)
+    elif sort_by == "visits_last_7d":
+        result["clinics"].sort(key=lambda c: c.get("visits_last_7d", 0), reverse=True)
+    elif sort_by == "dau_avg_7d":
+        result["clinics"].sort(key=lambda c: c.get("dau_avg_7d", 0), reverse=True)
+
+    return result
+
+
+@router.get("/analytics/clinics/{clinic_id}/health")
+async def get_clinic_health_detail(
+    clinic_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Get detailed health for a single clinic with sparkline data."""
+    from app.services.analytics_service import compute_clinic_health, get_clinic_sparkline
+
+    admin_clinic_ids = [ca.clinic_id for ca in current_user.managed_clinics]
+    if clinic_id not in admin_clinic_ids:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    if not clinic:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+
+    health = compute_clinic_health(db, clinic_id)
+    sparkline = get_clinic_sparkline(db, clinic_id, days=30)
+
+    return {
+        "clinic_id": clinic.id,
+        "clinic_name": clinic.name,
+        "clinic_code": clinic.clinic_code,
+        "specialty": clinic.specialty.value if clinic.specialty else None,
+        **health,
+        "daily_activity": sparkline,
+    }
+
+
+class RecomputeRequest(BaseModel):
+    date_from: date
+    date_to: date
+
+
+@router.post("/analytics/recompute")
+async def recompute_stats(
+    req: RecomputeRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Trigger backfill of daily stats for a date range (runs in background)."""
+    from app.services.analytics_service import backfill_stats
+    from app.core.database import SessionLocal
+
+    if (req.date_to - req.date_from).days > 365:
+        raise HTTPException(status_code=400, detail="Date range cannot exceed 365 days")
+
+    def _run_backfill():
+        bg_db = SessionLocal()
+        try:
+            total = backfill_stats(bg_db, req.date_from, req.date_to)
+            logger.info(f"Backfill completed: {total} stat rows computed")
+        except Exception:
+            logger.exception("Backfill failed")
+        finally:
+            bg_db.close()
+
+    import logging
+    logger = logging.getLogger(__name__)
+
+    background_tasks.add_task(_run_backfill)
+
+    return {
+        "message": f"Backfill started for {req.date_from} to {req.date_to}",
+        "status": "processing",
     }

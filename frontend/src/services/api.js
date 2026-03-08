@@ -201,6 +201,9 @@ export const adminAPI = {
   updateClinicPlugins: (clinicId, data) => api.put(`/admin/clinics/${clinicId}/plugins`, data),
   getAnalyticsOverview: (params) => api.get('/admin/analytics/overview', { params }),
   getClinicAnalytics: (clinicId, params) => api.get(`/admin/analytics/clinics/${clinicId}`, { params }),
+  getClinicHealth: (params) => api.get('/admin/analytics/clinic-health', { params }),
+  getClinicHealthDetail: (clinicId) => api.get(`/admin/analytics/clinics/${clinicId}/health`),
+  recomputeStats: (data) => api.post('/admin/analytics/recompute', data),
 };
 
 // Onboarding API (public - no auth needed)

@@ -19,6 +19,7 @@ import DoctorList from './pages/admin/DoctorList';
 import OnboardingRequests from './pages/admin/OnboardingRequests';
 import AdminAnalytics from './pages/admin/AdminAnalytics';
 import ClinicAnalytics from './pages/admin/ClinicAnalytics';
+import ClinicHealth from './pages/admin/ClinicHealth';
 import OnboardingRequest from './pages/OnboardingRequest';
 import CollectionReport from './pages/reports/CollectionReport';
 import PrivacyPolicy from './pages/legal/PrivacyPolicy';
@@ -112,6 +113,7 @@ function App() {
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="admin/doctors" element={<AdminRoute><DoctorList /></AdminRoute>} />
         <Route path="admin/onboarding" element={<AdminRoute><OnboardingRequests /></AdminRoute>} />
+        <Route path="admin/clinic-health" element={<AdminRoute><ClinicHealth /></AdminRoute>} />
         <Route path="admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
         <Route path="admin/clinics/:clinicId/analytics" element={<AdminRoute><ClinicAnalytics /></AdminRoute>} />
         <Route path="admin/clinics/:clinicId" element={<AdminRoute><ClinicManagement /></AdminRoute>} />
