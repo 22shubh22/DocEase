@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status, Query, B
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, Literal
+from math import ceil
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_permission, require_plugin, get_client_ip
 from app.models.models import User, Appointment, Patient, AppointmentStatusEnum, Visit, Doctor, AuditActionEnum
@@ -262,6 +263,108 @@ async def update_queue_position(
     db.commit()
 
     return {"message": "Position updated", "appointment": {"id": appointment.id, "queue_number": appointment.queue_number}}
+
+
+@router.get("/follow-ups", response_model=dict)
+async def get_follow_ups(
+    status: Optional[Literal["overdue", "today", "upcoming", "all"]] = Query("all"),
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    patient_search: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(require_permission("can_view_opd")),
+    _plugin: User = Depends(require_plugin("opd_queue")),
+    db: Session = Depends(get_db)
+):
+    """Get all follow-ups with filtering, search, and pagination"""
+    today = date.today()
+
+    base_filter = [
+        Visit.clinic_id == current_user.clinic_id,
+        Visit.follow_up_date.isnot(None),
+    ]
+
+    # Summary counts (always unfiltered by search/date-range)
+    overdue_count = db.query(func.count(Visit.id)).filter(
+        *base_filter, Visit.follow_up_date < today
+    ).scalar()
+    today_count = db.query(func.count(Visit.id)).filter(
+        *base_filter, Visit.follow_up_date == today
+    ).scalar()
+    upcoming_count = db.query(func.count(Visit.id)).filter(
+        *base_filter, Visit.follow_up_date > today
+    ).scalar()
+
+    # Build query
+    query = db.query(Visit).options(
+        joinedload(Visit.patient),
+        joinedload(Visit.doctor).joinedload(Doctor.user),
+    ).filter(*base_filter)
+
+    # Apply status filter
+    if start_date or end_date:
+        if start_date:
+            query = query.filter(Visit.follow_up_date >= start_date)
+        if end_date:
+            query = query.filter(Visit.follow_up_date <= end_date)
+    elif status == "overdue":
+        query = query.filter(Visit.follow_up_date < today)
+    elif status == "today":
+        query = query.filter(Visit.follow_up_date == today)
+    elif status == "upcoming":
+        query = query.filter(Visit.follow_up_date > today)
+
+    # Patient search
+    if patient_search:
+        search_term = f"%{patient_search}%"
+        query = query.join(Visit.patient).filter(
+            (Patient.full_name.ilike(search_term)) |
+            (Patient.patient_code.ilike(search_term))
+        )
+
+    # Get total count for pagination
+    total = query.count()
+    total_pages = ceil(total / limit) if total > 0 else 1
+
+    # Order and paginate
+    query = query.order_by(Visit.follow_up_date.asc())
+    offset = (page - 1) * limit
+    visits = query.offset(offset).limit(limit).all()
+
+    return {
+        "follow_ups": [
+            {
+                "visit_id": str(v.id),
+                "patient_id": str(v.patient_id),
+                "patient_name": v.patient.full_name if v.patient else None,
+                "patient_code": v.patient.patient_code if v.patient else None,
+                "last_visit_date": v.visit_date.isoformat() if v.visit_date else None,
+                "follow_up_date": v.follow_up_date.isoformat() if v.follow_up_date else None,
+                "diagnosis": v.diagnosis or [],
+                "doctor_name": (
+                    v.doctor.user.full_name if v.doctor and v.doctor.user else None
+                ),
+                "status": (
+                    "overdue" if v.follow_up_date < today
+                    else "today" if v.follow_up_date == today
+                    else "upcoming"
+                ),
+            }
+            for v in visits
+        ],
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": total_pages,
+        },
+        "summary": {
+            "overdue": overdue_count,
+            "today": today_count,
+            "upcoming": upcoming_count,
+        },
+    }
 
 
 @router.get("/follow-ups-due", response_model=dict)

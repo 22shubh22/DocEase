@@ -9,6 +9,7 @@ import PatientsList from './pages/patients/PatientsList';
 import PatientForm from './pages/patients/PatientForm';
 import PatientDetails from './pages/patients/PatientDetails';
 import OPDQueue from './pages/opd/OPDQueue';
+import FollowUpsList from './pages/opd/FollowUpsList';
 import VisitForm from './pages/visits/VisitForm';
 import VisitDetails from './pages/visits/VisitDetails';
 import DoctorVisitsList from './pages/visits/DoctorVisitsList';
@@ -92,6 +93,7 @@ function App() {
 
         {/* OPD */}
         <Route path="opd" element={<PluginRoute plugin="opd_queue"><OPDQueue /></PluginRoute>} />
+        <Route path="follow-ups" element={<PluginRoute plugin="opd_queue"><FollowUpsList /></PluginRoute>} />
 
         {/* Visits */}
         <Route path="visits" element={<DoctorVisitsList />} />
