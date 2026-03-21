@@ -3,5 +3,6 @@ from app.models.models import (
     Visit, VisitMedicine, ClinicAdmin,
     RoleEnum, GenderEnum, AppointmentStatusEnum,
     ChiefComplaint, DiagnosisOption, ObservationOption, TestOption,
-    MedicineOption, DosageOption, DurationOption, SymptomOption
+    MedicineOption, DosageOption, DurationOption, SymptomOption,
+    VaccinationSchedule, VaccinationRecord,
 )

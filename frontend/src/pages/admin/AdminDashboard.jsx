@@ -46,11 +46,15 @@ export default function AdminDashboard() {
     if (!window.confirm('Are you sure you want to delete this clinic? This will remove all associated data.')) {
       return;
     }
+    const previousClinics = clinics;
+    setClinics(prev => prev.filter(c => c.id !== clinicId));
     try {
       await adminAPI.deleteClinic(clinicId);
       fetchData();
     } catch (error) {
       console.error('Failed to delete clinic:', error);
+      setClinics(previousClinics);
+      alert('Failed to delete clinic. Please try again.');
     }
   };
 

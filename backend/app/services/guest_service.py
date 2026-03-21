@@ -454,6 +454,7 @@ def create_guest_session(db: Session, plugin_opd_queue: bool = True, plugin_coll
                 "opd_queue": plugin_opd_queue,
                 "collections": plugin_collections,
                 "dpdp_compliance": False,
+                "vaccination": False,
             },
         },
     }

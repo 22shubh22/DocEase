@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_, func, case, cast, Float
+from sqlalchemy import or_, func, case, cast, Float, text
 from typing import List, Optional
 from datetime import date
 from pydantic import BaseModel
@@ -218,8 +218,14 @@ async def delete_clinic(
     clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
     if not clinic:
         raise HTTPException(status_code=404, detail="Clinic not found")
-    
-    db.delete(clinic)
+
+    # Clear owner_doctor_id to break circular FK before deletion
+    clinic.owner_doctor_id = None
+    db.flush()
+
+    # Use raw SQL DELETE to let DB-level ondelete="CASCADE" handle all child records,
+    # avoiding SQLAlchemy ORM cascade ordering issues with missing ondelete directives
+    db.execute(text("DELETE FROM clinics WHERE id = :id"), {"id": clinic_id})
     db.commit()
 
 

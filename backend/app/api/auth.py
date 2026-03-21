@@ -105,10 +105,13 @@ async def login(
 
         clinic = db.query(Clinic).filter(Clinic.id == user.clinic_id).first()
         if clinic:
+            from app.models.models import ClinicSpecialtyEnum
+            vaccination_enabled = clinic.plugin_vaccination or clinic.specialty == ClinicSpecialtyEnum.PEDIATRICS
             enabled_plugins = {
                 "opd_queue": clinic.plugin_opd_queue,
                 "collections": clinic.plugin_collections,
                 "dpdp_compliance": clinic.plugin_dpdp_compliance,
+                "vaccination": vaccination_enabled,
             }
 
     background_tasks.add_task(
@@ -224,10 +227,13 @@ async def get_profile(
     if current_user.clinic_id:
         clinic = db.query(Clinic).filter(Clinic.id == current_user.clinic_id).first()
         if clinic:
+            from app.models.models import ClinicSpecialtyEnum
+            vaccination_enabled = clinic.plugin_vaccination or clinic.specialty == ClinicSpecialtyEnum.PEDIATRICS
             enabled_plugins = {
                 "opd_queue": clinic.plugin_opd_queue,
                 "collections": clinic.plugin_collections,
                 "dpdp_compliance": clinic.plugin_dpdp_compliance,
+                "vaccination": vaccination_enabled,
             }
 
     return {

@@ -24,6 +24,7 @@ export default function PatientForm() {
           reset({
             fullName: patient.full_name,
             age: patient.age,
+            dateOfBirth: patient.date_of_birth || '',
             gender: patient.gender,
             bloodGroup: patient.blood_group,
             phone: patient.phone,
@@ -51,6 +52,7 @@ export default function PatientForm() {
       const patientData = {
         full_name: data.fullName,
         age: data.age ? parseInt(data.age) : null,
+        date_of_birth: data.dateOfBirth || null,
         gender: data.gender || null,
         blood_group: data.bloodGroup || null,
         phone: data.phone,
@@ -119,6 +121,18 @@ export default function PatientForm() {
               {errors.fullName && (
                 <p className="text-red-500 text-sm mt-1">{errors.fullName.message}</p>
               )}
+            </div>
+
+            <div>
+              <label className="label">Date of Birth</label>
+              <input
+                type="date"
+                className="input"
+                {...register('dateOfBirth')}
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                Important for vaccination tracking
+              </p>
             </div>
 
             <div>

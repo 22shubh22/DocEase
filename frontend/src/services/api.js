@@ -268,4 +268,20 @@ export const dpdpAPI = {
   getBreachReports: () => api.get('/dpdp/breach-reports'),
 };
 
+// Vaccination API
+export const vaccinationAPI = {
+  getSchedule: () => api.get('/vaccinations/schedule'),
+  addScheduleEntry: (data) => api.post('/vaccinations/schedule', data),
+  updateScheduleEntry: (id, data) => api.put(`/vaccinations/schedule/${id}`, data),
+  deleteScheduleEntry: (id) => api.delete(`/vaccinations/schedule/${id}`),
+  resetSchedule: () => api.post('/vaccinations/schedule/reset'),
+  getCard: (patientId) => api.get(`/vaccinations/patients/${patientId}/card`),
+  getDue: (patientId) => api.get(`/vaccinations/patients/${patientId}/due`),
+  recordDose: (patientId, data) => api.post(`/vaccinations/patients/${patientId}/doses`, data),
+  recordDoseDuringVisit: (visitId, data) => api.post(`/vaccinations/visits/${visitId}/doses`, data),
+  updateRecord: (recordId, data) => api.put(`/vaccinations/records/${recordId}`, data),
+  deleteRecord: (recordId) => api.delete(`/vaccinations/records/${recordId}`),
+  getDashboard: () => api.get('/vaccinations/dashboard'),
+};
+
 export default api;

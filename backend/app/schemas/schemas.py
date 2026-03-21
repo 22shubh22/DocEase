@@ -195,6 +195,7 @@ class ClinicPluginsUpdate(BaseModel):
     plugin_opd_queue: Optional[bool] = None
     plugin_collections: Optional[bool] = None
     plugin_dpdp_compliance: Optional[bool] = None
+    plugin_vaccination: Optional[bool] = None
 
 
 class ClinicResponse(ClinicBase):
@@ -234,6 +235,7 @@ class DoctorResponse(DoctorBase):
 class PatientBase(BaseModel):
     full_name: str
     age: Optional[int] = None
+    date_of_birth: Optional[date] = None
     gender: Optional[GenderEnum] = None
     phone: str
     emergency_contact: Optional[str] = None
@@ -1152,3 +1154,129 @@ class FixtureTemplateResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Vaccination Schemas ──
+
+class VaccinationScheduleEntry(BaseModel):
+    id: str
+    vaccine_name: str
+    dose_number: int
+    dose_label: Optional[str] = None
+    age_days: int
+    age_label: Optional[str] = None
+    vaccine_group: Optional[str] = None
+    route: Optional[str] = None
+    site: Optional[str] = None
+    is_mandatory: bool
+    display_order: int
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+class VaccinationScheduleCreate(BaseModel):
+    vaccine_name: str
+    dose_number: int
+    dose_label: Optional[str] = None
+    age_days: int
+    age_label: Optional[str] = None
+    vaccine_group: Optional[str] = "Custom"
+    route: Optional[str] = None
+    site: Optional[str] = None
+    is_mandatory: bool = False
+
+
+class VaccinationScheduleUpdate(BaseModel):
+    vaccine_name: Optional[str] = None
+    dose_label: Optional[str] = None
+    age_days: Optional[int] = None
+    age_label: Optional[str] = None
+    vaccine_group: Optional[str] = None
+    route: Optional[str] = None
+    site: Optional[str] = None
+    is_mandatory: Optional[bool] = None
+    display_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class VaccinationRecordCreate(BaseModel):
+    vaccine_name: str
+    dose_number: int
+    dose_label: Optional[str] = None
+    date_administered: date
+    schedule_entry_id: Optional[str] = None
+    batch_number: Optional[str] = None
+    injection_site: Optional[str] = None
+    route: Optional[str] = None
+    adverse_reaction: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class VaccinationRecordUpdate(BaseModel):
+    date_administered: Optional[date] = None
+    batch_number: Optional[str] = None
+    injection_site: Optional[str] = None
+    route: Optional[str] = None
+    adverse_reaction: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class VaccinationRecordResponse(BaseModel):
+    id: str
+    patient_id: str
+    vaccine_name: str
+    dose_number: int
+    dose_label: Optional[str] = None
+    date_administered: date
+    age_at_dose_days: Optional[int] = None
+    batch_number: Optional[str] = None
+    administered_by: Optional[str] = None
+    injection_site: Optional[str] = None
+    route: Optional[str] = None
+    adverse_reaction: Optional[str] = None
+    notes: Optional[str] = None
+    visit_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class VaccinationCardDose(BaseModel):
+    schedule_entry_id: Optional[str] = None
+    vaccine_name: str
+    dose_number: int
+    dose_label: Optional[str] = None
+    age_days: int
+    age_label: Optional[str] = None
+    status: str  # "given", "due", "overdue", "upcoming"
+    date_administered: Optional[date] = None
+    record: Optional[VaccinationRecordResponse] = None
+
+
+class VaccinationCardResponse(BaseModel):
+    patient_id: str
+    patient_name: str
+    date_of_birth: Optional[date] = None
+    age_days: Optional[int] = None
+    doses: List[VaccinationCardDose]
+    summary: dict
+
+
+class VaccinationDashboardPatient(BaseModel):
+    patient_id: str
+    patient_name: str
+    patient_code: str
+    date_of_birth: date
+    age_label: str
+    due_vaccines: List[str]
+    overdue_vaccines: List[str]
+
+
+class VaccinationDashboardResponse(BaseModel):
+    due_today: List[VaccinationDashboardPatient]
+    overdue: List[VaccinationDashboardPatient]
+    due_this_week: List[VaccinationDashboardPatient]
+    stats: dict

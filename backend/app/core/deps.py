@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import decode_access_token
-from app.models.models import User, RoleEnum, Doctor, Clinic, UserPermission
+from app.models.models import User, RoleEnum, Doctor, Clinic, UserPermission, ClinicSpecialtyEnum
 
 security = HTTPBearer()
 
@@ -161,7 +161,12 @@ def require_plugin(plugin_name: str):
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Clinic not found"
             )
-        if not getattr(clinic, f"plugin_{plugin_name}", False):
+        plugin_enabled = getattr(clinic, f"plugin_{plugin_name}", False)
+        # Auto-enable vaccination for pediatrics clinics
+        if not plugin_enabled and plugin_name == "vaccination":
+            if clinic.specialty == ClinicSpecialtyEnum.PEDIATRICS:
+                plugin_enabled = True
+        if not plugin_enabled:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"The '{plugin_name}' feature is not enabled for your clinic"

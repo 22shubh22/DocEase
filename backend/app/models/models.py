@@ -94,6 +94,7 @@ class Clinic(Base):
     plugin_opd_queue = Column(Boolean, default=True, nullable=False, server_default=text('true'))
     plugin_collections = Column(Boolean, default=True, nullable=False, server_default=text('true'))
     plugin_dpdp_compliance = Column(Boolean, default=False, nullable=False, server_default=text('false'))
+    plugin_vaccination = Column(Boolean, default=False, nullable=False, server_default=text('false'))
     owner_doctor_id = Column(String, ForeignKey("doctors.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -115,6 +116,8 @@ class Clinic(Base):
     symptom_options = relationship("SymptomOption", back_populates="clinic", cascade="all, delete-orphan")
     user_permissions = relationship("UserPermission", back_populates="clinic", cascade="all, delete-orphan")
     print_template = relationship("PrintTemplate", back_populates="clinic", uselist=False, cascade="all, delete-orphan")
+    vaccination_schedule = relationship("VaccinationSchedule", back_populates="clinic", cascade="all, delete-orphan")
+    vaccination_records = relationship("VaccinationRecord", back_populates="clinic", cascade="all, delete-orphan")
 
 
 class User(Base):
@@ -181,10 +184,13 @@ class Patient(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+    date_of_birth = Column(Date, nullable=True)
+
     clinic = relationship("Clinic", back_populates="patients")
     creator = relationship("User", back_populates="created_patients")
     appointments = relationship("Appointment", back_populates="patient", cascade="all, delete-orphan")
     visits = relationship("Visit", back_populates="patient", cascade="all, delete-orphan")
+    vaccination_records = relationship("VaccinationRecord", back_populates="patient", cascade="all, delete-orphan")
 
 
 class Appointment(Base):
@@ -233,6 +239,7 @@ class Visit(Base):
     doctor = relationship("Doctor", back_populates="visits")
     clinic = relationship("Clinic", back_populates="visits")
     medicines = relationship("VisitMedicine", back_populates="visit", cascade="all, delete-orphan")
+    vaccination_records = relationship("VaccinationRecord", back_populates="visit")
 
 
 class VisitMedicine(Base):
@@ -607,4 +614,65 @@ class ClinicDailyStats(Base):
 
     __table_args__ = (
         UniqueConstraint('clinic_id', 'stat_date', name='uq_clinic_daily_stats'),
+    )
+
+
+class VaccinationSchedule(Base):
+    __tablename__ = "vaccination_schedules"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    vaccine_name = Column(String, nullable=False)
+    dose_number = Column(Integer, nullable=False)
+    dose_label = Column(String)
+    age_days = Column(Integer, nullable=False)
+    age_label = Column(String)
+    vaccine_group = Column(String)
+    route = Column(String)
+    site = Column(String)
+    is_mandatory = Column(Boolean, default=True)
+    display_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    clinic = relationship("Clinic", back_populates="vaccination_schedule")
+
+    __table_args__ = (
+        UniqueConstraint('clinic_id', 'vaccine_name', 'dose_number', name='uq_clinic_vaccine_dose'),
+    )
+
+
+class VaccinationRecord(Base):
+    __tablename__ = "vaccination_records"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    patient_id = Column(String, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    schedule_entry_id = Column(String, ForeignKey("vaccination_schedules.id", ondelete="SET NULL"), nullable=True)
+    visit_id = Column(String, ForeignKey("visits.id", ondelete="SET NULL"), nullable=True)
+    vaccine_name = Column(String, nullable=False)
+    dose_number = Column(Integer, nullable=False)
+    dose_label = Column(String)
+    date_administered = Column(Date, nullable=False)
+    age_at_dose_days = Column(Integer)
+    batch_number = Column(String, nullable=True)
+    administered_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    injection_site = Column(String, nullable=True)
+    route = Column(String, nullable=True)
+    adverse_reaction = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_by = Column(String, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    patient = relationship("Patient", back_populates="vaccination_records")
+    clinic = relationship("Clinic", back_populates="vaccination_records")
+    visit = relationship("Visit", back_populates="vaccination_records")
+    schedule_entry = relationship("VaccinationSchedule")
+    administerer = relationship("User", foreign_keys=[administered_by])
+    creator = relationship("User", foreign_keys=[created_by])
+
+    __table_args__ = (
+        UniqueConstraint('patient_id', 'vaccine_name', 'dose_number', name='uq_patient_vaccine_dose'),
     )
