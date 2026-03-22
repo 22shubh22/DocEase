@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 import VisitPrintContent from './VisitPrintContent';
 import usePrintTemplateStore from '../../store/printTemplateStore';
 
@@ -21,7 +22,7 @@ export default function VisitPreviewModal({
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      alert('Please allow popups to print');
+      toast.error('Please allow popups in your browser to print');
       return;
     }
 
@@ -38,10 +39,11 @@ export default function VisitPreviewModal({
           margin: 0 !important;
           padding: 0 !important;
           font-family: Arial, sans-serif;
+          height: 100%;
         }
         .print-content {
           background-color: white;
-          min-height: 100vh;
+          min-height: 100%;
         }
 
         /* Multi-page table structure — browser repeats thead/tfoot on every printed page */
@@ -150,6 +152,13 @@ export default function VisitPreviewModal({
         /* Layout */
         .flex { display: flex; }
         .flex-wrap { flex-wrap: wrap; }
+        .flex-col { flex-direction: column; }
+        .flex-shrink-0 { flex-shrink: 0; }
+        .justify-between { justify-content: space-between; }
+        .justify-center { justify-content: center; }
+        .items-center { align-items: center; }
+        .items-end { align-items: flex-end; }
+        .items-start { align-items: flex-start; }
         .gap-x-4 { column-gap: 1rem; }
         .gap-2 { gap: 0.5rem; }
         .gap-1 { gap: 0.25rem; }
@@ -200,10 +209,21 @@ export default function VisitPreviewModal({
     printWindow.document.close();
     printWindow.focus();
 
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 250);
+    // Wait for all images to load before printing
+    const images = printWindow.document.querySelectorAll('img');
+    const imagePromises = Array.from(images).map(img =>
+      img.complete ? Promise.resolve() : new Promise(resolve => {
+        img.onload = resolve;
+        img.onerror = resolve;
+      })
+    );
+
+    // Close window after print completes (or cancel)
+    printWindow.onafterprint = () => printWindow.close();
+
+    Promise.all(imagePromises).then(() => {
+      setTimeout(() => printWindow.print(), 100);
+    });
   };
 
   useEffect(() => {

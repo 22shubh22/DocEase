@@ -362,7 +362,10 @@ async def get_visit_by_id(
                 "gender": patient.gender.value if patient.gender else None,
                 "blood_group": patient.blood_group,
                 "allergies": patient.allergies or [],
-                "phone": patient.phone
+                "phone": patient.phone,
+                "guardian_name": patient.guardian_name,
+                "guardian_phone": patient.guardian_phone,
+                "guardian_relationship": patient.guardian_relationship,
             } if patient else None,
             "doctor": {
                 "id": doctor.id,
