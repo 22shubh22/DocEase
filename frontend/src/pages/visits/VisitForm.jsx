@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 import useAuthStore from '../../store/authStore';
 import { patientsAPI, visitsAPI, diagnosisOptionsAPI, observationOptionsAPI, testOptionsAPI, chiefComplaintsAPI, opdAPI, clinicAPI } from '../../services/api';
 import PrescriptionEditor from '../../components/prescriptions/PrescriptionEditor';
+import MultiSelectComboBox from '../../components/common/MultiSelectComboBox';
 import PatientHistoryPanel from '../../components/patients/PatientHistoryPanel';
 import VisitPreviewModal from '../../components/visits/VisitPreviewModal';
 import { validateBP, validateTemperature, validatePulse, validateWeight, validateHeight, validateSpO2 } from '../../utils/vitalsValidation';
@@ -39,16 +40,12 @@ export default function VisitForm() {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [symptomOptions, setSymptomOptions] = useState([]);
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
-  const [customSymptom, setCustomSymptom] = useState('');
   const [diagnosisOptions, setDiagnosisOptions] = useState([]);
   const [selectedDiagnoses, setSelectedDiagnoses] = useState([]);
-  const [customDiagnosis, setCustomDiagnosis] = useState('');
   const [observationOptions, setObservationOptions] = useState([]);
   const [selectedObservations, setSelectedObservations] = useState([]);
-  const [customObservation, setCustomObservation] = useState('');
   const [testOptions, setTestOptions] = useState([]);
   const [selectedTests, setSelectedTests] = useState([]);
-  const [customTest, setCustomTest] = useState('');
   const [existingVisit, setExistingVisit] = useState(null);
 
   // Patient history state
@@ -141,85 +138,11 @@ export default function VisitForm() {
               setShowPatientHistory(true);
 
               // Pre-fill form with existing visit data
-              // Handle symptoms (now array)
-              const symptomList = chiefComplaintsRes.data || [];
-              const existingSymptoms = visit.symptoms || [];
-              const matchedSymptoms = [];
-              const customSymptoms = [];
-
-              existingSymptoms.forEach(symptom => {
-                const symptomMatch = symptomList.find(s => s.name === symptom);
-                if (symptomMatch) {
-                  matchedSymptoms.push(symptom);
-                } else if (symptom) {
-                  customSymptoms.push(symptom);
-                }
-              });
-
-              setSelectedSymptoms(matchedSymptoms);
-              if (customSymptoms.length > 0) {
-                setCustomSymptom(customSymptoms.join(', '));
-              }
-
-              // Handle diagnosis (now array)
-              const diagnosisList = diagnosisRes.data || [];
-              const existingDiagnoses = visit.diagnosis || [];
-              const matchedDiagnoses = [];
-              const customDiagnoses = [];
-
-              existingDiagnoses.forEach(diagnosis => {
-                const diagnosisMatch = diagnosisList.find(d => d.name === diagnosis);
-                if (diagnosisMatch) {
-                  matchedDiagnoses.push(diagnosis);
-                } else if (diagnosis) {
-                  customDiagnoses.push(diagnosis);
-                }
-              });
-
-              setSelectedDiagnoses(matchedDiagnoses);
-              if (customDiagnoses.length > 0) {
-                setCustomDiagnosis(customDiagnoses.join(', '));
-              }
-
-              // Handle observation (now array)
-              const observationList = observationsRes.data || [];
-              const existingObservations = visit.observations || [];
-              const matchedObservations = [];
-              const customObservations = [];
-
-              existingObservations.forEach(observation => {
-                const observationMatch = observationList.find(o => o.name === observation);
-                if (observationMatch) {
-                  matchedObservations.push(observation);
-                } else if (observation) {
-                  customObservations.push(observation);
-                }
-              });
-
-              setSelectedObservations(matchedObservations);
-              if (customObservations.length > 0) {
-                setCustomObservation(customObservations.join(', '));
-              }
-
-              // Handle recommended tests
-              const testList = testsRes.data || [];
-              const existingTests = visit.recommended_tests || [];
-              const matchedTests = [];
-              const customTests = [];
-
-              existingTests.forEach(test => {
-                const testMatch = testList.find(t => t.name === test);
-                if (testMatch) {
-                  matchedTests.push(test);
-                } else if (test) {
-                  customTests.push(test);
-                }
-              });
-
-              setSelectedTests(matchedTests);
-              if (customTests.length > 0) {
-                setCustomTest(customTests.join(', '));
-              }
+              // Pre-fill arrays directly — all items (master list or custom) go into selected
+              setSelectedSymptoms((visit.symptoms || []).filter(Boolean));
+              setSelectedDiagnoses((visit.diagnosis || []).filter(Boolean));
+              setSelectedObservations((visit.observations || []).filter(Boolean));
+              setSelectedTests((visit.recommended_tests || []).filter(Boolean));
 
               setValue('followUpDate', visit.follow_up_date || '');
 
@@ -266,86 +189,11 @@ export default function VisitForm() {
               const visit = visitRes.data.visit;
               setExistingVisit(visit);
 
-              // Pre-fill form with existing visit data (OPD reopen case)
-              // Handle symptoms (now array)
-              const symptomListOPD = chiefComplaintsRes.data || [];
-              const existingSymptomsOPD = visit.symptoms || [];
-              const matchedSymptomsOPD = [];
-              const customSymptomsOPD = [];
-
-              existingSymptomsOPD.forEach(symptom => {
-                const symptomMatch = symptomListOPD.find(s => s.name === symptom);
-                if (symptomMatch) {
-                  matchedSymptomsOPD.push(symptom);
-                } else if (symptom) {
-                  customSymptomsOPD.push(symptom);
-                }
-              });
-
-              setSelectedSymptoms(matchedSymptomsOPD);
-              if (customSymptomsOPD.length > 0) {
-                setCustomSymptom(customSymptomsOPD.join(', '));
-              }
-
-              // Handle diagnosis (now array)
-              const diagnosisListOPD = diagnosisRes.data || [];
-              const existingDiagnosesOPD = visit.diagnosis || [];
-              const matchedDiagnosesOPD = [];
-              const customDiagnosesOPD = [];
-
-              existingDiagnosesOPD.forEach(diagnosis => {
-                const diagnosisMatch = diagnosisListOPD.find(d => d.name === diagnosis);
-                if (diagnosisMatch) {
-                  matchedDiagnosesOPD.push(diagnosis);
-                } else if (diagnosis) {
-                  customDiagnosesOPD.push(diagnosis);
-                }
-              });
-
-              setSelectedDiagnoses(matchedDiagnosesOPD);
-              if (customDiagnosesOPD.length > 0) {
-                setCustomDiagnosis(customDiagnosesOPD.join(', '));
-              }
-
-              // Handle observation (now array)
-              const observationListOPD = observationsRes.data || [];
-              const existingObservationsOPD = visit.observations || [];
-              const matchedObservationsOPD = [];
-              const customObservationsOPD = [];
-
-              existingObservationsOPD.forEach(observation => {
-                const observationMatch = observationListOPD.find(o => o.name === observation);
-                if (observationMatch) {
-                  matchedObservationsOPD.push(observation);
-                } else if (observation) {
-                  customObservationsOPD.push(observation);
-                }
-              });
-
-              setSelectedObservations(matchedObservationsOPD);
-              if (customObservationsOPD.length > 0) {
-                setCustomObservation(customObservationsOPD.join(', '));
-              }
-
-              // Handle recommended tests
-              const testListOPD = testsRes.data || [];
-              const existingTestsOPD = visit.recommended_tests || [];
-              const matchedTestsOPD = [];
-              const customTestsOPD = [];
-
-              existingTestsOPD.forEach(test => {
-                const testMatch = testListOPD.find(t => t.name === test);
-                if (testMatch) {
-                  matchedTestsOPD.push(test);
-                } else if (test) {
-                  customTestsOPD.push(test);
-                }
-              });
-
-              setSelectedTests(matchedTestsOPD);
-              if (customTestsOPD.length > 0) {
-                setCustomTest(customTestsOPD.join(', '));
-              }
+              // Pre-fill arrays directly
+              setSelectedSymptoms((visit.symptoms || []).filter(Boolean));
+              setSelectedDiagnoses((visit.diagnosis || []).filter(Boolean));
+              setSelectedObservations((visit.observations || []).filter(Boolean));
+              setSelectedTests((visit.recommended_tests || []).filter(Boolean));
 
               setValue('followUpDate', visit.follow_up_date || '');
 
@@ -435,41 +283,13 @@ export default function VisitForm() {
       return;
     }
 
-    // Combine selected symptoms with custom symptoms
-    const allSymptoms = [...selectedSymptoms];
-    if (customSymptom.trim()) {
-      const customSymptomsList = customSymptom.split(',').map(s => s.trim()).filter(s => s);
-      allSymptoms.push(...customSymptomsList);
-    }
-
-    // Combine selected diagnoses with custom diagnoses
-    const allDiagnoses = [...selectedDiagnoses];
-    if (customDiagnosis.trim()) {
-      const customDiagnosesList = customDiagnosis.split(',').map(d => d.trim()).filter(d => d);
-      allDiagnoses.push(...customDiagnosesList);
-    }
-
-    // Combine selected observations with custom observations
-    const allObservations = [...selectedObservations];
-    if (customObservation.trim()) {
-      const customObservationsList = customObservation.split(',').map(o => o.trim()).filter(o => o);
-      allObservations.push(...customObservationsList);
-    }
-
-    // Combine selected tests with custom tests
-    const allTests = [...selectedTests];
-    if (customTest.trim()) {
-      const customTestsList = customTest.split(',').map(t => t.trim()).filter(t => t);
-      allTests.push(...customTestsList);
-    }
-
     // Validation
-    if (allSymptoms.length === 0) {
+    if (selectedSymptoms.length === 0) {
       toast.error('Please add at least one symptom.');
       return;
     }
 
-    if (allDiagnoses.length === 0) {
+    if (selectedDiagnoses.length === 0) {
       toast.error('Please add at least one diagnosis.');
       return;
     }
@@ -483,10 +303,10 @@ export default function VisitForm() {
       const visitData = {
         patient_id: selectedPatient.id,
         appointment_id: appointmentIdFromUrl || null,
-        symptoms: allSymptoms,
-        diagnosis: allDiagnoses,
-        observations: allObservations,
-        recommended_tests: allTests,
+        symptoms: selectedSymptoms,
+        diagnosis: selectedDiagnoses,
+        observations: selectedObservations,
+        recommended_tests: selectedTests,
         follow_up_date: data.followUpDate || null,
         vitals: {
           blood_pressure: data.bp,
@@ -535,10 +355,10 @@ export default function VisitForm() {
             height: data.height,
             spo2: data.spo2,
           },
-          symptoms: allSymptoms,
-          diagnoses: allDiagnoses,
-          observations: allObservations,
-          tests: allTests,
+          symptoms: selectedSymptoms,
+          diagnoses: selectedDiagnoses,
+          observations: selectedObservations,
+          tests: selectedTests,
           followUpDate: data.followUpDate,
           medicines: validMedicines,
           prescriptionNotes: prescriptionNotes
@@ -612,7 +432,7 @@ export default function VisitForm() {
                     <div>
                       <p className="font-medium text-gray-900">{selectedPatient.full_name}</p>
                       <p className="text-sm text-gray-600">
-                        {selectedPatient.patient_code} • {selectedPatient.age} years • {selectedPatient.gender}
+                        {selectedPatient.patient_code} • {selectedPatient.age_display || `${selectedPatient.age}y`} • {selectedPatient.gender}
                       </p>
                     </div>
                   </div>
@@ -626,7 +446,7 @@ export default function VisitForm() {
                   <option value="">Choose a patient...</option>
                   {patients.map(patient => (
                     <option key={patient.id} value={patient.id}>
-                      {patient.patient_code} - {patient.full_name} ({patient.age} yrs)
+                      {patient.patient_code} - {patient.full_name} ({patient.age_display || `${patient.age}y`})
                     </option>
                   ))}
                 </select>
@@ -678,7 +498,7 @@ export default function VisitForm() {
               <input
                 type="text"
                 className={`input ${errors.bp ? 'border-red-500' : ''}`}
-                placeholder="e.g., 120/80"
+                placeholder="e.g., 90/60"
                 {...register('bp', { validate: validateBP })}
               />
               {errors.bp && (
@@ -702,7 +522,7 @@ export default function VisitForm() {
               <input
                 type="number"
                 className={`input ${errors.pulse ? 'border-red-500' : ''}`}
-                placeholder="e.g., 72"
+                placeholder="e.g., 100"
                 {...register('pulse', { validate: validatePulse })}
               />
               {errors.pulse && (
@@ -715,7 +535,7 @@ export default function VisitForm() {
                 type="number"
                 step="0.1"
                 className={`input ${errors.weight ? 'border-red-500' : ''}`}
-                placeholder="e.g., 70"
+                placeholder="e.g., 24"
                 {...register('weight', { validate: validateWeight })}
               />
               {errors.weight && (
@@ -727,7 +547,7 @@ export default function VisitForm() {
               <input
                 type="number"
                 className={`input ${errors.height ? 'border-red-500' : ''}`}
-                placeholder="e.g., 170"
+                placeholder="e.g., 95"
                 {...register('height', { validate: validateHeight })}
               />
               {errors.height && (
@@ -739,7 +559,7 @@ export default function VisitForm() {
               <input
                 type="number"
                 className={`input ${errors.spo2 ? 'border-red-500' : ''}`}
-                placeholder="e.g., 98"
+                placeholder="e.g., 14"
                 {...register('spo2', { validate: validateSpO2 })}
               />
               {errors.spo2 && (
@@ -755,273 +575,100 @@ export default function VisitForm() {
             Consultation Details
           </h2>
           <div className="space-y-4">
-            {/* Chief Complaints / Symptoms - Multi-select */}
+            {/* Chief Complaints / Symptoms */}
             <div>
               <label className="label">Chief Complaints / Symptoms *</label>
-              <div className="space-y-3">
-                {/* Selected symptoms as chips */}
-                {selectedSymptoms.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedSymptoms.map((symptom, index) => (
-                      <span
-                        key={index}
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm"
-                      >
-                        {symptom}
-                        <button
-                          type="button"
-                          onClick={() => setSelectedSymptoms(selectedSymptoms.filter((_, i) => i !== index))}
-                          className="hover:text-red-900 font-bold"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Dropdown to add symptoms */}
-                {symptomOptions.length > 0 && (
-                  <select
-                    className="input"
-                    value=""
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value && !selectedSymptoms.includes(value)) {
-                        setSelectedSymptoms([...selectedSymptoms, value]);
-                      }
-                    }}
-                  >
-                    <option value="">Add a symptom...</option>
-                    {symptomOptions
-                      .filter(option => !selectedSymptoms.includes(option.name))
-                      .map(option => (
-                        <option key={option.id} value={option.name}>
-                          {option.name}
-                        </option>
-                      ))}
-                  </select>
-                )}
-
-                {/* Custom symptom input */}
-                <div>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="Add custom symptoms (comma separated)"
-                    value={customSymptom}
-                    onChange={(e) => setCustomSymptom(e.target.value)}
-                  />
-                  <p className="text-sm text-gray-500 mt-1">
-                    Enter additional symptoms not in the list, separated by commas
-                  </p>
-                </div>
-              </div>
+              <MultiSelectComboBox
+                selected={selectedSymptoms}
+                onChange={setSelectedSymptoms}
+                options={symptomOptions}
+                onCreateNew={async (name) => {
+                  try {
+                    const res = await chiefComplaintsAPI.create({ name });
+                    const newOpt = res.data;
+                    setSymptomOptions(prev => [...prev, newOpt]);
+                    toast.success(`"${name}" added to symptoms list`);
+                    return newOpt;
+                  } catch {
+                    toast.error('Failed to add symptom');
+                    return null;
+                  }
+                }}
+                placeholder="Type to search or add symptoms..."
+                chipColor="bg-red-100 text-red-800"
+              />
             </div>
 
-            {/* Diagnosis - Multi-select */}
+            {/* Diagnosis */}
             <div>
               <label className="label">Diagnosis *</label>
-              <div className="space-y-3">
-                {/* Selected diagnoses as chips */}
-                {selectedDiagnoses.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedDiagnoses.map((diagnosis, index) => (
-                      <span
-                        key={index}
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
-                      >
-                        {diagnosis}
-                        <button
-                          type="button"
-                          onClick={() => setSelectedDiagnoses(selectedDiagnoses.filter((_, i) => i !== index))}
-                          className="hover:text-blue-900 font-bold"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Dropdown to add diagnoses */}
-                {diagnosisOptions.length > 0 && (
-                  <select
-                    className="input"
-                    value=""
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value && !selectedDiagnoses.includes(value)) {
-                        setSelectedDiagnoses([...selectedDiagnoses, value]);
-                      }
-                    }}
-                  >
-                    <option value="">Add a diagnosis...</option>
-                    {diagnosisOptions
-                      .filter(option => !selectedDiagnoses.includes(option.name))
-                      .map(option => (
-                        <option key={option.id} value={option.name}>
-                          {option.name}
-                        </option>
-                      ))}
-                  </select>
-                )}
-
-                {/* Custom diagnosis input */}
-                <div>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="Add custom diagnoses (comma separated)"
-                    value={customDiagnosis}
-                    onChange={(e) => setCustomDiagnosis(e.target.value)}
-                  />
-                  <p className="text-sm text-gray-500 mt-1">
-                    Enter additional diagnoses not in the list, separated by commas
-                  </p>
-                </div>
-              </div>
+              <MultiSelectComboBox
+                selected={selectedDiagnoses}
+                onChange={setSelectedDiagnoses}
+                options={diagnosisOptions}
+                onCreateNew={async (name) => {
+                  try {
+                    const res = await diagnosisOptionsAPI.create({ name });
+                    const newOpt = res.data;
+                    setDiagnosisOptions(prev => [...prev, newOpt]);
+                    toast.success(`"${name}" added to diagnosis list`);
+                    return newOpt;
+                  } catch {
+                    toast.error('Failed to add diagnosis');
+                    return null;
+                  }
+                }}
+                placeholder="Type to search or add diagnoses..."
+                chipColor="bg-blue-100 text-blue-800"
+              />
             </div>
 
-            {/* Clinical Observations - Multi-select */}
+            {/* Clinical Observations */}
             <div>
               <label className="label">Clinical Observations</label>
-              <div className="space-y-3">
-                {/* Selected observations as chips */}
-                {selectedObservations.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedObservations.map((observation, index) => (
-                      <span
-                        key={index}
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm"
-                      >
-                        {observation}
-                        <button
-                          type="button"
-                          onClick={() => setSelectedObservations(selectedObservations.filter((_, i) => i !== index))}
-                          className="hover:text-green-900 font-bold"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Dropdown to add observations */}
-                {observationOptions.length > 0 && (
-                  <select
-                    className="input"
-                    value=""
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value && !selectedObservations.includes(value)) {
-                        setSelectedObservations([...selectedObservations, value]);
-                      }
-                    }}
-                  >
-                    <option value="">Add an observation...</option>
-                    {observationOptions
-                      .filter(option => !selectedObservations.includes(option.name))
-                      .map(option => (
-                        <option key={option.id} value={option.name}>
-                          {option.name}
-                        </option>
-                      ))}
-                  </select>
-                )}
-
-                {/* Custom observation input */}
-                <div>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="Add custom observations (comma separated)"
-                    value={customObservation}
-                    onChange={(e) => setCustomObservation(e.target.value)}
-                  />
-                  <p className="text-sm text-gray-500 mt-1">
-                    Enter additional observations not in the list, separated by commas
-                  </p>
-                </div>
-              </div>
+              <MultiSelectComboBox
+                selected={selectedObservations}
+                onChange={setSelectedObservations}
+                options={observationOptions}
+                onCreateNew={async (name) => {
+                  try {
+                    const res = await observationOptionsAPI.create({ name });
+                    const newOpt = res.data;
+                    setObservationOptions(prev => [...prev, newOpt]);
+                    toast.success(`"${name}" added to observations list`);
+                    return newOpt;
+                  } catch {
+                    toast.error('Failed to add observation');
+                    return null;
+                  }
+                }}
+                placeholder="Type to search or add observations..."
+                chipColor="bg-green-100 text-green-800"
+              />
             </div>
 
+            {/* Recommended Tests */}
             <div>
               <label className="label">Recommended Tests</label>
-              {testOptions.length > 0 ? (
-                <div className="space-y-3">
-                  {/* Selected tests as chips */}
-                  {selectedTests.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedTests.map((test, index) => (
-                        <span
-                          key={index}
-                          className="inline-flex items-center gap-1 px-3 py-1 bg-primary-100 text-primary-800 rounded-full text-sm"
-                        >
-                          {test}
-                          <button
-                            type="button"
-                            onClick={() => setSelectedTests(selectedTests.filter((_, i) => i !== index))}
-                            className="hover:text-primary-900 font-bold"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Dropdown to add more tests */}
-                  <select
-                    className="input"
-                    value=""
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value && value !== 'OTHER' && !selectedTests.includes(value)) {
-                        setSelectedTests([...selectedTests, value]);
-                      }
-                    }}
-                  >
-                    <option value="">Add a test...</option>
-                    {testOptions
-                      .filter(option => !selectedTests.includes(option.name))
-                      .map(option => (
-                        <option key={option.id} value={option.name}>
-                          {option.name}
-                        </option>
-                      ))}
-                    <option value="OTHER">Other (specify below)</option>
-                  </select>
-
-                  {/* Custom test input */}
-                  <div>
-                    <input
-                      type="text"
-                      className="input"
-                      placeholder="Add custom tests (comma separated)"
-                      value={customTest}
-                      onChange={(e) => setCustomTest(e.target.value)}
-                    />
-                    <p className="text-sm text-gray-500 mt-1">
-                      Enter additional tests not in the list, separated by commas
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="e.g., CBC, Blood Sugar (comma separated)"
-                    value={customTest}
-                    onChange={(e) => setCustomTest(e.target.value)}
-                  />
-                  <p className="text-sm text-gray-500 mt-1">
-                    Enter multiple tests separated by commas
-                  </p>
-                </>
-              )}
+              <MultiSelectComboBox
+                selected={selectedTests}
+                onChange={setSelectedTests}
+                options={testOptions}
+                onCreateNew={async (name) => {
+                  try {
+                    const res = await testOptionsAPI.create({ name });
+                    const newOpt = res.data;
+                    setTestOptions(prev => [...prev, newOpt]);
+                    toast.success(`"${name}" added to tests list`);
+                    return newOpt;
+                  } catch {
+                    toast.error('Failed to add test');
+                    return null;
+                  }
+                }}
+                placeholder="Type to search or add tests..."
+                chipColor="bg-primary-100 text-primary-800"
+              />
             </div>
 
             <div>

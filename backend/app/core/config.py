@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     AUDIT_LOG_READ_EVENTS: bool = False
     DEFAULT_RETENTION_MONTHS: int = 120
 
+    # Notifications
+    NOTIFICATIONS_ENABLED: bool = True  # Global kill switch
+
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = ""
+
     # CORS origins - comma-separated list for production
     CORS_ORIGINS: str = "http://localhost:5000,http://localhost:3000"
 

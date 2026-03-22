@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user, require_permission, require_plugin, get_client_ip
 from app.models.models import User, Appointment, Patient, AppointmentStatusEnum, Visit, Doctor, AuditActionEnum
 from app.schemas.schemas import AppointmentCreate, AppointmentUpdate, AppointmentPositionUpdate
+from app.utils.age import format_age_display
 from app.services.audit_service import create_audit_log
 
 router = APIRouter()
@@ -65,6 +66,7 @@ async def get_queue(
                 "full_name": apt.patient.full_name,
                 "patient_code": apt.patient.patient_code,
                 "age": apt.patient.age,
+                "age_display": format_age_display(apt.patient.date_of_birth, apt.patient.age),
                 "phone": apt.patient.phone,
                 "address": apt.patient.address,
             } if apt.patient else None,
@@ -120,6 +122,34 @@ async def get_daily_stats(
             "inProgress": in_progress
         },
         "date": target_date.isoformat()
+    }
+
+
+@router.get("/appointments/active", response_model=dict)
+async def get_active_appointment(
+    patient_id: str = Query(..., description="Patient ID to check"),
+    current_user: User = Depends(require_permission("can_view_opd")),
+    _plugin: User = Depends(require_plugin("opd_queue")),
+    db: Session = Depends(get_db)
+):
+    """Get active (WAITING/IN_PROGRESS) appointment for a patient today"""
+    active = db.query(Appointment).filter(
+        Appointment.patient_id == patient_id,
+        Appointment.appointment_date == date.today(),
+        Appointment.clinic_id == current_user.clinic_id,
+        Appointment.status.in_([AppointmentStatusEnum.WAITING, AppointmentStatusEnum.IN_PROGRESS])
+    ).order_by(Appointment.queue_number.asc()).first()
+
+    if not active:
+        return {"appointment": None}
+
+    return {
+        "appointment": {
+            "id": active.id,
+            "queue_number": active.queue_number,
+            "chief_complaints": active.chief_complaints or [],
+            "status": active.status.value
+        }
     }
 
 

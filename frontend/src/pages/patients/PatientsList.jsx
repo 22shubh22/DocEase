@@ -236,12 +236,12 @@ export default function PatientsList() {
                     <td className="px-4 sm:px-6 py-4">
                       <div className="text-sm font-medium text-gray-900">{patient.full_name}</div>
                       <div className="text-sm text-gray-500 sm:hidden">
-                        {patient.age} / {patient.gender}
+                        {patient.age_display || patient.age} / {patient.gender}
                       </div>
                     </td>
                     <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
                       <span className="text-sm text-gray-900">
-                        {patient.age} / {patient.gender}
+                        {patient.age_display || patient.age} / {patient.gender}
                       </span>
                     </td>
                     <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
@@ -373,7 +373,7 @@ export default function PatientsList() {
                 <input
                   type="text"
                   className="input"
-                  placeholder="Custom complaints (comma separated)"
+                  placeholder="e.g., Fever, Cold, Not eating well"
                   value={customComplaint}
                   onChange={(e) => setCustomComplaint(e.target.value)}
                 />

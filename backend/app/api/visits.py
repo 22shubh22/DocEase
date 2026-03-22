@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user, require_permission, require_plugin, get_client_ip
 from app.models.models import User, Visit, Appointment, AppointmentStatusEnum, Doctor, Patient, VisitMedicine, User as UserModel, AuditActionEnum
 from app.schemas.schemas import VisitCreate, VisitUpdate, CollectionSummaryResponse
+from app.utils.age import format_age_display
 from app.services.audit_service import create_audit_log, get_model_dict, compute_changes
 
 router = APIRouter()
@@ -264,6 +265,19 @@ async def create_visit(
         clinic_id=current_user.clinic_id
     )
 
+    # Auto-link to existing active appointment if none provided
+    if not visit.appointment_id:
+        active_appointment = db.query(Appointment).filter(
+            Appointment.patient_id == visit_data.patient_id,
+            Appointment.appointment_date == date.today(),
+            Appointment.clinic_id == current_user.clinic_id,
+            Appointment.status.in_([AppointmentStatusEnum.WAITING, AppointmentStatusEnum.IN_PROGRESS])
+        ).order_by(Appointment.queue_number.asc()).first()
+
+        if active_appointment:
+            visit.appointment_id = active_appointment.id
+            active_appointment.status = AppointmentStatusEnum.COMPLETED
+
     db.add(visit)
     db.flush()  # Get the visit ID before adding medicines
 
@@ -278,12 +292,12 @@ async def create_visit(
             )
             db.add(medicine)
 
-    # Update appointment status if exists
+    # Update appointment status if explicitly provided (auto-link case already handled above)
     if visit_data.appointment_id:
         appointment = db.query(Appointment).filter(
             Appointment.id == visit_data.appointment_id
         ).first()
-        if appointment:
+        if appointment and appointment.status != AppointmentStatusEnum.COMPLETED:
             appointment.status = AppointmentStatusEnum.COMPLETED
 
     db.commit()
@@ -357,10 +371,14 @@ async def get_visit_by_id(
                 "full_name": patient.full_name,
                 "patient_code": patient.patient_code,
                 "age": patient.age,
+                "age_display": format_age_display(patient.date_of_birth, patient.age),
                 "gender": patient.gender.value if patient.gender else None,
                 "blood_group": patient.blood_group,
                 "allergies": patient.allergies or [],
-                "phone": patient.phone
+                "phone": patient.phone,
+                "guardian_name": patient.guardian_name,
+                "guardian_phone": patient.guardian_phone,
+                "guardian_relationship": patient.guardian_relationship,
             } if patient else None,
             "doctor": {
                 "id": doctor.id,

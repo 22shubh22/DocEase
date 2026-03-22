@@ -14,6 +14,8 @@ import SettingsSidebar from '../components/settings/SettingsSidebar';
 import PluginManager from '../components/settings/PluginManager';
 import AuditLogViewer from '../components/settings/AuditLogViewer';
 import DpdpSettings from '../components/settings/DpdpSettings';
+import NotificationConfig from '../components/settings/NotificationConfig';
+import NotificationHistory from '../components/settings/NotificationHistory';
 
 export default function Settings() {
   const { user, updateUser } = useAuthStore();
@@ -75,6 +77,13 @@ export default function Settings() {
       items: [
         { id: 'audit-logs', label: 'Audit Logs', icon: '📜' },
         { id: 'dpdp', label: 'DPDP Compliance', icon: '🛡️' },
+      ],
+    }] : []),
+    ...(isDoctor && isOwner && user?.enabled_plugins?.notifications ? [{
+      label: 'Notifications',
+      items: [
+        { id: 'notification-config', label: 'Notification Setup', icon: '📱' },
+        { id: 'notification-history', label: 'Message History', icon: '📨' },
       ],
     }] : []),
     {
@@ -146,7 +155,11 @@ export default function Settings() {
       api: medicineOptionsAPI,
       emptyIcon: '💊',
       singularName: 'medicine',
-      tipText: 'Use the display order to arrange medicines. Lower numbers appear first in the dropdown. Deactivated medicines won\'t appear in the prescription form but are kept for historical records.',
+      tipText: 'Set default dosage and duration for each medicine. When a doctor selects this medicine in the prescription form, these values will auto-fill.',
+      extraFields: [
+        { key: 'default_dosage', label: 'Default Dosage', placeholder: 'e.g., 500mg twice daily' },
+        { key: 'default_duration', label: 'Default Duration', placeholder: 'e.g., 5 days' },
+      ],
     },
     dosages: {
       title: 'Dosage Options',
@@ -207,6 +220,7 @@ export default function Settings() {
               emptyIcon={config.emptyIcon}
               singularName={config.singularName}
               tipText={config.tipText}
+              extraFields={config.extraFields || []}
             />
           );
         }
@@ -224,6 +238,18 @@ export default function Settings() {
       case 'dpdp':
         if (isDoctor && isOwner) {
           return <DpdpSettings />;
+        }
+        return null;
+
+      case 'notification-config':
+        if (isDoctor && isOwner) {
+          return <NotificationConfig />;
+        }
+        return null;
+
+      case 'notification-history':
+        if (isDoctor && isOwner) {
+          return <NotificationHistory />;
         }
         return null;
 

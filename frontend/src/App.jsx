@@ -24,6 +24,8 @@ import ClinicHealth from './pages/admin/ClinicHealth';
 import FixtureTemplates from './pages/admin/FixtureTemplates';
 import OnboardingRequest from './pages/OnboardingRequest';
 import CollectionReport from './pages/reports/CollectionReport';
+import VaccinationDashboard from './pages/vaccination/VaccinationDashboard';
+import VaccinationCard from './pages/vaccination/VaccinationCard';
 import PrivacyPolicy from './pages/legal/PrivacyPolicy';
 import TermsOfService from './pages/legal/TermsOfService';
 import Subprocessors from './pages/legal/Subprocessors';
@@ -100,6 +102,10 @@ function App() {
         <Route path="visits/new" element={<VisitForm />} />
         <Route path="visits/:id" element={<VisitDetails />} />
         <Route path="visits/:id/edit" element={<VisitForm />} />
+
+        {/* Vaccination */}
+        <Route path="vaccinations" element={<PluginRoute plugin="vaccination"><VaccinationDashboard /></PluginRoute>} />
+        <Route path="patients/:id/vaccination-card" element={<PluginRoute plugin="vaccination"><VaccinationCard /></PluginRoute>} />
 
         {/* Reports */}
         <Route path="reports/collections" element={<PluginRoute plugin="collections"><CollectionReport /></PluginRoute>} />

@@ -40,11 +40,68 @@ async def submit_onboarding_request(
     data: OnboardingRequestCreate,
     db: Session = Depends(get_db)
 ):
-    """Public endpoint for doctors to submit an onboarding request."""
+    """Public endpoint for doctors to self-register with onboarding request.
+    Supports two paths: Google Auth (pre-fills name/email) or email/password.
+    Creates an inactive user account + onboarding request for admin approval.
+    """
+
+    google_id = None
+    password_hash = None
+    verified_email = data.doctor_email
+    verified_name = data.doctor_name
+
+    # Google Auth path: verify token and extract verified info
+    if data.google_credential:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as google_requests
+        from app.core.config import settings
+
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                data.google_credential,
+                google_requests.Request(),
+                settings.GOOGLE_CLIENT_ID,
+            )
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid Google token",
+            )
+
+        google_id = idinfo["sub"]
+        verified_email = idinfo.get("email", data.doctor_email)
+        verified_name = idinfo.get("name", data.doctor_name)
+
+        if not verified_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Google account has no email address",
+            )
+
+        # Check if google_id is already linked to a user
+        existing_google_user = db.query(User).filter(User.google_id == google_id).first()
+        if existing_google_user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This Google account is already linked to an existing registration."
+            )
+    else:
+        # Manual path: password is required
+        if not data.password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password is required when not using Google sign-in."
+            )
+        if len(data.password) < 8:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must be at least 8 characters."
+            )
+        password_hash = get_password_hash(data.password)
 
     # Check duplicate email in pending requests
     existing_request = db.query(OnboardingRequest).filter(
-        OnboardingRequest.doctor_email == data.doctor_email,
+        OnboardingRequest.doctor_email == verified_email,
         OnboardingRequest.status == OnboardingRequestStatusEnum.PENDING
     ).first()
     if existing_request:
@@ -54,22 +111,48 @@ async def submit_onboarding_request(
         )
 
     # Check if email already registered as a user
-    existing_user = db.query(User).filter(User.email == data.doctor_email).first()
+    existing_user = db.query(User).filter(User.email == verified_email).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="This email is already registered in our system."
         )
 
-    request = OnboardingRequest(**data.dict())
-    db.add(request)
-    db.commit()
-    db.refresh(request)
+    try:
+        # Create inactive user account
+        user = User(
+            email=verified_email,
+            full_name=verified_name,
+            phone=data.doctor_phone,
+            password_hash=password_hash,
+            google_id=google_id,
+            role=RoleEnum.DOCTOR,
+            is_active=False,
+            clinic_id=None,
+        )
+        db.add(user)
+        db.flush()
 
-    return {
-        "message": "Your onboarding request has been submitted successfully. You will be contacted once it is reviewed.",
-        "request_id": request.id
-    }
+        # Create onboarding request linked to user
+        onboarding_request = OnboardingRequest(
+            doctor_name=verified_name,
+            doctor_email=verified_email,
+            doctor_phone=data.doctor_phone,
+            clinic_name=data.clinic_name,
+            created_user_id=user.id,
+        )
+        db.add(onboarding_request)
+        db.commit()
+        db.refresh(onboarding_request)
+
+        auth_method = "Google" if google_id else "email and password"
+        return {
+            "message": f"Your registration request has been submitted. You will be able to log in with {auth_method} once approved.",
+            "request_id": onboarding_request.id
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ─── Admin endpoints ───
@@ -165,14 +248,6 @@ async def approve_onboarding_request(
             detail=f"Request is already {onboarding_req.status.value.lower()}. Only pending requests can be approved."
         )
 
-    # Check email is still available
-    existing_user = db.query(User).filter(User.email == onboarding_req.doctor_email).first()
-    if existing_user:
-        raise HTTPException(
-            status_code=409,
-            detail="This email has been registered since the request was submitted. Cannot approve."
-        )
-
     try:
         # 1. Create Clinic
         address_parts = [p for p in [onboarding_req.clinic_address, onboarding_req.clinic_city, onboarding_req.clinic_state] if p]
@@ -206,18 +281,34 @@ async def approve_onboarding_request(
         clinic_admin = ClinicAdmin(admin_id=current_user.id, clinic_id=clinic.id)
         db.add(clinic_admin)
 
-        # 4. Create User
-        initial_password = generate_random_password()
-        user = User(
-            email=onboarding_req.doctor_email,
-            password_hash=get_password_hash(initial_password),
-            initial_password=initial_password,
-            role=RoleEnum.DOCTOR,
-            full_name=onboarding_req.doctor_name,
-            phone=onboarding_req.doctor_phone,
-            clinic_id=clinic.id
-        )
-        db.add(user)
+        # 4. Activate existing user or create new one (fallback)
+        initial_password = None
+        user = None
+        if onboarding_req.created_user_id:
+            user = db.query(User).filter(User.id == onboarding_req.created_user_id).first()
+
+        if user:
+            # Activate the pre-registered user
+            user.is_active = True
+            user.clinic_id = clinic.id
+            # If user has neither google_id nor password, generate temp password
+            if not user.google_id and not user.password_hash:
+                initial_password = generate_random_password()
+                user.password_hash = get_password_hash(initial_password)
+                user.initial_password = initial_password
+        else:
+            # Fallback: create new user (for legacy requests without pre-registered user)
+            initial_password = generate_random_password()
+            user = User(
+                email=onboarding_req.doctor_email,
+                password_hash=get_password_hash(initial_password),
+                initial_password=initial_password,
+                role=RoleEnum.DOCTOR,
+                full_name=onboarding_req.doctor_name,
+                phone=onboarding_req.doctor_phone,
+                clinic_id=clinic.id
+            )
+            db.add(user)
         db.flush()
 
         # 5. Create Doctor
@@ -250,7 +341,7 @@ async def approve_onboarding_request(
 
         db.commit()
 
-        return {
+        response = {
             "message": "Request approved. Clinic and doctor account created successfully.",
             "clinic": {
                 "id": clinic.id,
@@ -262,9 +353,11 @@ async def approve_onboarding_request(
                 "doctor_code": doctor.doctor_code,
                 "email": user.email,
                 "full_name": user.full_name,
-                "initial_password": initial_password,
             }
         }
+        if initial_password:
+            response["doctor"]["initial_password"] = initial_password
+        return response
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -289,6 +382,13 @@ async def reject_onboarding_request(
             status_code=400,
             detail=f"Request is already {onboarding_req.status.value.lower()}. Only pending requests can be rejected."
         )
+
+    # Clean up the inactive user created during registration
+    if onboarding_req.created_user_id:
+        user = db.query(User).filter(User.id == onboarding_req.created_user_id).first()
+        if user and not user.is_active and user.clinic_id is None:
+            db.delete(user)
+            onboarding_req.created_user_id = None
 
     onboarding_req.status = OnboardingRequestStatusEnum.REJECTED
     onboarding_req.reviewed_by = current_user.id

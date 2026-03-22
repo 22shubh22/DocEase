@@ -72,6 +72,7 @@ export default function DashboardLayout() {
     { name: 'OPD Queue', path: '/opd', icon: '🏥', plugin: 'opd_queue', disabled: plugins?.opd_queue === false },
     { name: 'Follow-ups', path: '/follow-ups', icon: '📅', plugin: 'opd_queue', disabled: plugins?.opd_queue === false },
     { name: 'Collections', path: '/reports/collections', icon: '💰', plugin: 'collections', disabled: plugins?.collections === false },
+    { name: 'Vaccinations', path: '/vaccinations', icon: '💉', plugin: 'vaccination', disabled: plugins?.vaccination === false },
   ];
 
   const navigation = isAdmin ? [

@@ -59,6 +59,7 @@ api.interceptors.response.use(
 // Auth API
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
+  googleLogin: (credential) => api.post('/auth/google', { credential }),
   guestLogin: (plugins) => axios.post(`${API_URL}/auth/guest`, plugins),
   logout: () => api.post('/auth/logout'),
   guestCleanup: (userId) => axios.post(`${API_URL}/auth/guest-cleanup`, { user_id: userId }),
@@ -89,6 +90,7 @@ export const opdAPI = {
   getVisitByAppointment: (appointmentId) => api.get(`/opd/appointments/${appointmentId}/visit`),
   getFollowUpsDue: (params) => api.get('/opd/follow-ups-due', { params }),
   getFollowUps: (params) => api.get('/opd/follow-ups', { params }),
+  getActiveAppointment: (patientId) => api.get('/opd/appointments/active', { params: { patient_id: patientId } }),
 };
 
 // Chief Complaints API
@@ -266,6 +268,31 @@ export const dpdpAPI = {
   // Breach
   reportBreach: (data) => api.post('/dpdp/breach-report', data),
   getBreachReports: () => api.get('/dpdp/breach-reports'),
+};
+
+// Vaccination API
+export const vaccinationAPI = {
+  getSchedule: () => api.get('/vaccinations/schedule'),
+  addScheduleEntry: (data) => api.post('/vaccinations/schedule', data),
+  updateScheduleEntry: (id, data) => api.put(`/vaccinations/schedule/${id}`, data),
+  deleteScheduleEntry: (id) => api.delete(`/vaccinations/schedule/${id}`),
+  resetSchedule: () => api.post('/vaccinations/schedule/reset'),
+  getCard: (patientId) => api.get(`/vaccinations/patients/${patientId}/card`),
+  getDue: (patientId) => api.get(`/vaccinations/patients/${patientId}/due`),
+  recordDose: (patientId, data) => api.post(`/vaccinations/patients/${patientId}/doses`, data),
+  recordDoseDuringVisit: (visitId, data) => api.post(`/vaccinations/visits/${visitId}/doses`, data),
+  updateRecord: (recordId, data) => api.put(`/vaccinations/records/${recordId}`, data),
+  deleteRecord: (recordId) => api.delete(`/vaccinations/records/${recordId}`),
+  getDashboard: () => api.get('/vaccinations/dashboard'),
+};
+
+export const notificationAPI = {
+  getConfig: () => api.get('/notifications/config'),
+  updateConfig: (data) => api.put('/notifications/config', data),
+  getHistory: (params) => api.get('/notifications/history', { params }),
+  getStats: () => api.get('/notifications/stats'),
+  sendTest: () => api.post('/notifications/send-test'),
+  trigger: () => api.post('/notifications/trigger'),
 };
 
 export default api;

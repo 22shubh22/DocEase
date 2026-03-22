@@ -7,6 +7,7 @@ from app.models.models import (
     RoleEnum, GenderEnum, AppointmentStatusEnum, ClinicSpecialtyEnum,
     OnboardingRequestStatusEnum, AuditActionEnum, ConsentPurposeEnum,
     ConsentStatusEnum, ErasureStatusEnum,
+    NotificationChannelEnum, NotificationStatusEnum, NotificationTypeEnum,
 )
 
 
@@ -85,6 +86,10 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class GoogleAuthRequest(BaseModel):
+    credential: str  # Google ID token from frontend
+
+
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
@@ -94,9 +99,20 @@ class GuestCleanupRequest(BaseModel):
     user_id: str
 
 
+SUPPORTED_DEMO_SPECIALTIES = ["general_physician", "dental", "dermatology", "pediatrics"]
+
+
 class GuestSessionRequest(BaseModel):
     plugin_opd_queue: bool = True
     plugin_collections: bool = True
+    clinic_specialty: str = "general_physician"
+
+    @field_validator("clinic_specialty")
+    @classmethod
+    def validate_specialty(cls, v):
+        if v not in SUPPORTED_DEMO_SPECIALTIES:
+            raise ValueError(f"Unsupported specialty. Choose from: {SUPPORTED_DEMO_SPECIALTIES}")
+        return v
 
 
 # User Schemas
@@ -195,6 +211,8 @@ class ClinicPluginsUpdate(BaseModel):
     plugin_opd_queue: Optional[bool] = None
     plugin_collections: Optional[bool] = None
     plugin_dpdp_compliance: Optional[bool] = None
+    plugin_vaccination: Optional[bool] = None
+    plugin_notifications: Optional[bool] = None
 
 
 class ClinicResponse(ClinicBase):
@@ -234,6 +252,7 @@ class DoctorResponse(DoctorBase):
 class PatientBase(BaseModel):
     full_name: str
     age: Optional[int] = None
+    date_of_birth: Optional[date] = None
     gender: Optional[GenderEnum] = None
     phone: str
     emergency_contact: Optional[str] = None
@@ -241,6 +260,9 @@ class PatientBase(BaseModel):
     blood_group: Optional[str] = None
     allergies: Optional[List[str]] = []
     medical_history: Optional[dict] = None
+    guardian_name: Optional[str] = None
+    guardian_phone: Optional[str] = None
+    guardian_relationship: Optional[str] = None
 
     @field_validator('phone')
     @classmethod
@@ -253,6 +275,13 @@ class PatientBase(BaseModel):
         if v is None or v.strip() == '':
             return v
         return validate_phone_number(v, 'Emergency contact')
+
+    @field_validator('guardian_phone')
+    @classmethod
+    def validate_guardian_phone(cls, v):
+        if v is None or v.strip() == '':
+            return v
+        return validate_phone_number(v, 'Guardian phone')
 
 
 class PatientCreate(PatientBase):
@@ -547,6 +576,8 @@ class MedicineOptionBase(BaseModel):
     description: Optional[str] = None
     is_active: bool = True
     display_order: int = 0
+    default_dosage: Optional[str] = None
+    default_duration: Optional[str] = None
 
 
 class MedicineOptionCreate(MedicineOptionBase):
@@ -558,6 +589,8 @@ class MedicineOptionUpdate(BaseModel):
     description: Optional[str] = None
     is_active: Optional[bool] = None
     display_order: Optional[int] = None
+    default_dosage: Optional[str] = None
+    default_duration: Optional[str] = None
 
 
 class MedicineOptionResponse(MedicineOptionBase):
@@ -774,6 +807,8 @@ class OnboardingRequestCreate(BaseModel):
     doctor_email: EmailStr
     doctor_phone: str
     clinic_name: str
+    password: Optional[str] = None
+    google_credential: Optional[str] = None
 
     @field_validator('doctor_phone')
     @classmethod
@@ -1152,3 +1187,182 @@ class FixtureTemplateResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Vaccination Schemas ──
+
+class VaccinationScheduleEntry(BaseModel):
+    id: str
+    vaccine_name: str
+    dose_number: int
+    dose_label: Optional[str] = None
+    age_days: int
+    age_label: Optional[str] = None
+    vaccine_group: Optional[str] = None
+    route: Optional[str] = None
+    site: Optional[str] = None
+    is_mandatory: bool
+    display_order: int
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+class VaccinationScheduleCreate(BaseModel):
+    vaccine_name: str
+    dose_number: int
+    dose_label: Optional[str] = None
+    age_days: int
+    age_label: Optional[str] = None
+    vaccine_group: Optional[str] = "Custom"
+    route: Optional[str] = None
+    site: Optional[str] = None
+    is_mandatory: bool = False
+
+
+class VaccinationScheduleUpdate(BaseModel):
+    vaccine_name: Optional[str] = None
+    dose_label: Optional[str] = None
+    age_days: Optional[int] = None
+    age_label: Optional[str] = None
+    vaccine_group: Optional[str] = None
+    route: Optional[str] = None
+    site: Optional[str] = None
+    is_mandatory: Optional[bool] = None
+    display_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class VaccinationRecordCreate(BaseModel):
+    vaccine_name: str
+    dose_number: int
+    dose_label: Optional[str] = None
+    date_administered: date
+    schedule_entry_id: Optional[str] = None
+    batch_number: Optional[str] = None
+    injection_site: Optional[str] = None
+    route: Optional[str] = None
+    adverse_reaction: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class VaccinationRecordUpdate(BaseModel):
+    date_administered: Optional[date] = None
+    batch_number: Optional[str] = None
+    injection_site: Optional[str] = None
+    route: Optional[str] = None
+    adverse_reaction: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class VaccinationRecordResponse(BaseModel):
+    id: str
+    patient_id: str
+    vaccine_name: str
+    dose_number: int
+    dose_label: Optional[str] = None
+    date_administered: date
+    age_at_dose_days: Optional[int] = None
+    batch_number: Optional[str] = None
+    administered_by: Optional[str] = None
+    injection_site: Optional[str] = None
+    route: Optional[str] = None
+    adverse_reaction: Optional[str] = None
+    notes: Optional[str] = None
+    visit_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class VaccinationCardDose(BaseModel):
+    schedule_entry_id: Optional[str] = None
+    vaccine_name: str
+    dose_number: int
+    dose_label: Optional[str] = None
+    age_days: int
+    age_label: Optional[str] = None
+    status: str  # "given", "due", "overdue", "upcoming"
+    date_administered: Optional[date] = None
+    record: Optional[VaccinationRecordResponse] = None
+
+
+class VaccinationCardResponse(BaseModel):
+    patient_id: str
+    patient_name: str
+    date_of_birth: Optional[date] = None
+    age_days: Optional[int] = None
+    doses: List[VaccinationCardDose]
+    summary: dict
+
+
+class VaccinationDashboardPatient(BaseModel):
+    patient_id: str
+    patient_name: str
+    patient_code: str
+    date_of_birth: date
+    age_label: str
+    due_vaccines: List[str]
+    overdue_vaccines: List[str]
+
+
+class VaccinationDashboardResponse(BaseModel):
+    due_today: List[VaccinationDashboardPatient]
+    overdue: List[VaccinationDashboardPatient]
+    due_this_week: List[VaccinationDashboardPatient]
+    stats: dict
+
+
+# ── Notification Schemas ──
+
+class NotificationConfigUpdate(BaseModel):
+    msg91_auth_key: Optional[str] = None
+    sender_id: Optional[str] = None
+    reminder_days_before: int = 2
+    send_overdue: bool = True
+    send_follow_up: bool = True
+
+
+class NotificationConfigResponse(BaseModel):
+    msg91_auth_key_set: bool = False
+    sender_id: Optional[str] = None
+    reminder_days_before: int = 2
+    send_overdue: bool = True
+    send_follow_up: bool = True
+
+
+class NotificationLogResponse(BaseModel):
+    id: str
+    clinic_id: str
+    patient_id: Optional[str] = None
+    phone: str
+    channel: NotificationChannelEnum
+    notification_type: NotificationTypeEnum
+    status: NotificationStatusEnum
+    message_body: str
+    template_id: Optional[str] = None
+    provider_message_id: Optional[str] = None
+    error_message: Optional[str] = None
+    sent_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    patient_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationStatsResponse(BaseModel):
+    total_sent: int = 0
+    total_delivered: int = 0
+    total_failed: int = 0
+    by_type: dict = {}
+
+
+class NotificationHistoryResponse(BaseModel):
+    items: List[NotificationLogResponse]
+    total: int
+    page: int
+    limit: int

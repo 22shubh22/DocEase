@@ -109,6 +109,8 @@ async def update_clinic_plugins(
         clinic.plugin_collections = plugin_data.plugin_collections
     if plugin_data.plugin_dpdp_compliance is not None:
         clinic.plugin_dpdp_compliance = plugin_data.plugin_dpdp_compliance
+    if plugin_data.plugin_notifications is not None:
+        clinic.plugin_notifications = plugin_data.plugin_notifications
 
     db.commit()
     db.refresh(clinic)
@@ -119,6 +121,7 @@ async def update_clinic_plugins(
             "opd_queue": clinic.plugin_opd_queue,
             "collections": clinic.plugin_collections,
             "dpdp_compliance": clinic.plugin_dpdp_compliance,
+            "notifications": clinic.plugin_notifications,
         }
     }
 

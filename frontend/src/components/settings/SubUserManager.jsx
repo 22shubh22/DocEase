@@ -358,7 +358,7 @@ export default function SubUserManager() {
                         value={formData.specialization}
                         onChange={handleInputChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="e.g., General Physician"
+                        placeholder="e.g., Pediatrician, Neonatologist"
                       />
                     </div>
 
@@ -372,7 +372,7 @@ export default function SubUserManager() {
                         value={formData.qualification}
                         onChange={handleInputChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="e.g., MBBS, MD"
+                        placeholder="e.g., MBBS, MD Pediatrics, DCH"
                       />
                     </div>
 

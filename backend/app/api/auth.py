@@ -5,8 +5,8 @@ from datetime import datetime
 from app.core.database import get_db, SessionLocal
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.core.deps import get_current_user, get_client_ip
-from app.models.models import User, UserPermission, PrintTemplate, Clinic, AuditActionEnum
-from app.schemas.schemas import LoginRequest, Token, ChangePasswordRequest, UserResponse, GuestCleanupRequest, GuestSessionRequest
+from app.models.models import User, UserPermission, PrintTemplate, Clinic, AuditActionEnum, RoleEnum
+from app.schemas.schemas import LoginRequest, Token, ChangePasswordRequest, UserResponse, GuestCleanupRequest, GuestSessionRequest, GoogleAuthRequest
 from app.services.guest_service import create_guest_session, cleanup_guest_session
 from app.services.audit_service import create_audit_log
 
@@ -38,7 +38,7 @@ async def login(
     user = db.query(User).filter(User.email == login_data.email).first()
     client_ip = get_client_ip(request)
 
-    if not user or not verify_password(login_data.password, user.password_hash):
+    if not user or not user.password_hash or not verify_password(login_data.password, user.password_hash):
         background_tasks.add_task(
             create_audit_log,
             action=AuditActionEnum.LOGIN_FAILED,
@@ -55,7 +55,7 @@ async def login(
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is inactive",
+            detail="Your account is pending approval. You'll be notified once approved.",
         )
 
     # Update last login
@@ -105,10 +105,14 @@ async def login(
 
         clinic = db.query(Clinic).filter(Clinic.id == user.clinic_id).first()
         if clinic:
+            from app.models.models import ClinicSpecialtyEnum
+            vaccination_enabled = clinic.plugin_vaccination or clinic.specialty == ClinicSpecialtyEnum.PEDIATRICS
             enabled_plugins = {
                 "opd_queue": clinic.plugin_opd_queue,
                 "collections": clinic.plugin_collections,
                 "dpdp_compliance": clinic.plugin_dpdp_compliance,
+                "vaccination": vaccination_enabled,
+                "notifications": clinic.plugin_notifications,
             }
 
     background_tasks.add_task(
@@ -140,11 +144,135 @@ async def login(
     }
 
 
+@router.post("/google", response_model=dict)
+async def google_login(
+    google_data: GoogleAuthRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """Authenticate or register user via Google Sign-In"""
+    from google.oauth2 import id_token
+    from google.auth.transport import requests as google_requests
+    from app.core.config import settings
+
+    # Verify the Google ID token
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            google_data.credential,
+            google_requests.Request(),
+            settings.GOOGLE_CLIENT_ID,
+        )
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Google token",
+        )
+
+    google_id = idinfo["sub"]
+    email = idinfo.get("email")
+    full_name = idinfo.get("name", "")
+
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google account has no email address",
+        )
+
+    client_ip = get_client_ip(request)
+
+    # Check if user exists by google_id or email
+    user = db.query(User).filter(User.google_id == google_id).first()
+    if not user:
+        user = db.query(User).filter(User.email == email).first()
+        if user:
+            # Link existing account to Google
+            user.google_id = google_id
+        else:
+            # No account found — reject signup
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No account found for this email. Please register your clinic through the onboarding process.",
+            )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account is pending approval. You'll be notified once approved.",
+        )
+
+    user.last_login = datetime.utcnow()
+    db.commit()
+    db.refresh(user)
+
+    access_token = create_access_token(data={"sub": user.id, "role": user.role.value})
+
+    # Fetch permissions
+    permissions_dict = None
+    permission = db.query(UserPermission).filter(UserPermission.user_id == user.id).first()
+    if permission:
+        permissions_dict = {
+            "can_view_patients": permission.can_view_patients,
+            "can_create_patients": permission.can_create_patients,
+            "can_edit_patients": permission.can_edit_patients,
+            "can_delete_patients": permission.can_delete_patients,
+            "can_view_opd": permission.can_view_opd,
+            "can_manage_opd": permission.can_manage_opd,
+            "can_view_visits": permission.can_view_visits,
+            "can_create_visits": permission.can_create_visits,
+            "can_edit_visits": permission.can_edit_visits,
+            "can_manage_clinic_options": permission.can_manage_clinic_options,
+            "can_edit_print_settings": permission.can_edit_print_settings,
+        }
+
+    # Fetch clinic plugins
+    enabled_plugins = None
+    if user.clinic_id:
+        clinic = db.query(Clinic).filter(Clinic.id == user.clinic_id).first()
+        if clinic:
+            from app.models.models import ClinicSpecialtyEnum
+            vaccination_enabled = clinic.plugin_vaccination or clinic.specialty == ClinicSpecialtyEnum.PEDIATRICS
+            enabled_plugins = {
+                "opd_queue": clinic.plugin_opd_queue,
+                "collections": clinic.plugin_collections,
+                "dpdp_compliance": clinic.plugin_dpdp_compliance,
+                "vaccination": vaccination_enabled,
+                "notifications": clinic.plugin_notifications,
+            }
+
+    background_tasks.add_task(
+        create_audit_log,
+        action=AuditActionEnum.LOGIN,
+        resource_type="auth",
+        user_id=user.id,
+        user_email=user.email,
+        clinic_id=user.clinic_id,
+        description=f"User {user.email} logged in via Google",
+        ip_address=client_ip,
+    )
+
+    return {
+        "message": "Login successful",
+        "token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role.value,
+            "clinic_id": user.clinic_id,
+            "is_guest": user.is_guest,
+            "permissions": permissions_dict,
+            "enabled_plugins": enabled_plugins,
+        }
+    }
+
+
 @router.post("/guest")
 async def guest_login(request: GuestSessionRequest = GuestSessionRequest(), db: Session = Depends(get_db)):
     """Create a guest demo session with isolated clinic and pre-loaded data"""
     try:
-        return create_guest_session(db, plugin_opd_queue=request.plugin_opd_queue, plugin_collections=request.plugin_collections)
+        return create_guest_session(db, plugin_opd_queue=request.plugin_opd_queue, plugin_collections=request.plugin_collections, clinic_specialty=request.clinic_specialty)
     except Exception as e:
         logger.error(f"Failed to create guest session: {e}")
         raise HTTPException(
@@ -224,10 +352,14 @@ async def get_profile(
     if current_user.clinic_id:
         clinic = db.query(Clinic).filter(Clinic.id == current_user.clinic_id).first()
         if clinic:
+            from app.models.models import ClinicSpecialtyEnum
+            vaccination_enabled = clinic.plugin_vaccination or clinic.specialty == ClinicSpecialtyEnum.PEDIATRICS
             enabled_plugins = {
                 "opd_queue": clinic.plugin_opd_queue,
                 "collections": clinic.plugin_collections,
                 "dpdp_compliance": clinic.plugin_dpdp_compliance,
+                "vaccination": vaccination_enabled,
+                "notifications": clinic.plugin_notifications,
             }
 
     return {

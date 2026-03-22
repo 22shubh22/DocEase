@@ -1,4 +1,4 @@
-export default function PrintHeader({ clinic, doctor, templateConfig, presetId }) {
+export default function PrintHeader({ clinic, doctor, templateConfig, presetId, contentLeftPx = 40, contentRightPx = 40 }) {
   const header = templateConfig?.header || {};
 
   const clinicName = clinic?.name || '';
@@ -29,7 +29,7 @@ export default function PrintHeader({ clinic, doctor, templateConfig, presetId }
           )}
 
           {/* Center: Clinic Info */}
-          <div style={{ flex: 1, textAlign: 'center' }}>
+          <div style={{ flex: 1, textAlign: 'left' }}>
             {header.show_clinic_name && (
               <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1f2937' }}>{clinicName}</div>
             )}
@@ -119,7 +119,7 @@ export default function PrintHeader({ clinic, doctor, templateConfig, presetId }
 
   function renderMinimal() {
     return (
-      <div className="print-header" style={{ textAlign: 'center', paddingBottom: '6px', marginBottom: '8px', borderBottom: '1px solid #e5e7eb' }}>
+      <div className="print-header" style={{ textAlign: 'left', paddingBottom: '6px', marginBottom: '8px', borderBottom: '1px solid #e5e7eb' }}>
         {header.show_clinic_name && (
           <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151', letterSpacing: '1px', textTransform: 'uppercase' }}>{clinicName}</div>
         )}
@@ -142,8 +142,8 @@ export default function PrintHeader({ clinic, doctor, templateConfig, presetId }
           color: 'white',
           padding: '10px 16px',
           borderRadius: '0 0 8px 8px',
-          marginLeft: '-40px',
-          marginRight: '-40px',
+          marginLeft: `-${contentLeftPx}px`,
+          marginRight: `-${contentRightPx}px`,
           marginTop: '-12px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>

@@ -1,7 +1,9 @@
 import { forwardRef } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import PrintHeader from '../print/PrintHeader';
 import PrintFooter from '../print/PrintFooter';
 import PrintWatermark from '../print/PrintWatermark';
+import { DOCEASE_ICON_BASE64, DOCEASE_URL, DOCEASE_BRAND } from '../../constants/branding';
 
 const VisitPrintContent = forwardRef(({
   patient,
@@ -53,6 +55,7 @@ const VisitPrintContent = forwardRef(({
       style={{
         paddingLeft: `${leftPx}px`,
         paddingRight: `${rightPx}px`,
+        paddingBottom: '20px',
         fontFamily: 'Arial, sans-serif',
         position: 'relative',
       }}
@@ -74,6 +77,8 @@ const VisitPrintContent = forwardRef(({
                     doctor={doctor}
                     templateConfig={printTemplate?.template_config}
                     presetId={printTemplate?.preset_id || 'classic'}
+                    contentLeftPx={leftPx}
+                    contentRightPx={rightPx}
                   />
                 </div>
               ) : (
@@ -93,10 +98,32 @@ const VisitPrintContent = forwardRef(({
                   clinic={clinic}
                   templateConfig={printTemplate?.template_config}
                   presetId={printTemplate?.preset_id || 'classic'}
+                  contentLeftPx={leftPx}
+                  contentRightPx={rightPx}
                 />
               ) : (
                 <div style={{ marginTop: '16px', paddingTop: '8px', borderTop: '1px solid #d1d5db' }}>
-                  <div style={{ textAlign: 'right' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                    {/* Left: Powered by DocEase */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <QRCodeSVG
+                        value={DOCEASE_URL}
+                        size={40}
+                        level="M"
+                        imageSettings={{
+                          src: DOCEASE_ICON_BASE64,
+                          height: 12,
+                          width: 12,
+                          excavate: true,
+                        }}
+                      />
+                      <div style={{ fontSize: '8px', color: '#9ca3af', lineHeight: '1.3' }}>
+                        <div>Powered by</div>
+                        <div style={{ fontWeight: '600', color: '#6b7280', fontSize: '9px' }}>{DOCEASE_BRAND}</div>
+                      </div>
+                    </div>
+
+                    {/* Right: Doctor's Signature */}
                     <div style={{ display: 'inline-block', textAlign: 'center' }}>
                       <div className="border-b border-gray-400" style={{ width: '12rem', marginBottom: '0.25rem' }}></div>
                       {doctor ? (
@@ -120,24 +147,32 @@ const VisitPrintContent = forwardRef(({
         {/* Body content */}
         <tbody>
           <tr><td>
-            <div className="print-body-content">
+            <div className="print-body-content" style={{ paddingBottom: '24px' }}>
               {/* Patient Header */}
-              <div className="print-section border-b-2 border-gray-800 pb-2 mb-2" style={{ position: 'relative', zIndex: 1 }}>
+              <div className="print-section pb-2 mb-2" style={{ position: 'relative', zIndex: 1 }}>
                 <h2 className="font-bold text-gray-900" style={{ fontSize: '16px' }}>
                   Patient: {patient?.full_name || 'Unknown'}
                 </h2>
                 <div className="flex flex-wrap gap-x-4 text-sm text-gray-700 mt-1">
                   <span>ID: {patient?.patient_code || '-'}</span>
                   {visitNumber && <span>Visit #: {visitNumber}</span>}
-                  <span>Age: {patient?.age || '-'} yrs</span>
+                  <span>Age: {patient?.age_display || patient?.age || '-'}</span>
                   <span>Gender: {patient?.gender || '-'}</span>
                   {patient?.blood_group && <span>Blood Group: {patient.blood_group}</span>}
+                  {patient?.phone && <span>Phone: {patient.phone}</span>}
                 </div>
                 <div className="text-sm text-gray-600 mt-1">Date: {displayDate}</div>
+                {patient?.guardian_name && (
+                  <div className="text-sm text-gray-600 mt-1">
+                    Guardian: {patient.guardian_name}
+                    {patient.guardian_relationship && ` (${patient.guardian_relationship})`}
+                    {patient.guardian_phone && ` • Ph: ${patient.guardian_phone}`}
+                  </div>
+                )}
               </div>
 
               {/* Allergies Warning */}
-              {patient?.allergies && (
+              {patient?.allergies?.length > 0 && (
                 <div className="print-section bg-red-50 border border-red-300 rounded mb-2" style={{ padding: '4px 8px' }}>
                   <span className="font-bold text-red-700">Allergies: </span>
                   <span className="text-red-600">{patient.allergies}</span>

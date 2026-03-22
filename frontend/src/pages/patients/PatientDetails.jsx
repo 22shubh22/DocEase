@@ -1,9 +1,10 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { patientsAPI, opdAPI, chiefComplaintsAPI } from '../../services/api';
+import { patientsAPI, opdAPI, chiefComplaintsAPI, vaccinationAPI } from '../../services/api';
 import useAuthStore from '../../store/authStore';
 import PatientDpdp from '../../components/patients/PatientDpdp';
+import VaccinationCardView from '../../components/vaccination/VaccinationCardView';
 
 const formatDateTime = (dateString) => {
   if (!dateString) return '';
@@ -38,6 +39,9 @@ export default function PatientDetails() {
   const [addingToOPD, setAddingToOPD] = useState(false);
   const [nextQueueNumber, setNextQueueNumber] = useState(null);
   const [todayQueue, setTodayQueue] = useState([]);
+  const [vaccinationCard, setVaccinationCard] = useState(null);
+  const [vaccinationLoading, setVaccinationLoading] = useState(false);
+  const [activeAppointment, setActiveAppointment] = useState(null);
 
   useEffect(() => {
     fetchPatientData();
@@ -59,12 +63,20 @@ export default function PatientDetails() {
   const fetchPatientData = async () => {
     try {
       setLoading(true);
-      const [patientRes, visitsRes] = await Promise.all([
+      const promises = [
         patientsAPI.getById(id),
         patientsAPI.getVisits(id)
-      ]);
+      ];
+      // Check for active OPD appointment if plugin is enabled
+      if (plugins?.opd_queue !== false) {
+        promises.push(opdAPI.getActiveAppointment(id).catch(() => ({ data: { appointment: null } })));
+      }
+      const [patientRes, visitsRes, activeApptRes] = await Promise.all(promises);
       setPatient(patientRes.data.patient);
       setVisits(visitsRes.data.visits || []);
+      if (activeApptRes) {
+        setActiveAppointment(activeApptRes.data.appointment);
+      }
     } catch (err) {
       console.error('Failed to fetch patient data:', err);
       setError('Failed to load patient data');
@@ -72,6 +84,25 @@ export default function PatientDetails() {
       setLoading(false);
     }
   };
+
+  const fetchVaccinationCard = async () => {
+    if (!plugins?.vaccination) return;
+    setVaccinationLoading(true);
+    try {
+      const response = await vaccinationAPI.getCard(id);
+      setVaccinationCard(response.data);
+    } catch (error) {
+      console.error('Failed to fetch vaccination card:', error);
+    } finally {
+      setVaccinationLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'vaccination' && !vaccinationCard) {
+      fetchVaccinationCard();
+    }
+  }, [activeTab]);
 
   // Check if patient is already in today's queue
   const isPatientInQueue = () => {
@@ -108,6 +139,15 @@ export default function PatientDetails() {
     setCustomComplaint('');
   };
 
+  const handleAddVisit = () => {
+    if (activeAppointment) {
+      const complaintsParam = encodeURIComponent(JSON.stringify(activeAppointment.chief_complaints));
+      navigate(`/visits/new?patientId=${patient.id}&appointmentId=${activeAppointment.id}&complaints=${complaintsParam}`);
+    } else {
+      navigate(`/visits/new?patientId=${patient.id}`);
+    }
+  };
+
   const handleAddToOPD = async () => {
     const allComplaints = [...selectedComplaints];
     if (customComplaint.trim()) {
@@ -128,6 +168,11 @@ export default function PatientDetails() {
       });
       toast.success(`${patient.full_name} added to OPD queue`);
       closeOPDModal();
+      // Refresh active appointment state so badge and button reflect the new queue entry
+      try {
+        const res = await opdAPI.getActiveAppointment(patient.id);
+        setActiveAppointment(res.data.appointment);
+      } catch {};
     } catch (error) {
       console.error('Failed to add to OPD:', error);
       toast.error(error.errorMessage || 'Failed to add patient to OPD queue');
@@ -159,6 +204,7 @@ export default function PatientDetails() {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '👤' },
     { id: 'visits', label: 'Visit History', icon: '📋' },
+    ...(plugins?.vaccination ? [{ id: 'vaccination', label: 'Vaccination', icon: '💉' }] : []),
     ...(plugins?.dpdp_compliance ? [{ id: 'dpdp', label: 'Data Protection', icon: '🛡️' }] : []),
   ];
 
@@ -174,7 +220,14 @@ export default function PatientDetails() {
               ← Back
             </button>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{patient.full_name}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            {patient.full_name}
+            {activeAppointment && (
+              <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                In OPD Queue #{activeAppointment.queue_number}
+              </span>
+            )}
+          </h1>
           <p className="text-gray-600 mt-1">Patient ID: {patient.patient_code}</p>
         </div>
         <div className="flex gap-3">
@@ -186,12 +239,12 @@ export default function PatientDetails() {
               + Add to OPD
             </button>
           )}
-          <Link
-            to={`/visits/new?patientId=${patient.id}`}
+          <button
+            onClick={handleAddVisit}
             className="btn btn-primary"
           >
             + Add Visit
-          </Link>
+          </button>
           <Link
             to={`/patients/${patient.id}/edit`}
             className="btn btn-secondary"
@@ -229,9 +282,15 @@ export default function PatientDetails() {
                 <span className="text-gray-600">Full Name</span>
                 <span className="font-medium">{patient.full_name}</span>
               </div>
+              {patient.date_of_birth && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Date of Birth</span>
+                  <span className="font-medium">{new Date(patient.date_of_birth).toLocaleDateString('en-IN')}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-gray-600">Age</span>
-                <span className="font-medium">{patient.age} years</span>
+                <span className="font-medium">{patient.age_display || `${patient.age}y`}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Gender</span>
@@ -261,12 +320,30 @@ export default function PatientDetails() {
           <div className="card">
             <h2 className="text-xl font-semibold mb-4 pb-2 border-b">Contact Information</h2>
             <div className="space-y-3">
+              {patient.guardian_name && (
+                <>
+                  <div>
+                    <span className="text-gray-600 block mb-1">Guardian Name</span>
+                    <span className="font-medium">{patient.guardian_name}</span>
+                  </div>
+                  {patient.guardian_relationship && (
+                    <div>
+                      <span className="text-gray-600 block mb-1">Relationship</span>
+                      <span className="font-medium">{patient.guardian_relationship}</span>
+                    </div>
+                  )}
+                </>
+              )}
               <div>
-                <span className="text-gray-600 block mb-1">Phone Number</span>
+                <span className="text-gray-600 block mb-1">
+                  {patient.guardian_name ? "Guardian's Phone" : 'Phone Number'}
+                </span>
                 <span className="font-medium">{patient.phone}</span>
               </div>
               <div>
-                <span className="text-gray-600 block mb-1">Emergency Contact</span>
+                <span className="text-gray-600 block mb-1">
+                  {patient.guardian_name ? 'Alternate Contact' : 'Emergency Contact'}
+                </span>
                 <span className="font-medium">{patient.emergency_contact || 'Not provided'}</span>
               </div>
               <div>
@@ -411,6 +488,38 @@ export default function PatientDetails() {
         </div>
       )}
 
+      {activeTab === 'vaccination' && plugins?.vaccination && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Vaccination Card</h2>
+            <Link
+              to={`/patients/${patient.id}/vaccination-card`}
+              className="text-primary-600 hover:text-primary-700 text-sm"
+            >
+              Open Full Card →
+            </Link>
+          </div>
+          {vaccinationLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : vaccinationCard ? (
+            <VaccinationCardView
+              card={vaccinationCard}
+              patientId={patient.id}
+              onDoseRecorded={fetchVaccinationCard}
+            />
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <p>Unable to load vaccination data.</p>
+              {!patient.date_of_birth && (
+                <p className="mt-2 text-sm">Please set the patient's date of birth to enable vaccination tracking.</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {activeTab === 'dpdp' && plugins?.dpdp_compliance && (
         <PatientDpdp
           patientId={patient.id}
@@ -495,7 +604,7 @@ export default function PatientDetails() {
                 <input
                   type="text"
                   className="input"
-                  placeholder="Custom complaints (comma separated)"
+                  placeholder="e.g., Fever, Cold, Not eating well"
                   value={customComplaint}
                   onChange={(e) => setCustomComplaint(e.target.value)}
                 />
