@@ -364,6 +364,8 @@ class MedicineOption(Base):
     description = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     display_order = Column(Integer, default=0)
+    default_dosage = Column(String, nullable=True)
+    default_duration = Column(String, nullable=True)
     clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

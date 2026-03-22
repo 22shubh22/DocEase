@@ -576,6 +576,8 @@ class MedicineOptionBase(BaseModel):
     description: Optional[str] = None
     is_active: bool = True
     display_order: int = 0
+    default_dosage: Optional[str] = None
+    default_duration: Optional[str] = None
 
 
 class MedicineOptionCreate(MedicineOptionBase):
@@ -587,6 +589,8 @@ class MedicineOptionUpdate(BaseModel):
     description: Optional[str] = None
     is_active: Optional[bool] = None
     display_order: Optional[int] = None
+    default_dosage: Optional[str] = None
+    default_duration: Optional[str] = None
 
 
 class MedicineOptionResponse(MedicineOptionBase):

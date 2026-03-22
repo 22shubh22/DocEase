@@ -155,7 +155,11 @@ export default function Settings() {
       api: medicineOptionsAPI,
       emptyIcon: '💊',
       singularName: 'medicine',
-      tipText: 'Use the display order to arrange medicines. Lower numbers appear first in the dropdown. Deactivated medicines won\'t appear in the prescription form but are kept for historical records.',
+      tipText: 'Set default dosage and duration for each medicine. When a doctor selects this medicine in the prescription form, these values will auto-fill.',
+      extraFields: [
+        { key: 'default_dosage', label: 'Default Dosage', placeholder: 'e.g., 500mg twice daily' },
+        { key: 'default_duration', label: 'Default Duration', placeholder: 'e.g., 5 days' },
+      ],
     },
     dosages: {
       title: 'Dosage Options',
@@ -216,6 +220,7 @@ export default function Settings() {
               emptyIcon={config.emptyIcon}
               singularName={config.singularName}
               tipText={config.tipText}
+              extraFields={config.extraFields || []}
             />
           );
         }

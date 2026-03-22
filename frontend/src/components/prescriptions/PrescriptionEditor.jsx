@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { medicineOptionsAPI, dosageOptionsAPI, durationOptionsAPI } from '../../services/api';
+import CreatableComboBox from '../common/CreatableComboBox';
 
 export default function PrescriptionEditor({ medicines, setMedicines, notes, setNotes }) {
   const [medicineOptions, setMedicineOptions] = useState([]);
@@ -45,8 +47,65 @@ export default function PrescriptionEditor({ medicines, setMedicines, notes, set
     ));
   };
 
+  const updateMedicineMulti = (id, updates) => {
+    setMedicines(medicines.map(med =>
+      med.id === id ? { ...med, ...updates } : med
+    ));
+  };
+
   const removeMedicine = (id) => {
     setMedicines(medicines.filter(med => med.id !== id));
+  };
+
+  // When a medicine is selected from the master list, auto-fill dosage/duration defaults
+  const handleMedicineChange = (medId, name, optionObj) => {
+    const updates = { medicine_name: name };
+    if (optionObj?.default_dosage) {
+      updates.dosage = optionObj.default_dosage;
+    }
+    if (optionObj?.default_duration) {
+      updates.duration = optionObj.default_duration;
+    }
+    updateMedicineMulti(medId, updates);
+  };
+
+  const handleCreateMedicine = async (name) => {
+    try {
+      const res = await medicineOptionsAPI.create({ name });
+      const newOpt = res.data;
+      setMedicineOptions(prev => [...prev, newOpt]);
+      toast.success(`"${name}" added to medicine list`);
+      return newOpt;
+    } catch {
+      toast.error('Failed to add medicine');
+      return null;
+    }
+  };
+
+  const handleCreateDosage = async (name) => {
+    try {
+      const res = await dosageOptionsAPI.create({ name });
+      const newOpt = res.data;
+      setDosageOptions(prev => [...prev, newOpt]);
+      toast.success(`"${name}" added to dosage list`);
+      return newOpt;
+    } catch {
+      toast.error('Failed to add dosage');
+      return null;
+    }
+  };
+
+  const handleCreateDuration = async (name) => {
+    try {
+      const res = await durationOptionsAPI.create({ name });
+      const newOpt = res.data;
+      setDurationOptions(prev => [...prev, newOpt]);
+      toast.success(`"${name}" added to duration list`);
+      return newOpt;
+    } catch {
+      toast.error('Failed to add duration');
+      return null;
+    }
   };
 
   if (loading) {
@@ -90,46 +149,34 @@ export default function PrescriptionEditor({ medicines, setMedicines, notes, set
                 </div>
                 <div>
                   <label className="text-xs text-gray-500">Medicine Name *</label>
-                  <input
-                    type="text"
-                    className="input text-sm"
-                    placeholder="Select or type medicine..."
-                    list={`medicine-list-m-${med.id}`}
+                  <CreatableComboBox
                     value={med.medicine_name}
-                    onChange={(e) => updateMedicine(med.id, 'medicine_name', e.target.value)}
+                    onChange={(name, opt) => handleMedicineChange(med.id, name, opt)}
+                    options={medicineOptions}
+                    onCreateNew={handleCreateMedicine}
+                    placeholder="Type medicine name..."
                   />
-                  <datalist id={`medicine-list-m-${med.id}`}>
-                    {medicineOptions.map(opt => (
-                      <option key={opt.id} value={opt.name} />
-                    ))}
-                  </datalist>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-gray-500">Dosage *</label>
-                    <select
-                      className="input text-sm"
+                    <CreatableComboBox
                       value={med.dosage}
-                      onChange={(e) => updateMedicine(med.id, 'dosage', e.target.value)}
-                    >
-                      <option value="">Select...</option>
-                      {dosageOptions.map(opt => (
-                        <option key={opt.id} value={opt.name}>{opt.name}</option>
-                      ))}
-                    </select>
+                      onChange={(val) => updateMedicine(med.id, 'dosage', val)}
+                      options={dosageOptions}
+                      onCreateNew={handleCreateDosage}
+                      placeholder="Type dosage..."
+                    />
                   </div>
                   <div>
                     <label className="text-xs text-gray-500">Duration *</label>
-                    <select
-                      className="input text-sm"
+                    <CreatableComboBox
                       value={med.duration}
-                      onChange={(e) => updateMedicine(med.id, 'duration', e.target.value)}
-                    >
-                      <option value="">Select...</option>
-                      {durationOptions.map(opt => (
-                        <option key={opt.id} value={opt.name}>{opt.name}</option>
-                      ))}
-                    </select>
+                      onChange={(val) => updateMedicine(med.id, 'duration', val)}
+                      options={durationOptions}
+                      onCreateNew={handleCreateDuration}
+                      placeholder="Type duration..."
+                    />
                   </div>
                 </div>
               </div>
@@ -153,43 +200,31 @@ export default function PrescriptionEditor({ medicines, setMedicines, notes, set
                   <tr key={med.id} className="border-b">
                     <td className="p-2 text-gray-500">{index + 1}</td>
                     <td className="p-2">
-                      <input
-                        type="text"
-                        className="input text-sm py-1"
-                        placeholder="Select or type medicine..."
-                        list={`medicine-list-${med.id}`}
+                      <CreatableComboBox
                         value={med.medicine_name}
-                        onChange={(e) => updateMedicine(med.id, 'medicine_name', e.target.value)}
+                        onChange={(name, opt) => handleMedicineChange(med.id, name, opt)}
+                        options={medicineOptions}
+                        onCreateNew={handleCreateMedicine}
+                        placeholder="Type medicine name..."
                       />
-                      <datalist id={`medicine-list-${med.id}`}>
-                        {medicineOptions.map(opt => (
-                          <option key={opt.id} value={opt.name} />
-                        ))}
-                      </datalist>
                     </td>
                     <td className="p-2">
-                      <select
-                        className="input text-sm py-1"
+                      <CreatableComboBox
                         value={med.dosage}
-                        onChange={(e) => updateMedicine(med.id, 'dosage', e.target.value)}
-                      >
-                        <option value="">Select dosage...</option>
-                        {dosageOptions.map(opt => (
-                          <option key={opt.id} value={opt.name}>{opt.name}</option>
-                        ))}
-                      </select>
+                        onChange={(val) => updateMedicine(med.id, 'dosage', val)}
+                        options={dosageOptions}
+                        onCreateNew={handleCreateDosage}
+                        placeholder="Type dosage..."
+                      />
                     </td>
                     <td className="p-2">
-                      <select
-                        className="input text-sm py-1"
+                      <CreatableComboBox
                         value={med.duration}
-                        onChange={(e) => updateMedicine(med.id, 'duration', e.target.value)}
-                      >
-                        <option value="">Select duration...</option>
-                        {durationOptions.map(opt => (
-                          <option key={opt.id} value={opt.name}>{opt.name}</option>
-                        ))}
-                      </select>
+                        onChange={(val) => updateMedicine(med.id, 'duration', val)}
+                        options={durationOptions}
+                        onCreateNew={handleCreateDuration}
+                        placeholder="Type duration..."
+                      />
                     </td>
                     <td className="p-2">
                       <button

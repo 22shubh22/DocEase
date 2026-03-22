@@ -42,6 +42,8 @@ def create_medicine_option(
         description=data.description,
         is_active=data.is_active,
         display_order=data.display_order,
+        default_dosage=data.default_dosage,
+        default_duration=data.default_duration,
         clinic_id=current_user.clinic_id
     )
     db.add(option)
@@ -72,6 +74,10 @@ def update_medicine_option(
         option.is_active = data.is_active
     if data.display_order is not None:
         option.display_order = data.display_order
+    if data.default_dosage is not None:
+        option.default_dosage = data.default_dosage
+    if data.default_duration is not None:
+        option.default_duration = data.default_duration
 
     db.commit()
     db.refresh(option)

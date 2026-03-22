@@ -13,12 +13,15 @@ export default function OptionManager({
   emptyIcon = '📋',
   tipText,
   singularName = 'option',
+  extraFields = [],
 }) {
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingOption, setEditingOption] = useState(null);
-  const [form, setForm] = useState({ name: '', description: '', display_order: 1 });
+
+  const defaultFormState = { name: '', description: '', display_order: 1, ...Object.fromEntries(extraFields.map(f => [f.key, ''])) };
+  const [form, setForm] = useState(defaultFormState);
 
   // Track unsaved changes
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -97,12 +100,14 @@ export default function OptionManager({
       return;
     }
     try {
-      await api.create({
+      const payload = {
         name: form.name,
         description: form.description,
         display_order: form.display_order || options.length + 1,
         is_active: true,
-      });
+        ...Object.fromEntries(extraFields.map(f => [f.key, form[f.key] || null])),
+      };
+      await api.create(payload);
       toast.success(`${singularName.charAt(0).toUpperCase() + singularName.slice(1)} added`);
       resetForm();
       fetchOptions();
@@ -118,12 +123,14 @@ export default function OptionManager({
       return;
     }
     try {
-      await api.update(editingOption.id, {
+      const payload = {
         name: form.name,
         description: form.description,
         display_order: form.display_order,
         is_active: editingOption.is_active,
-      });
+        ...Object.fromEntries(extraFields.map(f => [f.key, form[f.key] || null])),
+      };
+      await api.update(editingOption.id, payload);
       toast.success(`${singularName.charAt(0).toUpperCase() + singularName.slice(1)} updated`);
       resetForm();
       fetchOptions();
@@ -194,6 +201,7 @@ export default function OptionManager({
       name: option.name,
       description: option.description || '',
       display_order: option.display_order,
+      ...Object.fromEntries(extraFields.map(f => [f.key, option[f.key] || ''])),
     });
     setShowAddForm(false);
     setHasUnsavedChanges(false);
@@ -204,7 +212,7 @@ export default function OptionManager({
   const resetForm = () => {
     setShowAddForm(false);
     setEditingOption(null);
-    setForm({ name: '', description: '', display_order: 1 });
+    setForm(defaultFormState);
     setHasUnsavedChanges(false);
     setFormErrors({});
   };
@@ -276,7 +284,7 @@ export default function OptionManager({
             onClick={() => {
               setShowAddForm(true);
               setEditingOption(null);
-              setForm({ name: '', description: '', display_order: options.length + 1 });
+              setForm({ ...defaultFormState, display_order: options.length + 1 });
               setHasUnsavedChanges(false);
               setFormErrors({});
             }}
@@ -340,6 +348,18 @@ export default function OptionManager({
                     onChange={(e) => handleFormChange('description', e.target.value)}
                   />
                 </div>
+                {extraFields.map((field) => (
+                  <div key={field.key}>
+                    <label className="label">{field.label}</label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder={field.placeholder || ''}
+                      value={form[field.key] || ''}
+                      onChange={(e) => handleFormChange(field.key, e.target.value)}
+                    />
+                  </div>
+                ))}
               </div>
               <div className="flex gap-2 items-center">
                 <button type="submit" className="btn btn-primary">
@@ -430,6 +450,11 @@ export default function OptionManager({
                     </span>
                     {option.description && (
                       <p className="text-sm text-gray-500">{option.description}</p>
+                    )}
+                    {extraFields.length > 0 && extraFields.some(f => option[f.key]) && (
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {extraFields.filter(f => option[f.key]).map(f => `${f.label}: ${option[f.key]}`).join(' · ')}
+                      </p>
                     )}
                   </div>
                   {option.is_active ? (
