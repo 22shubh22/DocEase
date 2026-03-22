@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import useDropdownFlip from '../../hooks/useDropdownFlip';
 
 export default function MultiSelectComboBox({
   selected = [],
@@ -16,6 +17,7 @@ export default function MultiSelectComboBox({
   const [creating, setCreating] = useState(false);
   const containerRef = useRef(null);
   const inputRef = useRef(null);
+  const flipUp = useDropdownFlip(containerRef, isOpen);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -223,7 +225,7 @@ export default function MultiSelectComboBox({
       </div>
 
       {isOpen && totalItems > 0 && (
-        <ul className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg text-sm">
+        <ul className={`absolute z-50 left-0 right-0 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg text-sm ${flipUp ? 'bottom-full mb-1' : 'mt-1'}`}>
           {filtered.map((opt, idx) => (
             <li
               key={opt.id}

@@ -265,6 +265,19 @@ async def create_visit(
         clinic_id=current_user.clinic_id
     )
 
+    # Auto-link to existing active appointment if none provided
+    if not visit.appointment_id:
+        active_appointment = db.query(Appointment).filter(
+            Appointment.patient_id == visit_data.patient_id,
+            Appointment.appointment_date == date.today(),
+            Appointment.clinic_id == current_user.clinic_id,
+            Appointment.status.in_([AppointmentStatusEnum.WAITING, AppointmentStatusEnum.IN_PROGRESS])
+        ).order_by(Appointment.queue_number.asc()).first()
+
+        if active_appointment:
+            visit.appointment_id = active_appointment.id
+            active_appointment.status = AppointmentStatusEnum.COMPLETED
+
     db.add(visit)
     db.flush()  # Get the visit ID before adding medicines
 
@@ -279,12 +292,12 @@ async def create_visit(
             )
             db.add(medicine)
 
-    # Update appointment status if exists
+    # Update appointment status if explicitly provided (auto-link case already handled above)
     if visit_data.appointment_id:
         appointment = db.query(Appointment).filter(
             Appointment.id == visit_data.appointment_id
         ).first()
-        if appointment:
+        if appointment and appointment.status != AppointmentStatusEnum.COMPLETED:
             appointment.status = AppointmentStatusEnum.COMPLETED
 
     db.commit()

@@ -90,6 +90,7 @@ export const opdAPI = {
   getVisitByAppointment: (appointmentId) => api.get(`/opd/appointments/${appointmentId}/visit`),
   getFollowUpsDue: (params) => api.get('/opd/follow-ups-due', { params }),
   getFollowUps: (params) => api.get('/opd/follow-ups', { params }),
+  getActiveAppointment: (patientId) => api.get('/opd/appointments/active', { params: { patient_id: patientId } }),
 };
 
 // Chief Complaints API

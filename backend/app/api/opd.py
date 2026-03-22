@@ -125,6 +125,34 @@ async def get_daily_stats(
     }
 
 
+@router.get("/appointments/active", response_model=dict)
+async def get_active_appointment(
+    patient_id: str = Query(..., description="Patient ID to check"),
+    current_user: User = Depends(require_permission("can_view_opd")),
+    _plugin: User = Depends(require_plugin("opd_queue")),
+    db: Session = Depends(get_db)
+):
+    """Get active (WAITING/IN_PROGRESS) appointment for a patient today"""
+    active = db.query(Appointment).filter(
+        Appointment.patient_id == patient_id,
+        Appointment.appointment_date == date.today(),
+        Appointment.clinic_id == current_user.clinic_id,
+        Appointment.status.in_([AppointmentStatusEnum.WAITING, AppointmentStatusEnum.IN_PROGRESS])
+    ).order_by(Appointment.queue_number.asc()).first()
+
+    if not active:
+        return {"appointment": None}
+
+    return {
+        "appointment": {
+            "id": active.id,
+            "queue_number": active.queue_number,
+            "chief_complaints": active.chief_complaints or [],
+            "status": active.status.value
+        }
+    }
+
+
 @router.post("/appointments/", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def add_to_queue(
     appointment_data: AppointmentCreate,

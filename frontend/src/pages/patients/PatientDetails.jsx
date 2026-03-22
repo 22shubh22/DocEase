@@ -41,6 +41,7 @@ export default function PatientDetails() {
   const [todayQueue, setTodayQueue] = useState([]);
   const [vaccinationCard, setVaccinationCard] = useState(null);
   const [vaccinationLoading, setVaccinationLoading] = useState(false);
+  const [activeAppointment, setActiveAppointment] = useState(null);
 
   useEffect(() => {
     fetchPatientData();
@@ -62,12 +63,20 @@ export default function PatientDetails() {
   const fetchPatientData = async () => {
     try {
       setLoading(true);
-      const [patientRes, visitsRes] = await Promise.all([
+      const promises = [
         patientsAPI.getById(id),
         patientsAPI.getVisits(id)
-      ]);
+      ];
+      // Check for active OPD appointment if plugin is enabled
+      if (plugins?.opd_queue !== false) {
+        promises.push(opdAPI.getActiveAppointment(id).catch(() => ({ data: { appointment: null } })));
+      }
+      const [patientRes, visitsRes, activeApptRes] = await Promise.all(promises);
       setPatient(patientRes.data.patient);
       setVisits(visitsRes.data.visits || []);
+      if (activeApptRes) {
+        setActiveAppointment(activeApptRes.data.appointment);
+      }
     } catch (err) {
       console.error('Failed to fetch patient data:', err);
       setError('Failed to load patient data');
@@ -130,6 +139,15 @@ export default function PatientDetails() {
     setCustomComplaint('');
   };
 
+  const handleAddVisit = () => {
+    if (activeAppointment) {
+      const complaintsParam = encodeURIComponent(JSON.stringify(activeAppointment.chief_complaints));
+      navigate(`/visits/new?patientId=${patient.id}&appointmentId=${activeAppointment.id}&complaints=${complaintsParam}`);
+    } else {
+      navigate(`/visits/new?patientId=${patient.id}`);
+    }
+  };
+
   const handleAddToOPD = async () => {
     const allComplaints = [...selectedComplaints];
     if (customComplaint.trim()) {
@@ -150,6 +168,11 @@ export default function PatientDetails() {
       });
       toast.success(`${patient.full_name} added to OPD queue`);
       closeOPDModal();
+      // Refresh active appointment state so badge and button reflect the new queue entry
+      try {
+        const res = await opdAPI.getActiveAppointment(patient.id);
+        setActiveAppointment(res.data.appointment);
+      } catch {};
     } catch (error) {
       console.error('Failed to add to OPD:', error);
       toast.error(error.errorMessage || 'Failed to add patient to OPD queue');
@@ -197,7 +220,14 @@ export default function PatientDetails() {
               ← Back
             </button>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{patient.full_name}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            {patient.full_name}
+            {activeAppointment && (
+              <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                In OPD Queue #{activeAppointment.queue_number}
+              </span>
+            )}
+          </h1>
           <p className="text-gray-600 mt-1">Patient ID: {patient.patient_code}</p>
         </div>
         <div className="flex gap-3">
@@ -209,12 +239,12 @@ export default function PatientDetails() {
               + Add to OPD
             </button>
           )}
-          <Link
-            to={`/visits/new?patientId=${patient.id}`}
+          <button
+            onClick={handleAddVisit}
             className="btn btn-primary"
           >
             + Add Visit
-          </Link>
+          </button>
           <Link
             to={`/patients/${patient.id}/edit`}
             className="btn btn-secondary"

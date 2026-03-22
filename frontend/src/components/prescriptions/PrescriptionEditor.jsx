@@ -184,7 +184,7 @@ export default function PrescriptionEditor({ medicines, setMedicines, notes, set
           </div>
 
           {/* Desktop: table layout */}
-          <div className="hidden md:block overflow-x-auto">
+          <div className="hidden md:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b">
