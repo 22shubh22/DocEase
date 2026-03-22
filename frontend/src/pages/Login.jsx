@@ -2,16 +2,31 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
+import { GoogleLogin } from '@react-oauth/google';
 import useAuthStore from '../store/authStore';
 import PluginSelectionModal from '../components/common/PluginSelectionModal';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, guestLogin, isLoading, error } = useAuthStore();
+  const { login, googleLogin, guestLogin, isLoading, error } = useAuthStore();
   const { register, handleSubmit, formState: { errors } } = useForm();
   const [showPassword, setShowPassword] = useState(false);
   const [isGuestLoading, setIsGuestLoading] = useState(false);
   const [showPluginModal, setShowPluginModal] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setIsGoogleLoading(true);
+    const result = await googleLogin(credentialResponse.credential);
+    setIsGoogleLoading(false);
+
+    if (result.success) {
+      toast.success('Welcome!');
+      navigate('/');
+    } else {
+      toast.error(result.error);
+    }
+  };
 
   const onSubmit = async (data) => {
     const result = await login(data);
@@ -115,7 +130,7 @@ export default function Login() {
           <button
             type="submit"
             className="btn btn-primary w-full"
-            disabled={isLoading || isGuestLoading}
+            disabled={isLoading || isGuestLoading || isGoogleLoading}
           >
             {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
@@ -130,9 +145,28 @@ export default function Login() {
           </div>
         </div>
 
+        <div className="flex justify-center">
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => toast.error('Google sign-in failed')}
+            text="signin_with"
+            shape="rectangular"
+            width="100%"
+          />
+        </div>
+
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-200"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">or</span>
+          </div>
+        </div>
+
         <button
           onClick={handleGuestLogin}
-          disabled={isLoading || isGuestLoading}
+          disabled={isLoading || isGuestLoading || isGoogleLoading}
           className="w-full py-2.5 px-4 border-2 border-primary-300 text-primary-700 rounded-lg font-medium hover:bg-primary-50 hover:border-primary-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isGuestLoading ? 'Setting up demo...' : 'Try as Guest'}

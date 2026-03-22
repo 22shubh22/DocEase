@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.api import auth, patients, opd, visits, clinic, users, admin, chief_complaints, diagnosis_options, observation_options, test_options, medicine_options, dosage_options, duration_options, symptom_options, permissions, onboarding, print_template, audit, dpdp, fixture_templates, vaccinations
+from app.api import auth, patients, opd, visits, clinic, users, admin, chief_complaints, diagnosis_options, observation_options, test_options, medicine_options, dosage_options, duration_options, symptom_options, permissions, onboarding, print_template, audit, dpdp, fixture_templates, vaccinations, notifications
 from app.services.guest_service import cleanup_expired_guests
 from app.core.keepalive import db_keep_alive
 from app.services.analytics_service import compute_all_clinics_daily, backfill_stats
@@ -51,6 +51,43 @@ async def _daily_stats_worker():
             return
         except Exception:
             logger.exception("Daily stats worker error")
+
+
+async def _notification_worker():
+    """Background worker that sends vaccination/follow-up reminders daily at 9 AM IST."""
+    from datetime import datetime, timedelta
+    from app.core.database import SessionLocal as _WorkerSession
+    from app.models.models import Clinic
+    from app.services.notification_service import process_vaccination_reminders, process_follow_up_reminders
+
+    while True:
+        try:
+            # Target 9:00 AM IST (3:30 AM UTC)
+            now = datetime.utcnow()
+            target = now.replace(hour=3, minute=30, second=0, microsecond=0)
+            if now >= target:
+                target += timedelta(days=1)
+            sleep_seconds = (target - now).total_seconds()
+            await asyncio.sleep(sleep_seconds)
+
+            db = _WorkerSession()
+            try:
+                clinics = db.query(Clinic).filter(Clinic.plugin_notifications == True).all()
+                for c in clinics:
+                    try:
+                        vacc = process_vaccination_reminders(db, c)
+                        fu = process_follow_up_reminders(db, c)
+                        if vacc or fu:
+                            logger.info(f"Notifications for {c.name}: {vacc} vaccination, {fu} follow-up")
+                    except Exception:
+                        logger.exception(f"Notification error for clinic {c.id}")
+            finally:
+                db.close()
+        except asyncio.CancelledError:
+            logger.info("Notification worker cancelled")
+            return
+        except Exception:
+            logger.exception("Notification worker error")
 
 
 @asynccontextmanager
@@ -107,17 +144,25 @@ async def lifespan(app: FastAPI):
     # Start daily stats worker
     daily_stats_task = asyncio.create_task(_daily_stats_worker())
 
+    # Start notification worker
+    notification_task = asyncio.create_task(_notification_worker())
+
     yield
 
     # Shutdown: cancel background tasks, then dispose connections
     keep_alive_task.cancel()
     daily_stats_task.cancel()
+    notification_task.cancel()
     try:
         await keep_alive_task
     except asyncio.CancelledError:
         pass
     try:
         await daily_stats_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await notification_task
     except asyncio.CancelledError:
         pass
     logger.info("Background tasks stopped")
@@ -172,6 +217,7 @@ app.include_router(audit.router, prefix="/api/audit", tags=["Audit"])
 app.include_router(dpdp.router, prefix="/api/dpdp", tags=["DPDP Compliance"])
 app.include_router(fixture_templates.router, prefix="/api/admin/fixture-templates", tags=["Fixture Templates"])
 app.include_router(vaccinations.router, prefix="/api/vaccinations", tags=["Vaccinations"])
+app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
 
 @app.get("/health")
 async def health_check():

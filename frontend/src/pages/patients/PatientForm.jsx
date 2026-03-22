@@ -1,9 +1,37 @@
 import { useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { patientsAPI } from '../../services/api';
 import { validatePhoneRequired, validatePhoneOptional } from '../../utils/phoneValidation';
+
+function calculateDetailedAge(dobString) {
+  if (!dobString) return null;
+  const dob = new Date(dobString);
+  const today = new Date();
+  if (isNaN(dob.getTime()) || dob > today) return null;
+
+  let years = today.getFullYear() - dob.getFullYear();
+  let months = today.getMonth() - dob.getMonth();
+  let days = today.getDate() - dob.getDate();
+
+  if (days < 0) {
+    months--;
+    const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+    days += prevMonth.getDate();
+  }
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+
+  const parts = [];
+  if (years > 0) parts.push(`${years} year${years !== 1 ? 's' : ''}`);
+  if (months > 0) parts.push(`${months} month${months !== 1 ? 's' : ''}`);
+  if (days > 0 || parts.length === 0) parts.push(`${days} day${days !== 1 ? 's' : ''}`);
+
+  return { label: parts.join(', '), years };
+}
 
 export default function PatientForm() {
   const navigate = useNavigate();
@@ -11,7 +39,15 @@ export default function PatientForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(!!id);
 
-  const { register, handleSubmit, formState: { errors }, reset } = useForm();
+  const todayStr = new Date().toISOString().split('T')[0];
+  const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm({
+    defaultValues: {
+      patientSince: id ? '' : todayStr,
+    },
+  });
+
+  const dateOfBirth = watch('dateOfBirth');
+  const ageInfo = useMemo(() => calculateDetailedAge(dateOfBirth), [dateOfBirth]);
 
   useEffect(() => {
     if (id) {
@@ -51,7 +87,7 @@ export default function PatientForm() {
     try {
       const patientData = {
         full_name: data.fullName,
-        age: data.age ? parseInt(data.age) : null,
+        age: ageInfo ? ageInfo.years : null,
         date_of_birth: data.dateOfBirth || null,
         gender: data.gender || null,
         blood_group: data.bloodGroup || null,
@@ -137,20 +173,9 @@ export default function PatientForm() {
 
             <div>
               <label className="label">Age</label>
-              <input
-                type="number"
-                className="input"
-                placeholder="Age"
-                min="0"
-                max="150"
-                {...register('age', {
-                  min: { value: 0, message: 'Age must be positive' },
-                  max: { value: 150, message: 'Age must be realistic' }
-                })}
-              />
-              {errors.age && (
-                <p className="text-red-500 text-sm mt-1">{errors.age.message}</p>
-              )}
+              <div className="input bg-gray-50 flex items-center text-gray-700">
+                {ageInfo ? ageInfo.label : <span className="text-gray-400">Enter date of birth</span>}
+              </div>
             </div>
 
             <div>

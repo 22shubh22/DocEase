@@ -7,6 +7,7 @@ from app.models.models import (
     RoleEnum, GenderEnum, AppointmentStatusEnum, ClinicSpecialtyEnum,
     OnboardingRequestStatusEnum, AuditActionEnum, ConsentPurposeEnum,
     ConsentStatusEnum, ErasureStatusEnum,
+    NotificationChannelEnum, NotificationStatusEnum, NotificationTypeEnum,
 )
 
 
@@ -85,6 +86,10 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class GoogleAuthRequest(BaseModel):
+    credential: str  # Google ID token from frontend
+
+
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
@@ -94,9 +99,20 @@ class GuestCleanupRequest(BaseModel):
     user_id: str
 
 
+SUPPORTED_DEMO_SPECIALTIES = ["general_physician", "dental", "dermatology", "pediatrics"]
+
+
 class GuestSessionRequest(BaseModel):
     plugin_opd_queue: bool = True
     plugin_collections: bool = True
+    clinic_specialty: str = "general_physician"
+
+    @field_validator("clinic_specialty")
+    @classmethod
+    def validate_specialty(cls, v):
+        if v not in SUPPORTED_DEMO_SPECIALTIES:
+            raise ValueError(f"Unsupported specialty. Choose from: {SUPPORTED_DEMO_SPECIALTIES}")
+        return v
 
 
 # User Schemas
@@ -196,6 +212,7 @@ class ClinicPluginsUpdate(BaseModel):
     plugin_collections: Optional[bool] = None
     plugin_dpdp_compliance: Optional[bool] = None
     plugin_vaccination: Optional[bool] = None
+    plugin_notifications: Optional[bool] = None
 
 
 class ClinicResponse(ClinicBase):
@@ -776,6 +793,8 @@ class OnboardingRequestCreate(BaseModel):
     doctor_email: EmailStr
     doctor_phone: str
     clinic_name: str
+    password: Optional[str] = None
+    google_credential: Optional[str] = None
 
     @field_validator('doctor_phone')
     @classmethod
@@ -1280,3 +1299,56 @@ class VaccinationDashboardResponse(BaseModel):
     overdue: List[VaccinationDashboardPatient]
     due_this_week: List[VaccinationDashboardPatient]
     stats: dict
+
+
+# ── Notification Schemas ──
+
+class NotificationConfigUpdate(BaseModel):
+    msg91_auth_key: Optional[str] = None
+    sender_id: Optional[str] = None
+    reminder_days_before: int = 2
+    send_overdue: bool = True
+    send_follow_up: bool = True
+
+
+class NotificationConfigResponse(BaseModel):
+    msg91_auth_key_set: bool = False
+    sender_id: Optional[str] = None
+    reminder_days_before: int = 2
+    send_overdue: bool = True
+    send_follow_up: bool = True
+
+
+class NotificationLogResponse(BaseModel):
+    id: str
+    clinic_id: str
+    patient_id: Optional[str] = None
+    phone: str
+    channel: NotificationChannelEnum
+    notification_type: NotificationTypeEnum
+    status: NotificationStatusEnum
+    message_body: str
+    template_id: Optional[str] = None
+    provider_message_id: Optional[str] = None
+    error_message: Optional[str] = None
+    sent_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    patient_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationStatsResponse(BaseModel):
+    total_sent: int = 0
+    total_delivered: int = 0
+    total_failed: int = 0
+    by_type: dict = {}
+
+
+class NotificationHistoryResponse(BaseModel):
+    items: List[NotificationLogResponse]
+    total: int
+    page: int
+    limit: int

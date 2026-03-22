@@ -18,6 +18,10 @@ from app.fixtures.general_physician_fixtures import (
     GENERAL_CHIEF_COMPLAINTS, GENERAL_DIAGNOSES, GENERAL_OBSERVATIONS,
     GENERAL_TEST_OPTIONS, GENERAL_MEDICINES, GENERAL_SYMPTOMS,
 )
+from app.fixtures.pediatrics_fixtures import (
+    PEDIATRICS_CHIEF_COMPLAINTS, PEDIATRICS_DIAGNOSES, PEDIATRICS_OBSERVATIONS,
+    PEDIATRICS_TEST_OPTIONS, PEDIATRICS_MEDICINES, PEDIATRICS_SYMPTOMS,
+)
 
 SPECIALTY_TEMPLATES = {
     "dental": {
@@ -43,6 +47,14 @@ SPECIALTY_TEMPLATES = {
         "tests": GENERAL_TEST_OPTIONS,
         "medicines": GENERAL_MEDICINES,
         "symptoms": GENERAL_SYMPTOMS,
+    },
+    "pediatrics": {
+        "chief_complaints": PEDIATRICS_CHIEF_COMPLAINTS,
+        "diagnoses": PEDIATRICS_DIAGNOSES,
+        "observations": PEDIATRICS_OBSERVATIONS,
+        "tests": PEDIATRICS_TEST_OPTIONS,
+        "medicines": PEDIATRICS_MEDICINES,
+        "symptoms": PEDIATRICS_SYMPTOMS,
     },
 }
 

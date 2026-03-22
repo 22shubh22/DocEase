@@ -14,6 +14,8 @@ import SettingsSidebar from '../components/settings/SettingsSidebar';
 import PluginManager from '../components/settings/PluginManager';
 import AuditLogViewer from '../components/settings/AuditLogViewer';
 import DpdpSettings from '../components/settings/DpdpSettings';
+import NotificationConfig from '../components/settings/NotificationConfig';
+import NotificationHistory from '../components/settings/NotificationHistory';
 
 export default function Settings() {
   const { user, updateUser } = useAuthStore();
@@ -75,6 +77,13 @@ export default function Settings() {
       items: [
         { id: 'audit-logs', label: 'Audit Logs', icon: '📜' },
         { id: 'dpdp', label: 'DPDP Compliance', icon: '🛡️' },
+      ],
+    }] : []),
+    ...(isDoctor && isOwner && user?.enabled_plugins?.notifications ? [{
+      label: 'Notifications',
+      items: [
+        { id: 'notification-config', label: 'Notification Setup', icon: '📱' },
+        { id: 'notification-history', label: 'Message History', icon: '📨' },
       ],
     }] : []),
     {
@@ -224,6 +233,18 @@ export default function Settings() {
       case 'dpdp':
         if (isDoctor && isOwner) {
           return <DpdpSettings />;
+        }
+        return null;
+
+      case 'notification-config':
+        if (isDoctor && isOwner) {
+          return <NotificationConfig />;
+        }
+        return null;
+
+      case 'notification-history':
+        if (isDoctor && isOwner) {
+          return <NotificationHistory />;
         }
         return null;
 

@@ -77,6 +77,24 @@ class ErasureStatusEnum(str, enum.Enum):
     REJECTED = "REJECTED"
 
 
+class NotificationChannelEnum(str, enum.Enum):
+    WHATSAPP = "WHATSAPP"
+    SMS = "SMS"
+
+
+class NotificationStatusEnum(str, enum.Enum):
+    QUEUED = "QUEUED"
+    SENT = "SENT"
+    DELIVERED = "DELIVERED"
+    FAILED = "FAILED"
+
+
+class NotificationTypeEnum(str, enum.Enum):
+    VACCINATION_DUE = "VACCINATION_DUE"
+    VACCINATION_OVERDUE = "VACCINATION_OVERDUE"
+    FOLLOW_UP_REMINDER = "FOLLOW_UP_REMINDER"
+
+
 class Clinic(Base):
     __tablename__ = "clinics"
 
@@ -95,6 +113,8 @@ class Clinic(Base):
     plugin_collections = Column(Boolean, default=True, nullable=False, server_default=text('true'))
     plugin_dpdp_compliance = Column(Boolean, default=False, nullable=False, server_default=text('false'))
     plugin_vaccination = Column(Boolean, default=False, nullable=False, server_default=text('false'))
+    plugin_notifications = Column(Boolean, default=False, nullable=False, server_default=text('false'))
+    notification_config = Column(JSON, nullable=True)
     owner_doctor_id = Column(String, ForeignKey("doctors.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -118,6 +138,7 @@ class Clinic(Base):
     print_template = relationship("PrintTemplate", back_populates="clinic", uselist=False, cascade="all, delete-orphan")
     vaccination_schedule = relationship("VaccinationSchedule", back_populates="clinic", cascade="all, delete-orphan")
     vaccination_records = relationship("VaccinationRecord", back_populates="clinic", cascade="all, delete-orphan")
+    notification_logs = relationship("NotificationLog", back_populates="clinic", cascade="all, delete-orphan")
 
 
 class User(Base):
@@ -125,7 +146,8 @@ class User(Base):
 
     id = Column(String, primary_key=True, default=generate_uuid)
     email = Column(String, unique=True, nullable=False, index=True)
-    password_hash = Column(String, nullable=False)
+    password_hash = Column(String, nullable=True)
+    google_id = Column(String, unique=True, nullable=True, index=True)
     initial_password = Column(String, nullable=True)
     role = Column(Enum(RoleEnum), nullable=False)
     full_name = Column(String, nullable=False)
@@ -676,3 +698,25 @@ class VaccinationRecord(Base):
     __table_args__ = (
         UniqueConstraint('patient_id', 'vaccine_name', 'dose_number', name='uq_patient_vaccine_dose'),
     )
+
+
+class NotificationLog(Base):
+    __tablename__ = "notification_logs"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False, index=True)
+    patient_id = Column(String, ForeignKey("patients.id", ondelete="SET NULL"), nullable=True, index=True)
+    phone = Column(String, nullable=False)
+    channel = Column(Enum(NotificationChannelEnum), nullable=False)
+    notification_type = Column(Enum(NotificationTypeEnum), nullable=False)
+    status = Column(Enum(NotificationStatusEnum), nullable=False, default=NotificationStatusEnum.QUEUED)
+    message_body = Column(Text, nullable=False)
+    template_id = Column(String, nullable=True)
+    provider_message_id = Column(String, nullable=True)
+    error_message = Column(String, nullable=True)
+    sent_at = Column(DateTime(timezone=True), nullable=True)
+    delivered_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    clinic = relationship("Clinic", back_populates="notification_logs")
+    patient = relationship("Patient")
