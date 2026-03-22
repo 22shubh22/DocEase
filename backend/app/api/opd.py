@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user, require_permission, require_plugin, get_client_ip
 from app.models.models import User, Appointment, Patient, AppointmentStatusEnum, Visit, Doctor, AuditActionEnum
 from app.schemas.schemas import AppointmentCreate, AppointmentUpdate, AppointmentPositionUpdate
+from app.utils.age import format_age_display
 from app.services.audit_service import create_audit_log
 
 router = APIRouter()
@@ -65,6 +66,7 @@ async def get_queue(
                 "full_name": apt.patient.full_name,
                 "patient_code": apt.patient.patient_code,
                 "age": apt.patient.age,
+                "age_display": format_age_display(apt.patient.date_of_birth, apt.patient.age),
                 "phone": apt.patient.phone,
                 "address": apt.patient.address,
             } if apt.patient else None,

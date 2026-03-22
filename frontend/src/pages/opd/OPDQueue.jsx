@@ -608,7 +608,7 @@ export default function OPDQueue() {
                         {item.patient_name || item.patient?.full_name}
                       </h3>
                       <p className="text-sm text-gray-600">
-                        {item.patient_code || item.patient?.patient_code} • {item.patient?.age} yrs • {item.patient?.phone}
+                        {item.patient_code || item.patient?.patient_code} • {item.patient?.age_display || `${item.patient?.age}y`} • {item.patient?.phone}
                       </p>
                     </div>
                     <span className={getStatusBadgeClass(item.status)}>

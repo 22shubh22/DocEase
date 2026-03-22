@@ -612,7 +612,7 @@ export default function VisitForm() {
                     <div>
                       <p className="font-medium text-gray-900">{selectedPatient.full_name}</p>
                       <p className="text-sm text-gray-600">
-                        {selectedPatient.patient_code} • {selectedPatient.age} years • {selectedPatient.gender}
+                        {selectedPatient.patient_code} • {selectedPatient.age_display || `${selectedPatient.age}y`} • {selectedPatient.gender}
                       </p>
                     </div>
                   </div>
@@ -626,7 +626,7 @@ export default function VisitForm() {
                   <option value="">Choose a patient...</option>
                   {patients.map(patient => (
                     <option key={patient.id} value={patient.id}>
-                      {patient.patient_code} - {patient.full_name} ({patient.age} yrs)
+                      {patient.patient_code} - {patient.full_name} ({patient.age_display || `${patient.age}y`})
                     </option>
                   ))}
                 </select>

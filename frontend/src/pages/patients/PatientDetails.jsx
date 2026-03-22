@@ -260,7 +260,7 @@ export default function PatientDetails() {
               )}
               <div className="flex justify-between">
                 <span className="text-gray-600">Age</span>
-                <span className="font-medium">{patient.age} years</span>
+                <span className="font-medium">{patient.age_display || `${patient.age}y`}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Gender</span>

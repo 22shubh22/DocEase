@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user, require_permission, require_plugin, get_client_ip
 from app.models.models import User, Visit, Appointment, AppointmentStatusEnum, Doctor, Patient, VisitMedicine, User as UserModel, AuditActionEnum
 from app.schemas.schemas import VisitCreate, VisitUpdate, CollectionSummaryResponse
+from app.utils.age import format_age_display
 from app.services.audit_service import create_audit_log, get_model_dict, compute_changes
 
 router = APIRouter()
@@ -357,6 +358,7 @@ async def get_visit_by_id(
                 "full_name": patient.full_name,
                 "patient_code": patient.patient_code,
                 "age": patient.age,
+                "age_display": format_age_display(patient.date_of_birth, patient.age),
                 "gender": patient.gender.value if patient.gender else None,
                 "blood_group": patient.blood_group,
                 "allergies": patient.allergies or [],

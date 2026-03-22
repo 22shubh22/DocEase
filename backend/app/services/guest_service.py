@@ -557,23 +557,13 @@ def create_guest_session(db: Session, plugin_opd_queue: bool = True, plugin_coll
     # 6. Seed clinic fixtures (chief complaints, medicines, etc.)
     seed_fixtures_for_clinic(db, clinic.id, specialty=clinic_specialty)
 
-    # 7. Create demo patients (generate unique patient codes)
-    max_pt_num = 0
-    for p in db.query(Patient).all():
-        if p.patient_code and '-' in p.patient_code:
-            try:
-                num = int(p.patient_code.split('-')[1])
-                if num > max_pt_num:
-                    max_pt_num = num
-            except (ValueError, IndexError):
-                continue
-
+    # 7. Create demo patients (new guest clinic, start from PT-0001)
     demo_patients, demo_historical_visits = _get_demo_data(clinic_specialty)
 
     patients = []
     for i, pdata in enumerate(demo_patients):
         patient = Patient(
-            patient_code=f"PT-{str(max_pt_num + i + 1).zfill(4)}",
+            patient_code=f"PT-{str(i + 1).zfill(4)}",
             clinic_id=clinic.id,
             created_by=user.id,
             **pdata,

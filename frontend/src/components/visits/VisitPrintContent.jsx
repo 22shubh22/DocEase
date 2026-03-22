@@ -129,7 +129,7 @@ const VisitPrintContent = forwardRef(({
                 <div className="flex flex-wrap gap-x-4 text-sm text-gray-700 mt-1">
                   <span>ID: {patient?.patient_code || '-'}</span>
                   {visitNumber && <span>Visit #: {visitNumber}</span>}
-                  <span>Age: {patient?.age || '-'} yrs</span>
+                  <span>Age: {patient?.age_display || patient?.age || '-'}</span>
                   <span>Gender: {patient?.gender || '-'}</span>
                   {patient?.blood_group && <span>Blood Group: {patient.blood_group}</span>}
                 </div>

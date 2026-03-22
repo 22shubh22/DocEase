@@ -188,9 +188,12 @@ class Doctor(Base):
 
 class Patient(Base):
     __tablename__ = "patients"
+    __table_args__ = (
+        UniqueConstraint('clinic_id', 'patient_code', name='uq_clinic_patient_code'),
+    )
 
     id = Column(String, primary_key=True, default=generate_uuid)
-    patient_code = Column(String, unique=True, nullable=False, index=True)
+    patient_code = Column(String, nullable=False, index=True)
     full_name = Column(String, nullable=False)
     age = Column(Integer)
     gender = Column(Enum(GenderEnum))
@@ -201,6 +204,7 @@ class Patient(Base):
     allergies = Column(ARRAY(String), default=[])
     medical_history = Column(JSON)
     is_anonymized = Column(Boolean, default=False, nullable=False, server_default=text('false'))
+    is_deleted = Column(Boolean, default=False, nullable=False, server_default=text('false'))
     clinic_id = Column(String, ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
     created_by = Column(String, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -147,7 +147,7 @@ export default function VisitDetails() {
             <div className="flex justify-between">
               <span className="text-gray-600">Age / Gender</span>
               <span className="font-medium">
-                {patient?.age ? `${patient.age} years` : '-'} / {patient?.gender?.toLowerCase() || '-'}
+                {patient?.age_display || (patient?.age ? `${patient.age}y` : '-')} / {patient?.gender?.toLowerCase() || '-'}
               </span>
             </div>
             <div className="flex justify-between">

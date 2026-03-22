@@ -7,6 +7,7 @@ from app.core.deps import get_current_user, require_permission, get_client_ip
 from app.models.models import User, Patient, Visit, VisitMedicine, AuditActionEnum
 from app.schemas.schemas import PatientCreate, PatientUpdate, PatientResponse
 from app.services.audit_service import create_audit_log, get_model_dict, compute_changes
+from app.utils.age import format_age_display
 
 router = APIRouter()
 
@@ -18,6 +19,7 @@ def patient_to_dict(patient):
         "patient_code": patient.patient_code,
         "full_name": patient.full_name,
         "age": patient.age,
+        "age_display": format_age_display(patient.date_of_birth, patient.age),
         "gender": patient.gender,
         "phone": patient.phone,
         "emergency_contact": patient.emergency_contact,
@@ -47,10 +49,14 @@ async def get_all_patients(
     """Get all patients with pagination"""
     skip = (page - 1) * limit
 
-    total = db.query(Patient).filter(Patient.clinic_id == current_user.clinic_id).count()
+    total = db.query(Patient).filter(
+        Patient.clinic_id == current_user.clinic_id,
+        Patient.is_deleted == False
+    ).count()
 
     patients = db.query(Patient).filter(
-        Patient.clinic_id == current_user.clinic_id
+        Patient.clinic_id == current_user.clinic_id,
+        Patient.is_deleted == False
     ).order_by(Patient.created_at.desc()).offset(skip).limit(limit).all()
 
     return {
@@ -71,7 +77,8 @@ async def get_patient_stats(
 ):
     """Get patient statistics"""
     total_patients = db.query(Patient).filter(
-        Patient.clinic_id == current_user.clinic_id
+        Patient.clinic_id == current_user.clinic_id,
+        Patient.is_deleted == False
     ).count()
 
     return {
@@ -107,6 +114,7 @@ async def search_patients(
     # All term conditions must be satisfied (AND logic)
     patients = db.query(Patient).filter(
         Patient.clinic_id == current_user.clinic_id,
+        Patient.is_deleted == False,
         and_(*conditions)
     ).limit(20).all()
 
@@ -124,7 +132,8 @@ async def get_patient_by_id(
     """Get patient by ID"""
     patient = db.query(Patient).filter(
         Patient.id == patient_id,
-        Patient.clinic_id == current_user.clinic_id
+        Patient.clinic_id == current_user.clinic_id,
+        Patient.is_deleted == False
     ).first()
 
     if not patient:
@@ -147,6 +156,7 @@ async def get_patient_by_id(
         "patient_code": patient.patient_code,
         "full_name": patient.full_name,
         "age": patient.age,
+        "age_display": format_age_display(patient.date_of_birth, patient.age),
         "gender": patient.gender,
         "phone": patient.phone,
         "emergency_contact": patient.emergency_contact,
@@ -177,12 +187,13 @@ async def create_patient(
     db: Session = Depends(get_db)
 ):
     """Create a new patient"""
-    # Generate patient code by finding the global maximum numeric value
+    # Generate patient code scoped to the current clinic
     max_num_result = db.query(
         func.max(
             cast(func.split_part(Patient.patient_code, '-', 2), Integer)
         )
     ).filter(
+        Patient.clinic_id == current_user.clinic_id,
         Patient.patient_code.like('PT-%')
     ).scalar()
 
@@ -234,7 +245,8 @@ async def update_patient(
     """Update patient information"""
     patient = db.query(Patient).filter(
         Patient.id == patient_id,
-        Patient.clinic_id == current_user.clinic_id
+        Patient.clinic_id == current_user.clinic_id,
+        Patient.is_deleted == False
     ).first()
 
     if not patient:
@@ -286,7 +298,8 @@ async def delete_patient(
     """Delete a patient (requires can_delete_patients permission)"""
     patient = db.query(Patient).filter(
         Patient.id == patient_id,
-        Patient.clinic_id == current_user.clinic_id
+        Patient.clinic_id == current_user.clinic_id,
+        Patient.is_deleted == False
     ).first()
 
     if not patient:
@@ -295,7 +308,7 @@ async def delete_patient(
     old_snapshot = get_model_dict(patient, exclude_fields=['clinic', 'creator', 'appointments', 'visits'])
     patient_code = patient.patient_code
 
-    db.delete(patient)
+    patient.is_deleted = True
     db.commit()
 
     background_tasks.add_task(
@@ -306,7 +319,7 @@ async def delete_patient(
         user_id=current_user.id,
         user_email=current_user.email,
         clinic_id=current_user.clinic_id,
-        description=f"Deleted patient {patient_code}",
+        description=f"Soft-deleted patient {patient_code}",
         old_values=old_snapshot,
         ip_address=get_client_ip(request),
     )

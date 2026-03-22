@@ -140,10 +140,10 @@ export default function Dashboard() {
                   <td className="px-3 sm:px-4 py-3 text-sm font-medium text-gray-900">{patient.patient_code || patient.patientCode}</td>
                   <td className="px-3 sm:px-4 py-3 text-sm text-gray-900">
                     <div>{patient.full_name || patient.fullName}</div>
-                    <div className="text-xs text-gray-500 sm:hidden">{patient.age} / {patient.gender}</div>
+                    <div className="text-xs text-gray-500 sm:hidden">{patient.age_display || patient.age} / {patient.gender}</div>
                   </td>
                   <td className="hidden md:table-cell px-4 py-3 text-sm text-gray-600">{patient.phone}</td>
-                  <td className="hidden sm:table-cell px-4 py-3 text-sm text-gray-600">{patient.age} / {patient.gender}</td>
+                  <td className="hidden sm:table-cell px-4 py-3 text-sm text-gray-600">{patient.age_display || patient.age} / {patient.gender}</td>
                 </tr>
               ))}
             </tbody>
