@@ -373,7 +373,7 @@ export default function PatientsList() {
                 <input
                   type="text"
                   className="input"
-                  placeholder="Custom complaints (comma separated)"
+                  placeholder="e.g., Fever, Cold, Not eating well"
                   value={customComplaint}
                   onChange={(e) => setCustomComplaint(e.target.value)}
                 />

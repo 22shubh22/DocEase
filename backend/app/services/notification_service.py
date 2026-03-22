@@ -206,13 +206,14 @@ def process_vaccination_reminders(db: Session, clinic: Clinic) -> int:
             continue
 
         vaccine_names = ", ".join(child_data["due_vaccines"])
+        guardian_display = patient.guardian_name or "Parent"
         message = (
-            f"Dear Parent, reminder from {clinic.name}: "
+            f"Dear {guardian_display}, reminder from {clinic.name}: "
             f"{child_data['patient_name']}'s vaccination is due - {vaccine_names}. "
             f"Please visit the clinic. Reply STOP to opt out."
         )
         template_params = {
-            "parent_name": "Parent",
+            "parent_name": guardian_display,
             "clinic_name": clinic.name,
             "child_name": child_data["patient_name"],
             "vaccine_names": vaccine_names,
@@ -240,12 +241,13 @@ def process_vaccination_reminders(db: Session, clinic: Clinic) -> int:
                 continue
 
             vaccine_names = ", ".join(child_data["overdue_vaccines"])
+            guardian_display = patient.guardian_name or "Parent"
             message = (
-                f"Dear Parent, {child_data['patient_name']} has overdue vaccination(s) "
+                f"Dear {guardian_display}, {child_data['patient_name']} has overdue vaccination(s) "
                 f"at {clinic.name}: {vaccine_names}. Please visit soon. Reply STOP to opt out."
             )
             template_params = {
-                "parent_name": "Parent",
+                "parent_name": guardian_display,
                 "child_name": child_data["patient_name"],
                 "clinic_name": clinic.name,
                 "vaccine_names": vaccine_names,

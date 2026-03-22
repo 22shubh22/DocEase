@@ -358,7 +358,7 @@ export default function OPDQueue() {
                     <input
                       type="text"
                       className="input"
-                      placeholder="Add custom complaints (comma separated)"
+                      placeholder="e.g., Fever, Cough, Loose motions"
                       value={customComplaint}
                       onChange={(e) => setCustomComplaint(e.target.value)}
                     />

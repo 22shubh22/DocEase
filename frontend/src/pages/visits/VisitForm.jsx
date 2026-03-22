@@ -678,7 +678,7 @@ export default function VisitForm() {
               <input
                 type="text"
                 className={`input ${errors.bp ? 'border-red-500' : ''}`}
-                placeholder="e.g., 120/80"
+                placeholder="e.g., 90/60"
                 {...register('bp', { validate: validateBP })}
               />
               {errors.bp && (
@@ -702,7 +702,7 @@ export default function VisitForm() {
               <input
                 type="number"
                 className={`input ${errors.pulse ? 'border-red-500' : ''}`}
-                placeholder="e.g., 72"
+                placeholder="e.g., 100"
                 {...register('pulse', { validate: validatePulse })}
               />
               {errors.pulse && (
@@ -715,7 +715,7 @@ export default function VisitForm() {
                 type="number"
                 step="0.1"
                 className={`input ${errors.weight ? 'border-red-500' : ''}`}
-                placeholder="e.g., 70"
+                placeholder="e.g., 24"
                 {...register('weight', { validate: validateWeight })}
               />
               {errors.weight && (
@@ -727,7 +727,7 @@ export default function VisitForm() {
               <input
                 type="number"
                 className={`input ${errors.height ? 'border-red-500' : ''}`}
-                placeholder="e.g., 170"
+                placeholder="e.g., 95"
                 {...register('height', { validate: validateHeight })}
               />
               {errors.height && (
@@ -739,7 +739,7 @@ export default function VisitForm() {
               <input
                 type="number"
                 className={`input ${errors.spo2 ? 'border-red-500' : ''}`}
-                placeholder="e.g., 98"
+                placeholder="e.g., 14"
                 {...register('spo2', { validate: validateSpO2 })}
               />
               {errors.spo2 && (
@@ -808,7 +808,7 @@ export default function VisitForm() {
                   <input
                     type="text"
                     className="input"
-                    placeholder="Add custom symptoms (comma separated)"
+                    placeholder="e.g., Cough, Loose stools, Not feeding well"
                     value={customSymptom}
                     onChange={(e) => setCustomSymptom(e.target.value)}
                   />
@@ -872,7 +872,7 @@ export default function VisitForm() {
                   <input
                     type="text"
                     className="input"
-                    placeholder="Add custom diagnoses (comma separated)"
+                    placeholder="e.g., Viral URTI, Acute bronchiolitis"
                     value={customDiagnosis}
                     onChange={(e) => setCustomDiagnosis(e.target.value)}
                   />
@@ -936,7 +936,7 @@ export default function VisitForm() {
                   <input
                     type="text"
                     className="input"
-                    placeholder="Add custom observations (comma separated)"
+                    placeholder="e.g., Mild dehydration, Throat congested"
                     value={customObservation}
                     onChange={(e) => setCustomObservation(e.target.value)}
                   />
@@ -999,7 +999,7 @@ export default function VisitForm() {
                     <input
                       type="text"
                       className="input"
-                      placeholder="Add custom tests (comma separated)"
+                      placeholder="e.g., CBC, CRP, Dengue NS1"
                       value={customTest}
                       onChange={(e) => setCustomTest(e.target.value)}
                     />
@@ -1013,7 +1013,7 @@ export default function VisitForm() {
                   <input
                     type="text"
                     className="input"
-                    placeholder="e.g., CBC, Blood Sugar (comma separated)"
+                    placeholder="e.g., CBC, CRP, Stool R/M (comma separated)"
                     value={customTest}
                     onChange={(e) => setCustomTest(e.target.value)}
                   />

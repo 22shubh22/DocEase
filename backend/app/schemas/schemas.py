@@ -260,6 +260,9 @@ class PatientBase(BaseModel):
     blood_group: Optional[str] = None
     allergies: Optional[List[str]] = []
     medical_history: Optional[dict] = None
+    guardian_name: Optional[str] = None
+    guardian_phone: Optional[str] = None
+    guardian_relationship: Optional[str] = None
 
     @field_validator('phone')
     @classmethod
@@ -272,6 +275,13 @@ class PatientBase(BaseModel):
         if v is None or v.strip() == '':
             return v
         return validate_phone_number(v, 'Emergency contact')
+
+    @field_validator('guardian_phone')
+    @classmethod
+    def validate_guardian_phone(cls, v):
+        if v is None or v.strip() == '':
+            return v
+        return validate_phone_number(v, 'Guardian phone')
 
 
 class PatientCreate(PatientBase):

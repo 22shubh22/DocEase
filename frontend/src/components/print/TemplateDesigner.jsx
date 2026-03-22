@@ -267,7 +267,7 @@ export default function TemplateDesigner({ user }) {
                       type="text"
                       value={headerConfig.custom_tagline || ''}
                       onChange={e => updateLocalConfig('header', 'custom_tagline', e.target.value)}
-                      placeholder="e.g. Your health is our priority"
+                      placeholder="e.g. Caring for your little ones"
                       className="input mt-1"
                       disabled={!canEdit}
                     />
@@ -299,7 +299,7 @@ export default function TemplateDesigner({ user }) {
                       type="text"
                       value={footerConfig.custom_footer_text || ''}
                       onChange={e => updateLocalConfig('footer', 'custom_footer_text', e.target.value)}
-                      placeholder="e.g. Thank you for visiting us"
+                      placeholder="e.g. Wishing your child a speedy recovery"
                       className="input mt-1"
                       disabled={!canEdit}
                     />

@@ -48,6 +48,7 @@ export default function PatientForm() {
 
   const dateOfBirth = watch('dateOfBirth');
   const ageInfo = useMemo(() => calculateDetailedAge(dateOfBirth), [dateOfBirth]);
+  const isMinor = ageInfo && ageInfo.years < 18;
 
   useEffect(() => {
     if (id) {
@@ -69,6 +70,9 @@ export default function PatientForm() {
             allergies: Array.isArray(patient.allergies) ? patient.allergies.join(', ') : (patient.allergies || ''),
             medicalHistory: patient.medical_history?.notes || (typeof patient.medical_history === 'string' ? patient.medical_history : ''),
             patientSince: patient.created_at ? patient.created_at.split('T')[0] : '',
+            guardianName: patient.guardian_name || '',
+            guardianPhone: patient.guardian_phone || '',
+            guardianRelationship: patient.guardian_relationship || '',
           });
         } catch (error) {
           console.error('Error fetching patient:', error);
@@ -101,6 +105,9 @@ export default function PatientForm() {
           ? { notes: data.medicalHistory }
           : null,
         patient_since: data.patientSince || null,
+        guardian_name: isMinor ? data.guardianName || null : null,
+        guardian_phone: isMinor ? data.phone || null : null,
+        guardian_relationship: isMinor ? data.guardianRelationship || null : null,
       };
 
       if (id) {
@@ -151,7 +158,7 @@ export default function PatientForm() {
               <input
                 type="text"
                 className="input"
-                placeholder="Enter full name"
+                placeholder="Enter child's full name"
                 {...register('fullName', { required: 'Full name is required' })}
               />
               {errors.fullName && (
@@ -217,17 +224,64 @@ export default function PatientForm() {
           </div>
         </div>
 
+        {isMinor && (
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">
+              Guardian / Parent Information
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Patient is a minor. Please provide guardian details.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="label">Guardian Name *</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Enter guardian's full name"
+                  {...register('guardianName', {
+                    required: isMinor ? 'Guardian name is required for minor patients' : false
+                  })}
+                />
+                {errors.guardianName && (
+                  <p className="text-red-500 text-sm mt-1">{errors.guardianName.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="label">Relationship *</label>
+                <select
+                  className="input"
+                  {...register('guardianRelationship', {
+                    required: isMinor ? 'Relationship is required for minor patients' : false
+                  })}
+                >
+                  <option value="">Select relationship</option>
+                  <option value="Mother">Mother</option>
+                  <option value="Father">Father</option>
+                  <option value="Grandparent">Grandparent</option>
+                  <option value="Legal Guardian">Legal Guardian</option>
+                  <option value="Other">Other</option>
+                </select>
+                {errors.guardianRelationship && (
+                  <p className="text-red-500 text-sm mt-1">{errors.guardianRelationship.message}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">
             Contact Information
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="label">Phone Number *</label>
+              <label className="label">{isMinor ? "Guardian's Phone *" : 'Phone Number *'}</label>
               <input
                 type="tel"
                 className="input"
-                placeholder="+91 1234567890"
+                placeholder="+91 98765 43210"
                 {...register('phone', {
                   validate: validatePhoneRequired
                 })}
@@ -238,11 +292,11 @@ export default function PatientForm() {
             </div>
 
             <div>
-              <label className="label">Emergency Contact</label>
+              <label className="label">{isMinor ? 'Alternate Contact' : 'Emergency Contact'}</label>
               <input
                 type="tel"
                 className="input"
-                placeholder="+91 1234567890"
+                placeholder="+91 98765 43210"
                 {...register('emergencyContact', {
                   validate: validatePhoneOptional
                 })}
@@ -274,7 +328,7 @@ export default function PatientForm() {
               <input
                 type="text"
                 className="input"
-                placeholder="e.g., Penicillin, Peanuts (comma separated)"
+                placeholder="e.g., Milk, Eggs, Amoxicillin (comma separated)"
                 {...register('allergies')}
               />
               <p className="text-sm text-gray-500 mt-1">
@@ -287,7 +341,7 @@ export default function PatientForm() {
               <textarea
                 className="input"
                 rows="4"
-                placeholder="Previous conditions, surgeries, ongoing treatments, etc."
+                placeholder="e.g., Birth history, neonatal jaundice, previous hospitalizations"
                 {...register('medicalHistory')}
               />
             </div>

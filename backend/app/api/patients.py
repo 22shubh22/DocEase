@@ -25,6 +25,10 @@ def patient_to_dict(patient):
         "blood_group": patient.blood_group,
         "allergies": patient.allergies,
         "medical_history": patient.medical_history,
+        "date_of_birth": patient.date_of_birth.isoformat() if patient.date_of_birth else None,
+        "guardian_name": patient.guardian_name,
+        "guardian_phone": patient.guardian_phone,
+        "guardian_relationship": patient.guardian_relationship,
         "clinic_id": patient.clinic_id,
         "created_by": patient.created_by,
         "created_by_name": patient.creator.full_name if patient.creator else "System",
@@ -95,7 +99,8 @@ async def search_patients(
             Patient.full_name.ilike(f"%{term}%"),
             Patient.phone.contains(term),
             Patient.patient_code.ilike(f"%{term}%"),
-            Patient.address.ilike(f"%{term}%")
+            Patient.address.ilike(f"%{term}%"),
+            Patient.guardian_name.ilike(f"%{term}%")
         )
         conditions.append(term_condition)
 
@@ -149,6 +154,10 @@ async def get_patient_by_id(
         "blood_group": patient.blood_group,
         "allergies": patient.allergies,
         "medical_history": patient.medical_history,
+        "date_of_birth": patient.date_of_birth.isoformat() if patient.date_of_birth else None,
+        "guardian_name": patient.guardian_name,
+        "guardian_phone": patient.guardian_phone,
+        "guardian_relationship": patient.guardian_relationship,
         "clinic_id": patient.clinic_id,
         "created_by": patient.created_by,
         "created_at": patient.created_at,

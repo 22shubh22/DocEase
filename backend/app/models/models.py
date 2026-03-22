@@ -208,6 +208,10 @@ class Patient(Base):
 
     date_of_birth = Column(Date, nullable=True)
 
+    guardian_name = Column(String, nullable=True)
+    guardian_phone = Column(String, nullable=True)
+    guardian_relationship = Column(String, nullable=True)
+
     clinic = relationship("Clinic", back_populates="patients")
     creator = relationship("User", back_populates="created_patients")
     appointments = relationship("Appointment", back_populates="patient", cascade="all, delete-orphan")

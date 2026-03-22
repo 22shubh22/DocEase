@@ -290,12 +290,30 @@ export default function PatientDetails() {
           <div className="card">
             <h2 className="text-xl font-semibold mb-4 pb-2 border-b">Contact Information</h2>
             <div className="space-y-3">
+              {patient.guardian_name && (
+                <>
+                  <div>
+                    <span className="text-gray-600 block mb-1">Guardian Name</span>
+                    <span className="font-medium">{patient.guardian_name}</span>
+                  </div>
+                  {patient.guardian_relationship && (
+                    <div>
+                      <span className="text-gray-600 block mb-1">Relationship</span>
+                      <span className="font-medium">{patient.guardian_relationship}</span>
+                    </div>
+                  )}
+                </>
+              )}
               <div>
-                <span className="text-gray-600 block mb-1">Phone Number</span>
+                <span className="text-gray-600 block mb-1">
+                  {patient.guardian_name ? "Guardian's Phone" : 'Phone Number'}
+                </span>
                 <span className="font-medium">{patient.phone}</span>
               </div>
               <div>
-                <span className="text-gray-600 block mb-1">Emergency Contact</span>
+                <span className="text-gray-600 block mb-1">
+                  {patient.guardian_name ? 'Alternate Contact' : 'Emergency Contact'}
+                </span>
                 <span className="font-medium">{patient.emergency_contact || 'Not provided'}</span>
               </div>
               <div>
@@ -556,7 +574,7 @@ export default function PatientDetails() {
                 <input
                   type="text"
                   className="input"
-                  placeholder="Custom complaints (comma separated)"
+                  placeholder="e.g., Fever, Cold, Not eating well"
                   value={customComplaint}
                   onChange={(e) => setCustomComplaint(e.target.value)}
                 />

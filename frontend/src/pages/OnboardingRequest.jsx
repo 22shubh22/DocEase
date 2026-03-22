@@ -175,7 +175,7 @@ export default function OnboardingRequest() {
               <input
                 type="text"
                 className={`input ${googleMode ? 'bg-gray-50' : ''}`}
-                placeholder="Dr. John Doe"
+                placeholder="Dr. Priya Sharma"
                 readOnly={googleMode}
                 {...register('doctor_name', { required: 'Doctor name is required' })}
               />
@@ -187,7 +187,7 @@ export default function OnboardingRequest() {
               <input
                 type="email"
                 className={`input ${googleMode ? 'bg-gray-50' : ''}`}
-                placeholder="doctor@example.com"
+                placeholder="doctor@childclinic.com"
                 readOnly={googleMode}
                 {...register('doctor_email', {
                   required: 'Email is required',
@@ -215,7 +215,7 @@ export default function OnboardingRequest() {
               <input
                 type="text"
                 className="input"
-                placeholder="My Clinic"
+                placeholder="Little Stars Child Clinic"
                 {...register('clinic_name', { required: 'Clinic name is required' })}
               />
               {errors.clinic_name && <p className="text-red-500 text-sm mt-1">{errors.clinic_name.message}</p>}

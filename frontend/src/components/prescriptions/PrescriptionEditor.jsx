@@ -222,7 +222,7 @@ export default function PrescriptionEditor({ medicines, setMedicines, notes, set
         <textarea
           className="input"
           rows="2"
-          placeholder="e.g., Take after meals, Avoid dairy products, Return if symptoms persist..."
+          placeholder="e.g., Give plenty of fluids, Continue breastfeeding, Follow up if fever persists..."
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
         />

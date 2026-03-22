@@ -89,7 +89,7 @@ export default function Login() {
               type="email"
               className="input"
               {...register('email', { required: 'Email is required' })}
-              placeholder="doctor@clinic.com"
+              placeholder="doctor@childclinic.com"
             />
             {errors.email && (
               <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>

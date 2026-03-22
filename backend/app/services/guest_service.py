@@ -247,6 +247,9 @@ DEMO_PATIENTS_PEDIATRICS = [
         "blood_group": "O+",
         "allergies": [],
         "medical_history": {"conditions": [], "notes": "3 month old, born full-term, birth weight 3.1 kg"},
+        "guardian_name": "Priya Mehta",
+        "guardian_phone": "9876543201",
+        "guardian_relationship": "Mother",
     },
     {
         "full_name": "Aadhya Sharma",
@@ -258,6 +261,9 @@ DEMO_PATIENTS_PEDIATRICS = [
         "blood_group": "A+",
         "allergies": [],
         "medical_history": {"conditions": [], "notes": "18 months old, vaccinations up to date"},
+        "guardian_name": "Ritu Sharma",
+        "guardian_phone": "9876543202",
+        "guardian_relationship": "Mother",
     },
     {
         "full_name": "Vihaan Patel",
@@ -269,6 +275,9 @@ DEMO_PATIENTS_PEDIATRICS = [
         "blood_group": "B+",
         "allergies": ["Peanuts"],
         "medical_history": {"conditions": ["Recurrent wheezing"], "notes": "History of bronchiolitis at 8 months"},
+        "guardian_name": "Rajesh Patel",
+        "guardian_phone": "9876543203",
+        "guardian_relationship": "Father",
     },
     {
         "full_name": "Ananya Gupta",
@@ -280,6 +289,9 @@ DEMO_PATIENTS_PEDIATRICS = [
         "blood_group": "AB+",
         "allergies": [],
         "medical_history": {},
+        "guardian_name": "Sunita Gupta",
+        "guardian_phone": "9876543204",
+        "guardian_relationship": "Mother",
     },
     {
         "full_name": "Reyansh Singh",
@@ -291,6 +303,9 @@ DEMO_PATIENTS_PEDIATRICS = [
         "blood_group": "O-",
         "allergies": ["Dust mites"],
         "medical_history": {"conditions": ["Childhood Asthma"], "notes": "Uses inhaler SOS, well controlled"},
+        "guardian_name": "Harpreet Singh",
+        "guardian_phone": "9876543205",
+        "guardian_relationship": "Father",
     },
     {
         "full_name": "Myra Kapoor",
@@ -302,6 +317,9 @@ DEMO_PATIENTS_PEDIATRICS = [
         "blood_group": "A-",
         "allergies": [],
         "medical_history": {"conditions": [], "notes": "15 day old newborn, normal delivery, birth weight 2.9 kg"},
+        "guardian_name": "Kavita Kapoor",
+        "guardian_phone": "9876543206",
+        "guardian_relationship": "Mother",
     },
 ]
 
