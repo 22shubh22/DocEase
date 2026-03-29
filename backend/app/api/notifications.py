@@ -19,7 +19,9 @@ from app.schemas.schemas import (
 from app.services.notification_service import (
     process_vaccination_reminders, process_follow_up_reminders,
     send_notification, _get_notification_config,
+    has_communication_consent, _already_notified_today,
 )
+from app.services.vaccination_service import compute_due_vaccines
 
 router = APIRouter()
 
@@ -210,4 +212,76 @@ async def trigger_reminders(
     return {
         "vaccination_reminders_sent": vacc_count,
         "follow_up_reminders_sent": fu_count,
+    }
+
+
+@router.post("/send-reminder/{patient_id}")
+async def send_patient_reminder(
+    patient_id: str,
+    current_user: User = Depends(require_plugin("notifications")),
+    db: Session = Depends(get_db),
+):
+    """Send a vaccination reminder to a specific patient via WhatsApp/SMS."""
+    clinic = db.query(Clinic).filter(Clinic.id == current_user.clinic_id).first()
+    config = _get_notification_config(clinic)
+
+    if not config["msg91_auth_key"]:
+        raise HTTPException(status_code=400, detail="MSG91 auth key not configured")
+
+    patient = db.query(Patient).filter(
+        Patient.id == patient_id,
+        Patient.clinic_id == current_user.clinic_id,
+    ).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    phone = patient.phone or getattr(patient, 'guardian_phone', None)
+    if not phone:
+        raise HTTPException(status_code=400, detail="No phone number available for this patient")
+
+    # Check consent
+    if not has_communication_consent(db, patient_id, clinic):
+        raise HTTPException(status_code=400, detail="Patient has not given communication consent")
+
+    # Get due/overdue vaccines
+    due_vaccines = compute_due_vaccines(db, patient_id, current_user.clinic_id)
+    if not due_vaccines:
+        raise HTTPException(status_code=400, detail="No due or overdue vaccines for this patient")
+
+    overdue = [v for v in due_vaccines if v["status"] == "overdue"]
+    due = [v for v in due_vaccines if v["status"] == "due"]
+
+    # Determine notification type and build message
+    if overdue:
+        notification_type = NotificationTypeEnum.VACCINATION_OVERDUE
+        vaccine_names = ", ".join(v["dose_label"] or v["vaccine_name"] for v in overdue)
+    else:
+        notification_type = NotificationTypeEnum.VACCINATION_DUE
+        vaccine_names = ", ".join(v["dose_label"] or v["vaccine_name"] for v in due)
+
+    parent_name = getattr(patient, 'guardian_name', None) or patient.full_name
+    child_name = patient.full_name
+    clinic_name = clinic.name or "the clinic"
+
+    template_name = "vaccination_overdue" if overdue else "vaccination_due"
+    template_params = {
+        "parent_name": parent_name,
+        "child_name": child_name,
+        "vaccine_names": vaccine_names,
+        "clinic_name": clinic_name,
+    }
+
+    message = f"Dear {parent_name}, this is a reminder that {child_name}'s vaccination ({vaccine_names}) is {'overdue' if overdue else 'due'}. Please visit {clinic_name}."
+
+    log = send_notification(
+        db, clinic, patient_id, phone,
+        notification_type, message,
+        template_name, template_params,
+    )
+
+    return {
+        "success": log.status == NotificationStatusEnum.SENT,
+        "channel": log.channel.value if log.channel else None,
+        "error": log.error_message,
+        "vaccines_included": vaccine_names,
     }

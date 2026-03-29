@@ -13,7 +13,7 @@ export default function VaccinationCardView({ card, onDoseRecorded, patientId })
 
   if (!card) return null;
 
-  const { doses, summary, date_of_birth, age_days, patient_name } = card;
+  const { doses, summary, date_of_birth, age_days, patient_name, warnings } = card;
 
   // Group doses by age_label for the card view
   const grouped = {};
@@ -44,6 +44,9 @@ export default function VaccinationCardView({ card, onDoseRecorded, patientId })
           {!date_of_birth && (
             <p className="text-sm text-yellow-600">Date of birth not set - vaccination status may be inaccurate</p>
           )}
+          {warnings?.length > 0 && warnings.map((w, i) => (
+            <p key={i} className="text-sm text-yellow-600">{w}</p>
+          ))}
         </div>
         <div className="flex gap-3 text-sm">
           <span className="text-green-600 font-medium">{summary.given} Given</span>

@@ -194,7 +194,7 @@ def process_vaccination_reminders(db: Session, clinic: Clinic) -> int:
     sent_count = 0
 
     # Process due vaccines
-    for child_data in dashboard["due_today"]:
+    for child_data in dashboard["due_now"]:
         patient_id = child_data["patient_id"]
         if _already_notified_today(db, patient_id, NotificationTypeEnum.VACCINATION_DUE):
             continue
@@ -202,7 +202,8 @@ def process_vaccination_reminders(db: Session, clinic: Clinic) -> int:
             continue
 
         patient = db.query(Patient).filter(Patient.id == patient_id).first()
-        if not patient or not patient.phone:
+        phone = patient.phone or patient.guardian_phone if patient else None
+        if not patient or not phone:
             continue
 
         vaccine_names = ", ".join(child_data["due_vaccines"])
@@ -219,7 +220,7 @@ def process_vaccination_reminders(db: Session, clinic: Clinic) -> int:
             "vaccine_names": vaccine_names,
         }
         send_notification(
-            db, clinic, patient_id, patient.phone,
+            db, clinic, patient_id, phone,
             NotificationTypeEnum.VACCINATION_DUE,
             message, "vaccination_due", template_params,
         )
@@ -237,7 +238,8 @@ def process_vaccination_reminders(db: Session, clinic: Clinic) -> int:
                 continue
 
             patient = db.query(Patient).filter(Patient.id == patient_id).first()
-            if not patient or not patient.phone:
+            phone = patient.phone or patient.guardian_phone if patient else None
+            if not patient or not phone:
                 continue
 
             vaccine_names = ", ".join(child_data["overdue_vaccines"])
@@ -253,7 +255,7 @@ def process_vaccination_reminders(db: Session, clinic: Clinic) -> int:
                 "vaccine_names": vaccine_names,
             }
             send_notification(
-                db, clinic, patient_id, patient.phone,
+                db, clinic, patient_id, phone,
                 NotificationTypeEnum.VACCINATION_OVERDUE,
                 message, "vaccination_overdue", template_params,
             )
@@ -285,27 +287,31 @@ def process_follow_up_reminders(db: Session, clinic: Clinic) -> int:
             continue
 
         patient = db.query(Patient).filter(Patient.id == patient_id).first()
-        if not patient or not patient.phone:
+        phone = patient.phone or patient.guardian_phone if patient else None
+        if not patient or not phone:
             continue
 
         doctor_name = ""
         if visit.doctor and visit.doctor.user:
             doctor_name = visit.doctor.user.full_name
 
+        # Address guardian if available (for pediatric patients), otherwise patient
+        addressee = patient.guardian_name or patient.full_name
         message = (
-            f"Dear {patient.full_name}, reminder from {clinic.name}: "
-            f"your follow-up visit is on {target_date.strftime('%d %b %Y')}"
+            f"Dear {addressee}, reminder from {clinic.name}: "
+            f"{patient.full_name}'s follow-up visit is on {target_date.strftime('%d %b %Y')}"
             f"{f' with Dr. {doctor_name}' if doctor_name else ''}. "
             f"Reply STOP to opt out."
         )
         template_params = {
+            "addressee": addressee,
             "patient_name": patient.full_name,
             "clinic_name": clinic.name,
             "follow_up_date": target_date.strftime("%d %b %Y"),
             "doctor_name": doctor_name or "your doctor",
         }
         send_notification(
-            db, clinic, patient_id, patient.phone,
+            db, clinic, patient_id, phone,
             NotificationTypeEnum.FOLLOW_UP_REMINDER,
             message, "follow_up_reminder", template_params,
         )

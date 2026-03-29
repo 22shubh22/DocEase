@@ -29,12 +29,24 @@ def seed_vaccination_schedule(db: Session, clinic_id: str) -> int:
 
 
 def reset_vaccination_schedule(db: Session, clinic_id: str) -> int:
-    """Delete existing schedule and re-seed from EPI defaults."""
+    """Deactivate existing schedule entries and re-seed from EPI defaults."""
     db.query(VaccinationSchedule).filter(
         VaccinationSchedule.clinic_id == clinic_id
-    ).delete()
+    ).update({"is_active": False})
     db.commit()
-    return seed_vaccination_schedule(db, clinic_id)
+
+    # Re-seed: since seed checks count > 0, we need to add directly
+    count = 0
+    for entry in EPI_SCHEDULE:
+        schedule = VaccinationSchedule(
+            id=generate_uuid(),
+            clinic_id=clinic_id,
+            **entry,
+        )
+        db.add(schedule)
+        count += 1
+    db.commit()
+    return count
 
 
 def _age_in_days(dob: date) -> int:
@@ -70,6 +82,7 @@ def compute_vaccination_card(db: Session, patient_id: str, clinic_id: str) -> di
     records = db.query(VaccinationRecord).filter(
         VaccinationRecord.patient_id == patient_id,
         VaccinationRecord.clinic_id == clinic_id,
+        VaccinationRecord.is_voided == False,
     ).all()
 
     # Build lookup: (vaccine_name, dose_number) -> record
@@ -129,6 +142,10 @@ def compute_vaccination_card(db: Session, patient_id: str, clinic_id: str) -> di
         }
         doses.append(dose_data)
 
+    warnings = []
+    if not patient.date_of_birth:
+        warnings.append("Date of birth is not set — vaccination status cannot be calculated accurately. Please update the patient's date of birth.")
+
     return {
         "patient_id": patient.id,
         "patient_name": patient.full_name,
@@ -136,6 +153,7 @@ def compute_vaccination_card(db: Session, patient_id: str, clinic_id: str) -> di
         "age_days": age_days,
         "doses": doses,
         "summary": summary,
+        "warnings": warnings,
     }
 
 
@@ -147,18 +165,139 @@ def compute_due_vaccines(db: Session, patient_id: str, clinic_id: str) -> list:
     return [d for d in card["doses"] if d["status"] in ("due", "overdue")]
 
 
-def compute_vaccination_dashboard(db: Session, clinic_id: str) -> dict:
-    """Compute vaccination dashboard: due today, overdue, due this week."""
-    # Get all child patients with DOB
-    patients = db.query(Patient).filter(
+def compute_vaccination_schedule_view(
+    db: Session, clinic_id: str, status_filter: str = None, limit: int = 100, offset: int = 0
+) -> dict:
+    """Compute a flat, date-sorted list of pending vaccinations for the schedule table view."""
+    cutoff_date = date.today() - timedelta(days=1825)  # 5 years ago
+    children = db.query(Patient).filter(
         Patient.clinic_id == clinic_id,
         Patient.date_of_birth != None,
+        Patient.date_of_birth >= cutoff_date,
         Patient.is_anonymized == False,
-    ).all()
+    ).order_by(Patient.date_of_birth.desc()).all()
 
-    # Filter to children under 5 years
-    today = date.today()
-    children = [p for p in patients if _age_in_days(p.date_of_birth) <= 1825]  # 5 years
+    total_children = len(children)
+
+    schedule = db.query(VaccinationSchedule).filter(
+        VaccinationSchedule.clinic_id == clinic_id,
+        VaccinationSchedule.is_active == True,
+    ).order_by(VaccinationSchedule.display_order).all()
+
+    child_ids = [c.id for c in children]
+    records = []
+    if child_ids:
+        records = db.query(VaccinationRecord).filter(
+            VaccinationRecord.patient_id.in_(child_ids),
+            VaccinationRecord.clinic_id == clinic_id,
+            VaccinationRecord.is_voided == False,
+        ).all()
+
+    patient_records = {}
+    for r in records:
+        patient_records.setdefault(r.patient_id, set()).add((r.vaccine_name, r.dose_number))
+
+    items = []
+    total_fully_vaccinated = 0
+    overdue_count = 0
+    due_now_count = 0
+
+    for child in children:
+        age_days = _age_in_days(child.date_of_birth)
+        given_set = patient_records.get(child.id, set())
+        phone = getattr(child, 'phone', None) or getattr(child, 'guardian_phone', None)
+        guardian_name = getattr(child, 'guardian_name', None)
+
+        child_has_due = False
+        child_has_overdue = False
+
+        for entry in schedule:
+            key = (entry.vaccine_name, entry.dose_number)
+            if key in given_set:
+                continue
+
+            due_date = child.date_of_birth + timedelta(days=entry.age_days)
+            today = date.today()
+
+            if age_days >= entry.age_days + 7:
+                status = "overdue"
+                child_has_overdue = True
+            elif age_days >= entry.age_days - 7:
+                status = "due"
+                child_has_due = True
+            else:
+                continue  # upcoming, skip
+
+            if status_filter and status != status_filter:
+                continue
+
+            days_overdue = (today - due_date).days
+
+            items.append({
+                "patient_id": child.id,
+                "patient_name": child.full_name,
+                "patient_code": child.patient_code,
+                "date_of_birth": child.date_of_birth,
+                "age_label": _age_label_from_days(age_days),
+                "phone": phone,
+                "guardian_name": guardian_name,
+                "vaccine_name": entry.vaccine_name,
+                "dose_label": entry.dose_label,
+                "dose_number": entry.dose_number,
+                "schedule_entry_id": entry.id,
+                "age_days": entry.age_days,
+                "age_label_vaccine": entry.age_label,
+                "route": entry.route,
+                "site": entry.site,
+                "due_date": due_date,
+                "status": status,
+                "days_overdue": days_overdue,
+            })
+
+        if child_has_overdue:
+            overdue_count += 1
+        if child_has_due:
+            due_now_count += 1
+        if not child_has_due and not child_has_overdue:
+            mandatory_keys = {(e.vaccine_name, e.dose_number) for e in schedule if e.is_mandatory}
+            if mandatory_keys.issubset(given_set):
+                total_fully_vaccinated += 1
+
+    # Sort by due_date ascending (most overdue first)
+    items.sort(key=lambda x: x["due_date"])
+
+    total = len(items)
+    paginated_items = items[offset:offset + limit]
+
+    return {
+        "items": paginated_items,
+        "total": total,
+        "stats": {
+            "total_children": total_children,
+            "fully_vaccinated": total_fully_vaccinated,
+            "overdue_count": overdue_count,
+            "due_now_count": due_now_count,
+        },
+    }
+
+
+def compute_vaccination_dashboard(db: Session, clinic_id: str, limit: int = 50, offset: int = 0) -> dict:
+    """Compute vaccination dashboard: due now, overdue, due this week."""
+    # Get child patients with DOB, under 5 years, with pagination
+    cutoff_date = date.today() - timedelta(days=1825)  # 5 years ago
+    children = db.query(Patient).filter(
+        Patient.clinic_id == clinic_id,
+        Patient.date_of_birth != None,
+        Patient.date_of_birth >= cutoff_date,
+        Patient.is_anonymized == False,
+    ).order_by(Patient.date_of_birth.desc()).offset(offset).limit(limit).all()
+
+    total_children = db.query(Patient).filter(
+        Patient.clinic_id == clinic_id,
+        Patient.date_of_birth != None,
+        Patient.date_of_birth >= cutoff_date,
+        Patient.is_anonymized == False,
+    ).count()
 
     schedule = db.query(VaccinationSchedule).filter(
         VaccinationSchedule.clinic_id == clinic_id,
@@ -172,6 +311,7 @@ def compute_vaccination_dashboard(db: Session, clinic_id: str) -> dict:
         records = db.query(VaccinationRecord).filter(
             VaccinationRecord.patient_id.in_(child_ids),
             VaccinationRecord.clinic_id == clinic_id,
+            VaccinationRecord.is_voided == False,
         ).all()
 
     # Build record lookup per patient
@@ -179,7 +319,7 @@ def compute_vaccination_dashboard(db: Session, clinic_id: str) -> dict:
     for r in records:
         patient_records.setdefault(r.patient_id, set()).add((r.vaccine_name, r.dose_number))
 
-    due_today = []
+    due_now = []
     overdue = []
     due_this_week = []
     total_fully_vaccinated = 0
@@ -207,20 +347,19 @@ def compute_vaccination_dashboard(db: Session, clinic_id: str) -> dict:
                 total_fully_vaccinated += 1
             continue
 
-        patient_data = {
+        # Build separate patient_data for each list to avoid mixing due/overdue vaccines
+        base_data = {
             "patient_id": child.id,
             "patient_name": child.full_name,
             "patient_code": child.patient_code,
             "date_of_birth": child.date_of_birth,
             "age_label": _age_label_from_days(age_days),
-            "due_vaccines": child_due,
-            "overdue_vaccines": child_overdue,
         }
 
         if child_overdue:
-            overdue.append(patient_data)
+            overdue.append({**base_data, "due_vaccines": [], "overdue_vaccines": child_overdue})
         if child_due:
-            due_today.append(patient_data)
+            due_now.append({**base_data, "due_vaccines": child_due, "overdue_vaccines": []})
 
         # Due this week: vaccines due within next 7 days
         child_due_week = []
@@ -232,17 +371,16 @@ def compute_vaccination_dashboard(db: Session, clinic_id: str) -> dict:
             if 0 < days_until_due <= 7:
                 child_due_week.append(entry.dose_label or entry.vaccine_name)
         if child_due_week:
-            week_data = {**patient_data, "due_vaccines": child_due_week, "overdue_vaccines": []}
-            due_this_week.append(week_data)
+            due_this_week.append({**base_data, "due_vaccines": child_due_week, "overdue_vaccines": []})
 
     return {
-        "due_today": due_today,
+        "due_now": due_now,
         "overdue": overdue,
         "due_this_week": due_this_week,
         "stats": {
-            "total_children": len(children),
+            "total_children": total_children,
             "fully_vaccinated": total_fully_vaccinated,
             "overdue_count": len(overdue),
-            "due_today_count": len(due_today),
+            "due_now_count": len(due_now),
         },
     }

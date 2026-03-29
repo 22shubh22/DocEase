@@ -1296,6 +1296,7 @@ class VaccinationCardResponse(BaseModel):
     age_days: Optional[int] = None
     doses: List[VaccinationCardDose]
     summary: dict
+    warnings: List[str] = []
 
 
 class VaccinationDashboardPatient(BaseModel):
@@ -1309,10 +1310,37 @@ class VaccinationDashboardPatient(BaseModel):
 
 
 class VaccinationDashboardResponse(BaseModel):
-    due_today: List[VaccinationDashboardPatient]
+    due_now: List[VaccinationDashboardPatient]
     overdue: List[VaccinationDashboardPatient]
     due_this_week: List[VaccinationDashboardPatient]
     stats: dict
+
+
+class VaccinationScheduleItem(BaseModel):
+    patient_id: str
+    patient_name: str
+    patient_code: Optional[str] = None
+    date_of_birth: date
+    age_label: str
+    phone: Optional[str] = None
+    guardian_name: Optional[str] = None
+    vaccine_name: str
+    dose_label: Optional[str] = None
+    dose_number: int
+    schedule_entry_id: Optional[str] = None
+    age_days: int
+    age_label_vaccine: Optional[str] = None
+    route: Optional[str] = None
+    site: Optional[str] = None
+    due_date: date
+    status: str
+    days_overdue: Optional[int] = None
+
+
+class VaccinationScheduleResponse(BaseModel):
+    items: List[VaccinationScheduleItem]
+    stats: dict
+    total: int
 
 
 # ── Notification Schemas ──

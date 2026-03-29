@@ -282,8 +282,9 @@ export const vaccinationAPI = {
   recordDose: (patientId, data) => api.post(`/vaccinations/patients/${patientId}/doses`, data),
   recordDoseDuringVisit: (visitId, data) => api.post(`/vaccinations/visits/${visitId}/doses`, data),
   updateRecord: (recordId, data) => api.put(`/vaccinations/records/${recordId}`, data),
-  deleteRecord: (recordId) => api.delete(`/vaccinations/records/${recordId}`),
+  deleteRecord: (recordId, reason = 'Entered in error') => api.delete(`/vaccinations/records/${recordId}`, { params: { reason } }),
   getDashboard: () => api.get('/vaccinations/dashboard'),
+  getDashboardSchedule: (params) => api.get('/vaccinations/dashboard/schedule', { params }),
 };
 
 export const notificationAPI = {
@@ -293,6 +294,7 @@ export const notificationAPI = {
   getStats: () => api.get('/notifications/stats'),
   sendTest: () => api.post('/notifications/send-test'),
   trigger: () => api.post('/notifications/trigger'),
+  sendPatientReminder: (patientId) => api.post(`/notifications/send-reminder/${patientId}`),
 };
 
 export default api;

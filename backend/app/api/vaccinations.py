@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request, status
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, Request, status
 from sqlalchemy.orm import Session
-from datetime import date
+from datetime import date, datetime
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_permission, require_plugin, get_client_ip
 from app.models.models import (
@@ -10,13 +10,15 @@ from app.schemas.schemas import (
     VaccinationScheduleEntry, VaccinationScheduleCreate, VaccinationScheduleUpdate,
     VaccinationRecordCreate, VaccinationRecordUpdate, VaccinationRecordResponse,
     VaccinationCardResponse, VaccinationDashboardResponse,
+    VaccinationScheduleResponse,
 )
 from app.services.vaccination_service import (
     seed_vaccination_schedule, reset_vaccination_schedule,
     compute_vaccination_card, compute_due_vaccines, compute_vaccination_dashboard,
+    compute_vaccination_schedule_view,
 )
 from app.services.audit_service import create_audit_log
-from typing import List
+from typing import List, Optional
 
 router = APIRouter()
 
@@ -234,9 +236,30 @@ async def record_dose(
         VaccinationRecord.patient_id == patient_id,
         VaccinationRecord.vaccine_name == data.vaccine_name,
         VaccinationRecord.dose_number == data.dose_number,
+        VaccinationRecord.is_voided == False,
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="This dose has already been recorded")
+
+    # Enforce dose sequence: all earlier doses of the same vaccine must be recorded first
+    earlier_scheduled = db.query(VaccinationSchedule).filter(
+        VaccinationSchedule.clinic_id == current_user.clinic_id,
+        VaccinationSchedule.vaccine_name == data.vaccine_name,
+        VaccinationSchedule.dose_number < data.dose_number,
+        VaccinationSchedule.is_active == True,
+    ).count()
+    if earlier_scheduled > 0:
+        earlier_recorded = db.query(VaccinationRecord).filter(
+            VaccinationRecord.patient_id == patient_id,
+            VaccinationRecord.vaccine_name == data.vaccine_name,
+            VaccinationRecord.dose_number < data.dose_number,
+            VaccinationRecord.is_voided == False,
+        ).count()
+        if earlier_recorded < earlier_scheduled:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot record dose {data.dose_number} — earlier doses of {data.vaccine_name} have not been recorded yet",
+            )
 
     age_at_dose = None
     if patient.date_of_birth:
@@ -297,9 +320,30 @@ async def record_dose_during_visit(
         VaccinationRecord.patient_id == visit.patient_id,
         VaccinationRecord.vaccine_name == data.vaccine_name,
         VaccinationRecord.dose_number == data.dose_number,
+        VaccinationRecord.is_voided == False,
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="This dose has already been recorded")
+
+    # Enforce dose sequence: all earlier doses of the same vaccine must be recorded first
+    earlier_scheduled = db.query(VaccinationSchedule).filter(
+        VaccinationSchedule.clinic_id == current_user.clinic_id,
+        VaccinationSchedule.vaccine_name == data.vaccine_name,
+        VaccinationSchedule.dose_number < data.dose_number,
+        VaccinationSchedule.is_active == True,
+    ).count()
+    if earlier_scheduled > 0:
+        earlier_recorded = db.query(VaccinationRecord).filter(
+            VaccinationRecord.patient_id == visit.patient_id,
+            VaccinationRecord.vaccine_name == data.vaccine_name,
+            VaccinationRecord.dose_number < data.dose_number,
+            VaccinationRecord.is_voided == False,
+        ).count()
+        if earlier_recorded < earlier_scheduled:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot record dose {data.dose_number} — earlier doses of {data.vaccine_name} have not been recorded yet",
+            )
 
     age_at_dose = None
     if patient and patient.date_of_birth:
@@ -375,34 +419,68 @@ async def delete_record(
     record_id: str,
     background_tasks: BackgroundTasks,
     request: Request,
+    reason: str = Query(default="Entered in error", description="Reason for voiding this record"),
     current_user: User = Depends(require_permission("can_edit_visits")),
     _plugin: User = Depends(require_plugin("vaccination")),
     db: Session = Depends(get_db),
 ):
-    """Delete a vaccination record."""
+    """Void a vaccination record (soft-delete)."""
     record = db.query(VaccinationRecord).filter(
         VaccinationRecord.id == record_id,
         VaccinationRecord.clinic_id == current_user.clinic_id,
     ).first()
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
+    if record.is_voided:
+        raise HTTPException(status_code=400, detail="Record is already voided")
 
-    db.delete(record)
+    record.is_voided = True
+    record.void_reason = reason
+    record.voided_at = datetime.utcnow()
+    record.voided_by = current_user.id
     db.commit()
 
     background_tasks.add_task(
         create_audit_log, db, current_user.clinic_id, current_user.id,
         current_user.email, AuditActionEnum.DELETE, "vaccination_record",
-        record_id, f"Deleted vaccination record for {record.vaccine_name}",
+        record_id, f"Voided vaccination record for {record.vaccine_name}: {reason}",
         None, None, get_client_ip(request), None,
     )
-    return {"message": "Record deleted"}
+    return {"message": "Record voided"}
 
 
 # ── Dashboard ──
 
+@router.get("/dashboard/schedule", response_model=VaccinationScheduleResponse)
+async def get_dashboard_schedule(
+    status: Optional[str] = Query(None, description="Filter by status: due or overdue"),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(require_permission("can_view_patients")),
+    _plugin: User = Depends(require_plugin("vaccination")),
+    db: Session = Depends(get_db),
+):
+    """Get vaccination schedule view: flat, date-sorted list of pending vaccinations."""
+    # Validate status filter
+    if status and status not in ("due", "overdue"):
+        raise HTTPException(status_code=400, detail="status must be 'due' or 'overdue'")
+
+    # Auto-seed schedule if needed
+    schedule_count = db.query(VaccinationSchedule).filter(
+        VaccinationSchedule.clinic_id == current_user.clinic_id
+    ).count()
+    if schedule_count == 0:
+        seed_vaccination_schedule(db, current_user.clinic_id)
+
+    return compute_vaccination_schedule_view(
+        db, current_user.clinic_id, status_filter=status, limit=limit, offset=offset
+    )
+
+
 @router.get("/dashboard", response_model=VaccinationDashboardResponse)
 async def get_dashboard(
+    limit: int = 50,
+    offset: int = 0,
     current_user: User = Depends(require_permission("can_view_patients")),
     _plugin: User = Depends(require_plugin("vaccination")),
     db: Session = Depends(get_db),
@@ -415,4 +493,4 @@ async def get_dashboard(
     if schedule_count == 0:
         seed_vaccination_schedule(db, current_user.clinic_id)
 
-    return compute_vaccination_dashboard(db, current_user.clinic_id)
+    return compute_vaccination_dashboard(db, current_user.clinic_id, limit=limit, offset=offset)

@@ -694,6 +694,10 @@ class VaccinationRecord(Base):
     route = Column(String, nullable=True)
     adverse_reaction = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
+    is_voided = Column(Boolean, default=False, server_default="false")
+    void_reason = Column(String, nullable=True)
+    voided_at = Column(DateTime(timezone=True), nullable=True)
+    voided_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_by = Column(String, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -704,6 +708,7 @@ class VaccinationRecord(Base):
     schedule_entry = relationship("VaccinationSchedule")
     administerer = relationship("User", foreign_keys=[administered_by])
     creator = relationship("User", foreign_keys=[created_by])
+    voider = relationship("User", foreign_keys=[voided_by])
 
     __table_args__ = (
         UniqueConstraint('patient_id', 'vaccine_name', 'dose_number', name='uq_patient_vaccine_dose'),
